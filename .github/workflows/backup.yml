@@ -1,0 +1,34 @@
+name: Nightly database backup
+
+on:
+  schedule:
+    - cron: '30 15 * * *' # approximately 01:00 Adelaide
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secret
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL" || { echo 'SUPABASE_DB_URL repository secret is missing.' >&2; exit 1; }
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          docker run --rm -e DB_URL="$DB_URL" postgres:17 sh -eu -c 'pg_dump "$DB_URL" --schema=public --no-owner --no-privileges' > "sakan-$(date +%F).sql"
+          test -s "sakan-$(date +%F).sql"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sakan-backup-${{ github.run_id }}
+          path: sakan-*.sql
+          if-no-files-found: error
+          retention-days: 30
