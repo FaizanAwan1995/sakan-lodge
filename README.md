@@ -37,7 +37,7 @@ To run against the shared database later, copy `.env.example` to `.env` and fill
 
 1. Create a Supabase project on its Free plan and choose the closest available region to Adelaide.
 2. In **SQL Editor → New query**, run `supabase/schema.sql` once. It creates tables, row-level security policies, audit logging, realtime publication entries, and the four seeded properties/rooms.
-3. Run `supabase/migrations/20261011_atomic_electricity_bill.sql`, `supabase/migrations/20261011_payment_types_and_audit.sql`, `supabase/migrations/20261011_lease_end_reminders.sql`, and `supabase/migrations/20261011_maintenance_queue.sql`. These add atomic electricity billing, separate rent/bond transactions, lease review dates, and the shared repair queue.
+3. Run `supabase/migrations/20261011_atomic_electricity_bill.sql`, `supabase/migrations/20261011_payment_types_and_audit.sql`, `supabase/migrations/20261011_lease_end_reminders.sql`, `supabase/migrations/20261011_maintenance_queue.sql`, and `supabase/migrations/20261011_security_and_indexes.sql`. These add atomic electricity billing, separate rent/bond transactions, lease review dates, the shared repair queue, and tighter audit-function permissions with useful indexes.
 4. In **Authentication → Providers → Email**, keep email/password sign-in enabled and disable public sign-ups. Create two confirmed accounts, one for Faizan and one for Danish. Use each person's real login email and a separate strong password.
 5. In **Authentication → URL Configuration**, set the Site URL to the deployed Pages URL after the first deploy and add that same HTTPS origin to Redirect URLs.
 6. Copy the project URL and publishable key into `.env` for a local shared-data test, or Cloudflare Pages Production environment variables for production.

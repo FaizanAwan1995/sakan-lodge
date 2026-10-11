@@ -114,6 +114,9 @@ begin
   return null;
 end $$;
 
+-- This is a trigger-only function; do not expose it as an RPC to API roles.
+revoke execute on function public.log_change() from public, anon, authenticated;
+
 do $$ declare t text;
 begin
   foreach t in array array['properties','rooms','people','charges','payments','expenses','maintenance'] loop
