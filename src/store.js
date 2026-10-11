@@ -2,7 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState } from 'react';
 
 const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const publicKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+// Prefer the current key type, retaining the old anon variable for existing setups.
+const publicKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 const configured = Boolean(
   projectUrl && publicKey &&
   !projectUrl.includes('YOUR-PROJECT') &&

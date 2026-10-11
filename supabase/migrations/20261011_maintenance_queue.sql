@@ -22,4 +22,12 @@ create policy team_all on maintenance for all to authenticated using (true) with
 drop trigger if exists audit_maintenance on maintenance;
 create trigger audit_maintenance after insert or update or delete on maintenance
   for each row execute function log_change();
-alter publication supabase_realtime add table maintenance;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'maintenance'
+  ) then
+    alter publication supabase_realtime add table maintenance;
+  end if;
+end $$;

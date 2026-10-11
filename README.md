@@ -31,16 +31,17 @@ Open the `Local` address printed by Vite, normally `http://localhost:5173`. To t
 
 **No `.env` file is required for the first local preview.** Without Supabase credentials, the app starts in local mode and asks whether Danish or Faizan is using it. Changes and the selected name are saved only in that browser's local storage; Activity entries use the selected name. Use **Switch user** in the header to change names. This is a local workflow label, not a password-protected account: both names can edit the same browser ledger. Data is not shared across devices; download a JSON backup regularly from Activity.
 
-To run against the shared database later, copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your own Supabase project. Never put the Supabase `service_role` key in a browser app or commit any `.env` file.
+To run against the shared database later, copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from your own Supabase project's **Connect** panel. A publishable key is expected to be public; database policies and authenticated sessions protect data. Never put a Supabase secret/service-role key in a browser app or commit any `.env` file. The old `VITE_SUPABASE_ANON_KEY` variable remains a temporary fallback for existing setups.
 
 ## 2. Configure the live database
 
-1. Create a Supabase project on its Free plan and choose Sydney if available.
+1. Create a Supabase project on its Free plan and choose the closest available region to Adelaide.
 2. In **SQL Editor → New query**, run `supabase/schema.sql` once. It creates tables, row-level security policies, audit logging, realtime publication entries, and the four seeded properties/rooms.
 3. Run `supabase/migrations/20261011_atomic_electricity_bill.sql`, `supabase/migrations/20261011_payment_types_and_audit.sql`, `supabase/migrations/20261011_lease_end_reminders.sql`, and `supabase/migrations/20261011_maintenance_queue.sql`. These add atomic electricity billing, separate rent/bond transactions, lease review dates, and the shared repair queue.
-4. In **Authentication → Providers → Email**, disable public sign-ups. Create exactly two confirmed user accounts for the two operators.
-5. Copy the project URL and the publishable/anon client key into `.env` for a local shared-data test, or the static host's environment variables for production.
-6. Sign in with each operator account and verify that a payment entered on one device appears on the other.
+4. In **Authentication → Providers → Email**, keep email/password sign-in enabled and disable public sign-ups. Create two confirmed accounts, one for Faizan and one for Danish. Use each person's real login email and a separate strong password.
+5. In **Authentication → URL Configuration**, set the Site URL to the deployed Pages URL after the first deploy and add that same HTTPS origin to Redirect URLs.
+6. Copy the project URL and publishable key into `.env` for a local shared-data test, or Cloudflare Pages Production environment variables for production.
+7. Sign in with each operator account and verify that a payment entered on one device appears on the other.
 
 The database is the source of truth for live use. The frontend only uses the public/anon key; row-level security restricts ledger tables to signed-in users. Keep the GitHub repository **private** because the backup files contain business/resident data.
 
@@ -51,11 +52,11 @@ The intended no-paid-plan path is **Cloudflare Pages Free + Supabase Free + a pr
 1. Push this project to a **private** GitHub repository (see below).
 2. In Cloudflare, open **Workers & Pages → Create → Pages → Connect to Git** and select the repository.
 3. Build settings: production branch `main`, build command `npm install && npm run build`, output directory `dist`. Set `NODE_VERSION` to `22.16.0` in Pages build environment variables (the repository also includes `.node-version`).
-4. Add these Pages environment variables for Production (and Preview only if you intend to use it): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+4. Add these Pages environment variables for Production: `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Avoid enabling Preview deployments until you decide which preview origins should be allowed in Supabase Auth.
 5. Deploy. In Supabase **Authentication → URL Configuration**, set the Site URL to the new `https://<project>.pages.dev` address and add that URL to Redirect URLs.
 6. Open the HTTPS address on each phone and use the browser menu to **Add to Home Screen**.
 
-Free services have limits and no uptime guarantee. Supabase Free projects can pause after a week of low database activity and the Free plan does not include managed daily backups. Review the Supabase usage dashboard periodically; do not enable paid add-ons or upgrade plans if the $0 requirement is strict. Keep this as a static Pages deployment (no paid Workers/Functions, custom domain or other add-ons). In GitHub billing settings, set a budget with **stop usage when the limit is reached** for Actions if the account has a payment method; otherwise a private-repository workflow can incur overage charges after its free quota.
+Free services have limits and no uptime guarantee. Supabase Free projects can pause after low database activity over seven days, and the Free plan does not include downloadable managed database backups. Keep verified off-site exports. Review current usage and billing limits before production; do not enable paid add-ons if the $0 requirement is strict. Keep this as a static Pages deployment. In GitHub billing settings, set a budget with **stop usage when the limit is reached** for Actions if the account has a payment method.
 
 ## 4. Daily database backups (important)
 
