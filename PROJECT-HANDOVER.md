@@ -1,4 +1,4 @@
-# SAKAN Lodge â€” Project Handover
+# SAKAN Lodge - Project Handover
 
 Last updated: 11 October 2026
 
@@ -100,7 +100,7 @@ This workflow requires the GitHub Actions repository secret `SUPABASE_DB_URL` co
 
 ### Local browser preview
 
-Local mode has **Activity â†’ Download backup** and **Restore backup**. Its JSON contains sensitive resident and financial details. Store it encrypted/private and never commit it to GitHub. Browser local storage is not a backup and can be lost when browser data is cleared.
+Local mode has **Activity -> Download backup** and **Restore backup**. Its JSON contains sensitive resident and financial details. Store it encrypted/private and never commit it to GitHub. Browser local storage is not a backup and can be lost when browser data is cleared.
 
 ### Keep code recoverable
 
