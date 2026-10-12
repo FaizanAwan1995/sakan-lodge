@@ -18,6 +18,11 @@ const TABLES = ['properties', 'rooms', 'people', 'charges', 'payments', 'expense
 const LOCAL_KEY = 'sakan-lodge-local-db-v1';
 const LOCAL_CHANGE_EVENT = 'sakan-local-change';
 const LOCAL_ACTOR_KEY = 'sakan-lodge-local-actor-v1';
+const PROPERTY_ANCHOR_FIXES = {
+  'local-fulham': { name: 'Fulham', lease_anchor: '2026-10-13' },
+  'local-oaklands': { name: 'Oaklands Park', lease_anchor: '2026-10-17' },
+  'local-clapham': { name: 'Clapham', lease_anchor: '2026-10-23' },
+};
 
 export const getLocalActor = () => isLocalMode ? window.localStorage.getItem(LOCAL_ACTOR_KEY) : null;
 
@@ -51,10 +56,10 @@ export function restoreLocalBackup(data) {
 
 function makeSeedDb() {
   const properties = [
-    { id: 'local-fulham', name: 'Fulham', lease_rent: 1500, lease_anchor: '2026-09-02', lease_start: null, lease_first_amount: null, electricity_cap: 800 },
-    { id: 'local-oaklands', name: 'Oaklands Park', lease_rent: 1500, lease_anchor: '2026-09-07', lease_start: null, lease_first_amount: null, electricity_cap: 800 },
-    { id: 'local-clapham', name: 'Clapham', lease_rent: 1680, lease_anchor: '2026-08-29', lease_start: '2026-08-29', lease_first_amount: 1680, electricity_cap: 800 },
-    { id: 'local-woodville', name: 'Woodville', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null, lease_first_amount: null, electricity_cap: 800 },
+    { id: 'local-fulham', name: 'Fulham', lease_rent: 1500, lease_anchor: '2026-10-13', lease_start: null, lease_first_amount: null, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
+    { id: 'local-oaklands', name: 'Oaklands Park', lease_rent: 1500, lease_anchor: '2026-10-17', lease_start: null, lease_first_amount: null, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
+    { id: 'local-clapham', name: 'Clapham', lease_rent: 1680, lease_anchor: '2026-10-23', lease_start: '2026-08-29', lease_first_amount: 1680, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
+    { id: 'local-woodville', name: 'Woodville', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null, lease_first_amount: null, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
   ];
   const roomDefs = {
     'local-fulham': [['Granny flat', 2], ['Room 1', 1], ['Room 2', 1], ['Room 3', 1], ['Room 4', 1]],
@@ -66,6 +71,22 @@ function makeSeedDb() {
     id: `${p.id}-room-${i + 1}`, property_id: p.id, label, capacity, sort: i,
   })));
   return { properties, rooms, people: [], charges: [], payments: [], expenses: [], maintenance: [], audit: [] };
+}
+
+function applyPropertyAnchorFixes(db) {
+  let changed = false;
+  if (!db || !Array.isArray(db.properties)) return changed;
+  for (const [propertyId, patch] of Object.entries(PROPERTY_ANCHOR_FIXES)) {
+    const property = db.properties.find((row) => row.id === propertyId || row.name === patch.name);
+    if (!property) continue;
+    const next = { ...property, ...patch };
+    if (property.lease_anchor !== next.lease_anchor) {
+      property.lease_anchor = next.lease_anchor;
+      if (property.id === propertyId && property.name !== patch.name) property.name = patch.name;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function readLocalDb() {
@@ -85,6 +106,13 @@ function readLocalDb() {
         const updated = seed.rooms.find((item) => item.id === room.id);
         return updated ? { ...room, label: updated.label, capacity: updated.capacity, sort: updated.sort } : room;
       });
+      db.properties = db.properties.map((property) => {
+        const updated = seed.properties.find((item) => item.id === property.id);
+        return updated ? { ...property, ...updated } : property;
+      });
+      window.localStorage.setItem(LOCAL_KEY, JSON.stringify(db));
+    }
+    if (applyPropertyAnchorFixes(db)) {
       window.localStorage.setItem(LOCAL_KEY, JSON.stringify(db));
     }
     return db;
@@ -115,26 +143,69 @@ function describeLocalChange(db, table, row, verb) {
 }
 
 /** Local-mode records stay in this browser only and are never uploaded. */
-export function deleteRow(table, id) {
+export async function deleteRow(table, id) {
   if (isLocalMode) {
-    const db = readLocalDb();
-    const prior = db[table] || [];
-    const deleted = prior.find((row) => row.id === id);
-    db[table] = prior.filter((row) => row.id !== id);
-    if (table === 'rooms') db.people = db.people.map((p) => p.room_id === id ? { ...p, room_id: null } : p);
-    auditLocal(db, deleted ? describeLocalChange(db, table, deleted, 'deleted') : `deleted ${table} entry`);
-    writeLocalDb(db);
-    return Promise.resolve(true);
+    try {
+      const db = readLocalDb();
+      if (table === 'properties') {
+        const propertyId = id;
+        const removedPeople = new Set(db.people.filter((person) => person.property_id === propertyId).map((person) => person.id));
+        db.properties = db.properties.filter((row) => row.id !== propertyId);
+        db.rooms = db.rooms.filter((row) => row.property_id !== propertyId);
+        db.people = db.people.filter((row) => row.property_id !== propertyId);
+        db.charges = db.charges.filter((row) => !removedPeople.has(row.person_id));
+        db.payments = db.payments.filter((row) => row.property_id !== propertyId);
+        db.expenses = db.expenses.filter((row) => row.property_id !== propertyId);
+        db.maintenance = (db.maintenance || []).filter((row) => row.property_id !== propertyId);
+        auditLocal(db, `deleted property and all linked records: ${propertyId}`);
+        writeLocalDb(db);
+        return true;
+      }
+      const prior = db[table] || [];
+      const deleted = prior.find((row) => row.id === id);
+      db[table] = prior.filter((row) => row.id !== id);
+      if (table === 'rooms') db.people = db.people.map((p) => p.room_id === id ? { ...p, room_id: null } : p);
+      if (table === 'people') {
+        const personId = id;
+        db.charges = db.charges.filter((row) => row.person_id !== personId);
+        db.payments = db.payments.filter((row) => row.person_id !== personId);
+        db.maintenance = (db.maintenance || []).filter((row) => row.room_id !== id);
+      }
+      auditLocal(db, deleted ? describeLocalChange(db, table, deleted, 'deleted') : `deleted ${table} entry`);
+      writeLocalDb(db);
+      return true;
+    } catch (error) {
+      console.error(`Local delete failed for ${table}:`, error);
+      alert(error?.message || 'Could not delete that item.');
+      return false;
+    }
   }
-  return supabase.from(table).delete().eq('id', id).then(({ error }) => {
-    if (error) { alert(error.message); return false; }
+
+  try {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) {
+      alert(error.message);
+      return false;
+    }
     return true;
-  });
+  } catch (error) {
+    console.error(`Supabase delete failed for ${table}:`, error);
+    alert(error?.message || 'Could not delete that item.');
+    return false;
+  }
 }
 
 export async function signOut() {
   if (isLocalMode) return;
-  await supabase.auth.signOut();
+  try {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  } catch (error) {
+    console.error('Sign out failed:', error);
+    alert(error?.message || 'Could not sign out right now.');
+  }
 }
 
 /** Loads all current rows; realtime keeps the two live sessions in sync. */
@@ -154,10 +225,10 @@ export function useStore(session) {
       const o = {};
       TABLES.forEach((t, i) => {
         if (res[i].error) throw res[i].error;
-        o[t] = res[i].data;
+        o[t] = Array.isArray(res[i].data) ? res[i].data : [];
       });
       if (audit.error) throw audit.error;
-      o.audit = audit.data || [];
+      o.audit = Array.isArray(audit.data) ? audit.data : [];
       setDb(o);
       setError(null);
     } catch (e) {
@@ -199,66 +270,86 @@ export function useStore(session) {
 export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, amount, shares }) {
   const expenseNote = `Quarter ${qStart} to ${qEnd}`;
   if (isLocalMode) {
-    const db = readLocalDb();
-    const now = new Date().toISOString();
-    db.expenses.push({
-      id: newId(), property_id: propertyId, date: billDate, category: 'Electricity',
-      amount: Number(amount), note: expenseNote, paid_from: 'business', reimbursed: false, created_at: now,
-    });
-    for (const share of shares) {
-      db.charges.push({
-        id: newId(), person_id: share.personId, kind: 'electricity', period_start: qStart,
-        period_end: qEnd, due_date: billDate, amount: Number(share.amount),
-        note: `Electricity over cap: ${share.nights} of ${share.totalNights} nights`, created_at: now,
+    try {
+      const db = readLocalDb();
+      const now = new Date().toISOString();
+      db.expenses.push({
+        id: newId(), property_id: propertyId, date: billDate, category: 'Electricity',
+        amount: Number(amount), note: expenseNote, paid_from: 'business', reimbursed: false, created_at: now,
       });
+      for (const share of shares) {
+        db.charges.push({
+          id: newId(), person_id: share.personId, kind: 'electricity', period_start: qStart,
+          period_end: qEnd, due_date: billDate, amount: Number(share.amount),
+          note: `Electricity over cap: ${share.nights} of ${share.totalNights} nights`, created_at: now,
+        });
+      }
+      auditLocal(db, `posted electricity bill for ${propertyId}: ${expenseNote}, $${Number(amount).toFixed(2)}, ${shares.length} share(s)`);
+      writeLocalDb(db);
+      return true;
+    } catch (error) {
+      console.error('Posting local electricity bill failed:', error);
+      alert(error?.message || 'Could not save the electricity bill.');
+      return false;
     }
-    auditLocal(db, `posted electricity bill for ${propertyId}: ${expenseNote}, $${Number(amount).toFixed(2)}, ${shares.length} share(s)`);
-    writeLocalDb(db);
-    return true;
   }
 
-  const { error } = await supabase.rpc('post_electricity_bill', {
-    p_property_id: propertyId,
-    p_bill_date: billDate,
-    p_q_start: qStart,
-    p_q_end: qEnd,
-    p_amount: Number(amount),
-    p_shares: shares,
-  });
-  if (error) {
-    alert(`Could not post the electricity bill. Nothing was saved. ${error.message}`);
+  try {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.rpc('post_electricity_bill', {
+      p_property_id: propertyId,
+      p_bill_date: billDate,
+      p_q_start: qStart,
+      p_q_end: qEnd,
+      p_amount: Number(amount),
+      p_shares: shares,
+    });
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Posting electricity bill failed:', error);
+    alert(`Could not post the electricity bill. Nothing was saved. ${error?.message || 'Unknown error'}`);
     return false;
   }
-  return true;
 }
 
 export async function save(table, row, id, action) {
   if (isLocalMode) {
-    const db = readLocalDb();
-    const rows = db[table] || [];
-    const values = Array.isArray(row) ? row : [row];
-    if (id) {
-      db[table] = rows.map((old) => old.id === id ? { ...old, ...row } : old);
-      const old = rows.find((item) => item.id === id) || {};
-      auditLocal(db, action || describeLocalChange(db, table, { ...old, ...row }, 'updated'));
-    } else {
-      const inserted = values.map((item) => ({
-        ...item,
-        id: item.id || newId(),
-        created_at: item.created_at || new Date().toISOString(),
-      }));
-      db[table] = [...rows, ...inserted];
-      for (const item of inserted) auditLocal(db, action || describeLocalChange(db, table, item, 'added'));
+    try {
+      const db = readLocalDb();
+      const rows = db[table] || [];
+      const values = Array.isArray(row) ? row : [row];
+      if (id) {
+        db[table] = rows.map((old) => old.id === id ? { ...old, ...row } : old);
+        const old = rows.find((item) => item.id === id) || {};
+        auditLocal(db, action || describeLocalChange(db, table, { ...old, ...row }, 'updated'));
+      } else {
+        const inserted = values.map((item) => ({
+          ...item,
+          id: item.id || newId(),
+          created_at: item.created_at || new Date().toISOString(),
+        }));
+        db[table] = [...rows, ...inserted];
+        for (const item of inserted) auditLocal(db, action || describeLocalChange(db, table, item, 'added'));
+      }
+      writeLocalDb(db);
+      return true;
+    } catch (error) {
+      console.error(`Local save failed for ${table}:`, error);
+      alert(error?.message || 'Could not save that change.');
+      return false;
     }
-    writeLocalDb(db);
-    return true;
   }
 
-  const q = id ? supabase.from(table).update(row).eq('id', id) : supabase.from(table).insert(row);
-  const { error } = await q;
-  if (error) {
-    alert(error.message);
+  try {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const q = id ? supabase.from(table).update(row).eq('id', id) : supabase.from(table).insert(row);
+    const { error } = await q;
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error(`Supabase save failed for ${table}:`, error);
+    alert(error?.message || 'Could not save that change.');
     return false;
   }
-  return true;
 }

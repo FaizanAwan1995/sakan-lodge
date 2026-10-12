@@ -1,4 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({ plugins: [react()] });
+const appBase = process.env.VITE_APP_BASE_PATH || '/ledger/';
+
+export default defineConfig({
+  plugins: [react()],
+  base: appBase,
+});

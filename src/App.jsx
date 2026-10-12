@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
+import { bondStatusLabel, tabFromPath } from './app-helpers.js';
+import PropertyPulseList from './features/home/PropertyPulse.jsx';
 
 const TEAM = ['Danish', 'Faizan'];
 const LOGO = '/sakan-logo.jpg';
@@ -15,33 +18,185 @@ const sum = (xs, f = (x) => x) => L.money(xs.reduce((s, x) => s + (+f(x) || 0), 
 const nice = (s) => (s ? new Date(s + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : '');
 const dayAfter = (s) => { if (!s) return undefined; const d = new Date(`${s}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
 
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || 'Something went wrong.' };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('App error boundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="pad err">
+          <h2>Something went wrong</h2>
+          <p>{this.state.message}</p>
+          <button type="button" onClick={() => window.location.reload()}>Refresh the app</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined);
   const [selectedUser, setSelectedUser] = useState(() => isLocalMode ? getLocalActor() : null);
+  const [showUserChooser, setShowUserChooser] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollYRef = useRef(0);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY <= 0) {
+        setHeaderVisible(true);
+      } else if (currentY > lastScrollYRef.current) {
+        setHeaderVisible(false);
+      } else {
+        setHeaderVisible(true);
+      }
+      lastScrollYRef.current = currentY;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => {
     if (isLocalMode) {
       setSession({ user: { id: 'local-preview', email: getLocalActor() || 'Local preview' }, local: true });
       return;
     }
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => data.subscription.unsubscribe();
+
+    let active = true;
+    let unsubscribe = null;
+
+    const setup = async () => {
+      try {
+        if (!supabase) {
+          if (active) setSession(null);
+          return;
+        }
+        const { data: initial } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(initial.session ?? null);
+        const { data } = supabase.auth.onAuthStateChange((_e, s) => {
+          if (active) setSession(s ?? null);
+        });
+        unsubscribe = () => data.subscription.unsubscribe();
+      } catch (error) {
+        console.error('Session bootstrap failed:', error);
+        if (active) setSession(null);
+      }
+    };
+
+    setup();
+    return () => {
+      active = false;
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (isLocalMode && selectedUser && location.pathname === '/signin') {
+      navigate('/home', { replace: true });
+    }
+  }, [isLocalMode, selectedUser, location.pathname, navigate]);
+
   if (session === undefined) return <div className="pad">Loading…</div>;
-  if (isLocalMode && !selectedUser) return <UserChooser onPick={(name) => {
-    setLocalActor(name);
-    setSelectedUser(name);
-    setSession({ user: { id: 'local-preview', email: name }, local: true });
-  }} />;
-  if (!session) return selectedUser
-    ? <Login selectedUser={selectedUser} onBack={() => setSelectedUser(null)} />
-    : <UserChooser onPick={setSelectedUser} />;
+  if (showUserChooser || (isLocalMode && !selectedUser)) {
+    return (
+      <Routes>
+        <Route path="/signin" element={<UserChooser onPick={(name) => {
+          setShowUserChooser(false);
+          setSelectedUser(name);
+          if (isLocalMode) {
+            setLocalActor(name);
+            setSession({ user: { id: 'local-preview', email: name }, local: true });
+            navigate('/home', { replace: true });
+          } else {
+            navigate('/signin', { replace: true });
+          }
+        }} />} />
+        <Route path="*" element={<Navigate to="/signin" replace />} />
+      </Routes>
+    );
+  }
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="/signin" element={<Login selectedUser={selectedUser || 'User'} onBack={() => {
+          setSelectedUser(null);
+          setShowUserChooser(true);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="*" element={<Navigate to="/signin" replace />} />
+      </Routes>
+    );
+  }
+
   const accountName = session.user.user_metadata?.ledger_name || TEAM.find((name) => session.user.email?.toLowerCase().startsWith(name.toLowerCase())) || session.user.email;
-  return <Main session={session} accountName={isLocalMode ? selectedUser : accountName} onSwitchLocal={() => {
-    setLocalActor(null);
-    setSelectedUser(null);
-  }} />;
+  return (
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/signin" element={<Navigate to="/home" replace />} />
+        <Route path="/home" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/today" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/rooms" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/rooms/:residentId" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/rent" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/expenses" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/reports" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="/activity" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
+          setLocalActor(null);
+          setSelectedUser(null);
+          navigate('/signin', { replace: true });
+        }} />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
+      </Routes>
+    </ErrorBoundary>
+  );
 }
+
 
 function UserChooser({ onPick }) {
   return (
@@ -62,49 +217,73 @@ function Login({ selectedUser, onBack }) {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
   return (
     <form className="pad login" onSubmit={async (e) => {
       e.preventDefault();
-      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-      if (error) setErr(error.message);
+      setErr('');
+      if (!email.trim() || !pw.trim()) {
+        setErr('Enter both email and password.');
+        return;
+      }
+      setLoading(true);
+      try {
+        if (!supabase) throw new Error('Supabase is not configured.');
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+        if (error) throw error;
+      } catch (error) {
+        console.error('Login failed:', error);
+        setErr(error?.message || 'Unable to sign in right now.');
+      } finally {
+        setLoading(false);
+      }
     }}>
       <div className="login-brand"><img src={LOGO} alt="" /><h1>SAKAN Lodge</h1></div>
       <p className="login-as">Signing in as <strong>{selectedUser}</strong></p>
       <input type="email" placeholder="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" placeholder="Password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-      <button className="primary">Sign in as {selectedUser}</button>
+      <button className="primary" disabled={loading}>{loading ? 'Signing in…' : `Sign in as ${selectedUser}`}</button>
       {err && <p className="err">{err}</p>}
       <button type="button" className="chooser-back" onClick={onBack}>Choose a different user</button>
     </form>
   );
 }
 
-function Main({ session, accountName, onSwitchLocal }) {
+function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const { db, error, reload } = useStore(session);
-  const [tab, setTab] = useState('today');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { residentId } = useParams();
   const [payFor, setPayFor] = useState(null);
   const today = L.todayStr();
   const d = useMemo(() => db && L.derive(db, today), [db, today]);
+  const tab = tabFromPath(location.pathname);
   if (error) return <div className="pad err">{String(error.message || error)}</div>;
   if (!d) return <div className="pad">Loading…</div>;
-  const ctx = { db, d, today, reload, session, go: (t, pid) => { setPayFor(pid ?? null); setTab(t); window.scrollTo(0, 0); } };
-  const tabs = [['today', 'Today'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['activity', 'Activity']];
+  const ctx = { db, d, today, reload, session, go: (t, pid) => { setPayFor(pid ?? null); const route = t === 'today' ? '/home' : `/${t}`; navigate(route); window.scrollTo(0, 0); } };
+  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['activity', 'Activity']];
   return (
     <>
+      <header className={`topbar ${headerVisible ? 'visible' : 'hidden'}`}>
+        <div className="topbar-inner">
+          <div className="topbar-brand"><img className="brand-logo" src={LOGO} alt="SAKAN Lodge" /><span>SAKAN Lodge</span></div>
+          <nav className="top-nav">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => ctx.go(k)}>{l}</button>)}</nav>
+        </div>
+      </header>
       <main className="pad">
         <header className="app-header">
-          <div className="app-brand"><img className="brand-logo" src={LOGO} alt="SAKAN Lodge" /><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
+          <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
           <time>{nice(today)}</time>
         </header>
         {isLocalMode && <div className="local-banner"><strong>Local preview</strong><span>Saved only in this browser · not synced or backed up</span></div>}
         {tab === 'today' && <Today {...ctx} />}
-        {tab === 'rooms' && <Rooms {...ctx} />}
+        {tab === 'rooms' && <Rooms {...ctx} residentId={residentId || null} />}
         {tab === 'rent' && <Rent key={payFor || 'none'} {...ctx} payFor={payFor} />}
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
         {tab === 'activity' && <Activity {...ctx} />}
       </main>
-      <nav>{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => ctx.go(k)}>{l}</button>)}</nav>
     </>
   );
 }
@@ -121,6 +300,18 @@ function Today({ db, d, today, go }) {
   return (
     <>
       <h1 className="screen-title">Today</h1>
+      <h2>Property pulse</h2>
+      <PropertyPulseList
+        properties={props.map((property) => ({
+          ...property,
+          rooms: db.rooms.filter((room) => room.property_id === property.id),
+        }))}
+        people={d.people}
+        payments={db.payments}
+        today={today}
+        fortnightStart={fortnightStart}
+        onSelectTenant={(personId) => go('rent', personId)}
+      />
       <div className="hero"><small>Resident balances outstanding</small><b>{fmt(sum(behind, (p) => p.owed))}</b><small>Includes rent and resident utility charges.</small></div>
       <div className="today-shortcuts"><button onClick={() => go('rent')}>Record money</button><button onClick={() => go('rooms')}>Manage rooms & residents</button><button onClick={() => go('expenses')}>Open expenses</button></div>
       <h2>Needs attention</h2>
@@ -155,14 +346,6 @@ function Today({ db, d, today, go }) {
         <section className="schedule-card"><h2>Arrivals · next 14 days</h2>{arrivals.length ? arrivals.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.start_date)} · {db.rooms.find((r) => r.id === p.room_id)?.label}</small></span></div>) : <p className="muted">No arrivals booked.</p>}</section>
         <section className="schedule-card"><h2>Departures · next 14 days</h2>{departures.length ? departures.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.end_date)}</small></span></div>) : <p className="muted">No check-outs scheduled.</p>}</section>
       </div>
-      <h2>Property pulse</h2>
-      {props.map((p) => {
-        const n = L.nextLandlordPayment(p, today);
-        const beds = sum(db.rooms.filter((r) => r.property_id === p.id), (r) => r.capacity);
-        const inn = d.people.filter((x) => x.property_id === p.id && x.start_date <= today && L.isActive(x, today)).length;
-        const rentIn = sum(db.payments.filter((payment) => payment.property_id === p.id && (!payment.kind || payment.kind === 'rent') && payment.date >= fortnightStart && payment.date <= today), (payment) => payment.amount);
-        return <article className="property-pulse" key={p.id}><div className="between"><strong>{p.name}</strong><span>{inn} residents · {beds} beds</span></div><div className="pulse-metrics"><span><small>Rent collected · 14d</small><b>{fmt(rentIn)}</b></span><span><small>Next lease payment</small><b>{nice(n.date)} · {fmt(n.amount)}</b></span></div></article>;
-      })}
       <h2>Bonds held</h2>
       <div className="card between"><span>On residents’ behalf (not income)</span><b>{fmt(bonds)}</b></div>
     </>
@@ -170,9 +353,19 @@ function Today({ db, d, today, go }) {
 }
 
 /* ---------------- Rooms ---------------- */
-function Rooms({ db, d, today, reload }) {
+function Rooms({ db, d, today, reload, residentId }) {
   const [edit, setEdit] = useState(null);
-  const done = () => { setEdit(null); reload(); };
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!residentId) {
+      setEdit(null);
+      return;
+    }
+    const resident = db.people.find((x) => String(x.id) === String(residentId));
+    if (resident) setEdit({ type: 'person', data: resident });
+    else setEdit(null);
+  }, [db.people, residentId]);
+  const done = () => { setEdit(null); reload(); if (residentId) navigate('/rooms', { replace: true }); };
   if (edit?.type === 'house') return <HouseForm p={edit.data} done={done} />;
   if (edit?.type === 'room') return <RoomForm room={edit.data} d={d} done={done} />;
   if (edit?.type === 'person') return <PersonForm person={edit.data} db={db} done={done} />;
@@ -197,16 +390,16 @@ function Rooms({ db, d, today, reload }) {
                 </div>
                 {occ.map((x) => (
                   <div className="row resident-row" key={x.id}>
-                    <button className="resident-row-main" onClick={() => setEdit({ type: 'person', data: x })}>
-                      <span>{x.name}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected</small>{x.phone && <small>{x.phone}</small>}</span>
+                    <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
+                      <span>{x.name}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond {bondStatusLabel(x.bond_status)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
                       {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
                     </button>
                     <button className="small checkout-button" onClick={() => setEdit({ type: 'checkout', data: x })}>Check out</button>
                   </div>
                 ))}
                 {future.map((x) => (
-                  <button className="row" key={x.id} onClick={() => setEdit({ type: 'person', data: x })}>
-                    <span>{x.name}<small>Arrives {nice(x.start_date)} · {x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`}</small></span>
+                  <button className="row" key={x.id} onClick={() => navigate(`/rooms/${x.id}`)}>
+                    <span>{x.name}<small>Arrives {nice(x.start_date)} · {x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · bond {bondStatusLabel(x.bond_status)}</small></span>
                     <small className="muted">Booked</small>
                   </button>
                 ))}
@@ -219,7 +412,7 @@ function Rooms({ db, d, today, reload }) {
       ))}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
         <button className="row" key={x.id} onClick={() => setEdit({ type: 'person', data: x })}>
-          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{x.phone && <small>{x.phone}</small>}</span>
+          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
           {x.owed > 0 && <b className="err">{fmt(x.owed)}</b>}
         </button>))}</>}
     </>
@@ -230,12 +423,12 @@ const nn = (v) => (v === '' || v === undefined ? null : v);
 const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : +v);
 
 function HouseForm({ p, done }) {
-  const [f, setF] = useState({ name: p.name ?? '', lease_rent: p.lease_rent ?? '', lease_anchor: p.lease_anchor ?? '', lease_start: p.lease_start ?? '', lease_end: p.lease_end ?? '', lease_first_amount: p.lease_first_amount ?? '', electricity_cap: p.electricity_cap ?? 800 });
+  const [f, setF] = useState({ name: p.name ?? '', lease_rent: p.lease_rent ?? '', lease_anchor: p.lease_anchor ?? '', lease_start: p.lease_start ?? '', lease_end: p.lease_end ?? '', lease_first_amount: p.lease_first_amount ?? '', electricity_cap: p.electricity_cap ?? 800, bills_amount: p.bills_amount ?? 0, bills_frequency: p.bills_frequency ?? 'monthly' });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
-      const ok = await save('properties', { name: f.name.trim(), lease_rent: +f.lease_rent, lease_anchor: f.lease_anchor, lease_start: nn(f.lease_start), lease_end: nn(f.lease_end), lease_first_amount: numOrNull(f.lease_first_amount), electricity_cap: +f.electricity_cap }, p.id);
+      const ok = await save('properties', { name: f.name.trim(), lease_rent: +f.lease_rent, lease_anchor: f.lease_anchor, lease_start: nn(f.lease_start), lease_end: nn(f.lease_end), lease_first_amount: numOrNull(f.lease_first_amount), electricity_cap: +f.electricity_cap, bills_amount: +f.bills_amount || 0, bills_frequency: f.bills_frequency || 'monthly' }, p.id);
       if (ok) done();
     }}>
       <h1>{p.id ? `${p.name} settings` : 'Add property'}</h1>
@@ -246,7 +439,14 @@ function HouseForm({ p, done }) {
       <label>Lease end date (optional, for renewal reminders)</label><input type="date" value={f.lease_end} onChange={set('lease_end')} />
       <label>First landlord payment override (blank = automatic)</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.lease_first_amount} onChange={set('lease_first_amount')} />
       <label>Quarterly electricity cap</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.electricity_cap} onChange={set('electricity_cap')} required />
+      <label>Bills amount</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bills_amount} onChange={set('bills_amount')} placeholder="0.00" />
+      <label>Bills cycle</label>
+      <select value={f.bills_frequency} onChange={set('bills_frequency')}>
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
       <button className="primary">{p.id ? 'Save property settings' : 'Add property'}</button>
+      {p.id && <button type="button" className="small err" onClick={async () => { if (confirm(`Delete the entire ${p.name} property and all of its rooms, residents, payments, expenses, and repairs?`)) { const ok = await deleteRow('properties', p.id); if (ok) done(); } }}>Delete property</button>}
       <button type="button" className="small" onClick={done}>Cancel</button>
     </form>
   );
@@ -298,15 +498,28 @@ function CheckoutForm({ person, today, done }) {
   </form>;
 }
 
-const PF = ['name', 'phone', 'property_id', 'room_id', 'stay_type', 'weekly_rate', 'nightly_rate', 'start_date', 'end_date', 'paid_up_to', 'opening_balance', 'first_charge_amount', 'bond'];
+const PF = ['name', 'phone', 'email', 'property_id', 'room_id', 'stay_type', 'weekly_rate', 'nightly_rate', 'start_date', 'end_date', 'paid_up_to', 'opening_balance', 'first_charge_amount', 'bond', 'bond_status', 'document_url', 'document_notes'];
 const NUM = ['weekly_rate', 'nightly_rate', 'opening_balance', 'first_charge_amount', 'bond'];
 
+function normaliseBondStatus(value) {
+  if (!value || value === 'held') return 'paid';
+  if (value === 'not_paid') return 'not_paid';
+  return value;
+}
+
 function PersonForm({ person, db, done }) {
-  const [f, setF] = useState(() => Object.fromEntries(PF.map((k) => [k, person[k] ?? ''])));
+  const [f, setF] = useState(() => {
+    const initial = Object.fromEntries(PF.map((k) => [k, person[k] ?? '']));
+    initial.bond_status = normaliseBondStatus(person.bond_status || initial.bond_status || 'not_paid');
+    initial.document_url = person.document_url || '';
+    initial.document_notes = person.document_notes || '';
+    return initial;
+  });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const prop = db.properties.find((p) => p.id === f.property_id);
   const rooms = db.rooms.map((r) => ({ ...r, house: db.properties.find((p) => p.id === r.property_id)?.name })).sort((a, b) => (a.house + a.sort).localeCompare(b.house + b.sort));
   const long = f.stay_type === 'long';
+  const nightly = f.stay_type === 'short' || f.stay_type === 'per_night';
   const prop1 = long && prop && +f.weekly_rate > 0 && f.start_date >= L.LEDGER_START && !f.paid_up_to ? L.proposeFirstCharge(+f.weekly_rate, f.start_date, prop.lease_anchor) : null;
   const checkInError = (() => {
     if (!f.room_id || !f.start_date) return '';
@@ -327,12 +540,16 @@ function PersonForm({ person, db, done }) {
       for (const k of PF) row[k] = NUM.includes(k) ? numOrNull(f[k]) : nn(f[k]);
       row.opening_balance ??= 0;
       row.bond ??= 0;
+      row.bond_status = normaliseBondStatus(row.bond_status || 'not_paid');
+      row.document_url = row.document_url || null;
+      row.document_notes = row.document_notes || null;
       const ok = await save('people', row, person.id);
       if (ok) done();
     }}>
       <h1>{person.id ? person.name : 'New resident'}</h1>
       <label>Name</label><input value={f.name} onChange={set('name')} required />
       <label>Phone</label><input type="tel" value={f.phone} onChange={set('phone')} />
+      <label>Email</label><input type="email" value={f.email || ''} onChange={set('email')} placeholder="tenant@example.com" />
       <label>Room</label>
       <select value={f.room_id || ''} onChange={(e) => { const r = db.rooms.find((x) => x.id === e.target.value); setF({ ...f, room_id: e.target.value, property_id: r?.property_id ?? f.property_id }); }} required>
         <option value="">Choose a room</option>
@@ -340,8 +557,9 @@ function PersonForm({ person, db, done }) {
       </select>
       <label>Stay</label>
       <div className="seg">
-        <button type="button" className={long ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'long' })}>Long (fortnightly)</button>
-        <button type="button" className={!long ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'short' })}>Short (nightly)</button>
+        <button type="button" className={long ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'long' })}>Long term</button>
+        <button type="button" className={f.stay_type === 'short' ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'short' })}>Short term</button>
+        <button type="button" className={f.stay_type === 'per_night' ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'per_night' })}>Per night</button>
       </div>
       {long ? <><label>Weekly rent</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.weekly_rate} onChange={set('weekly_rate')} required /></>
         : <><label>Nightly rate</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.nightly_rate} onChange={set('nightly_rate')} required /></>}
@@ -353,10 +571,18 @@ function PersonForm({ person, db, done }) {
         <p className="muted">Part period: {prop1.days} day(s) to {nice(prop1.nextCycle)} = {fmt(prop1.exact)}, proposed <b>{fmt(prop1.proposed)}</b>.{' '}
           <button type="button" className="link" onClick={() => setF({ ...f, first_charge_amount: prop1.proposed })}>Use {fmt(prop1.proposed)}</button></p>
       )}
-      <label>{long ? 'First part-period charge (blank = proposed rounding)' : 'Booking total override (blank = nights × rate)'}</label>
-      <input type="number" min="0" step="0.01" inputMode="decimal" value={f.first_charge_amount} onChange={set('first_charge_amount')} />
-      <label>Opening balance owed when added</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.opening_balance} onChange={set('opening_balance')} />
       <label>Bond expected</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bond} onChange={set('bond')} placeholder={long && f.weekly_rate ? `usually ${fmt(f.weekly_rate * 2)}` : ''} />
+      <label>Bond status</label>
+      <select value={f.bond_status || 'not_paid'} onChange={set('bond_status')}>
+        <option value="not_paid">Not paid</option>
+        <option value="paid">Paid</option>
+        <option value="refunded">Refunded</option>
+        <option value="deducted">Deducted</option>
+      </select>
+      <label>Document URL</label>
+      <input type="url" value={f.document_url || ''} onChange={(e) => setF({ ...f, document_url: e.target.value })} placeholder="https://... or document link" />
+      <label>Document notes</label>
+      <textarea rows="3" value={f.document_notes || ''} onChange={(e) => setF({ ...f, document_notes: e.target.value })} placeholder="Resident document notes or reference details" />
       <small className="muted">Record each bond receipt, refund or retained amount in Rent so the cash and bond liability reconcile.</small>
       {person.id && <p className="muted">Bond recorded: {fmt(person.bond_paid || 0)} received · {fmt(person.bond_held || 0)} still held. Record refunds or retained amounts in Rent.</p>}
       {checkInError && <p className="err">{checkInError}</p>}
@@ -587,17 +813,48 @@ function Reports({ db, d, today }) {
   const cur = L.fyEndYear(today);
   const years = []; for (let y = cur; y >= 2027; y--) years.push(y);
   const [fy, setFy] = useState(cur);
-  const [rangeMode, setRangeMode] = useState('fy');
-  const [customStart, setCustomStart] = useState(() => L.fyRange(L.fyEndYear(today)).start);
-  const [customEnd, setCustomEnd] = useState(today);
+  const [rangeMode, setRangeMode] = useState('upcomingFortnight');
+  const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
+  const [customStart, setCustomStart] = useState(() => L.lastFortnightRange(today).start);
+  const [customEnd, setCustomEnd] = useState(() => L.lastFortnightRange(today).end);
   const fyRange = L.fyRange(fy);
-  const start = rangeMode === 'custom' ? customStart : rangeMode === 'month' ? `${today.slice(0, 7)}-01` : fyRange.start;
-  const end = rangeMode === 'custom' ? customEnd : rangeMode === 'month' ? today : fyRange.end;
-  const label = rangeMode === 'custom' ? `${nice(start)} – ${nice(end)}` : rangeMode === 'month' ? `Month to date · ${new Date(`${today}T00:00:00`).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}` : fyRange.label;
+  const thisFortnight = L.thisFortnightRange(today);
+  const lastFortnight = L.lastFortnightRange(today);
+  const monthOptions = (() => {
+    const start = new Date(2026, 6, 1);
+    const end = new Date(`${today.slice(0, 4)}-${today.slice(5, 7)}-01`);
+    const options = [];
+    for (let cursor = new Date(end); cursor >= start; cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+      options.push({ key, label: new Date(cursor.getFullYear(), cursor.getMonth(), 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }) });
+    }
+    return options;
+  })();
+  const rangeForProperty = (property, mode) => {
+    if (mode === 'thisFortnight') return L.thisFortnightRangeForProperty(property);
+    if (mode === 'lastFortnight') return L.lastFortnightRangeForProperty(property);
+    if (mode === 'upcomingFortnight') return L.upcomingFortnightRangeForProperty(property, today);
+    return { start: fyRange.start, end: fyRange.end };
+  };
+  const propertyRangeSummary = (mode) => {
+    if (!db.properties.length) return { start: mode === 'lastFortnight' ? lastFortnight.start : mode === 'upcomingFortnight' ? L.upcomingFortnightRangeForProperty({ lease_anchor: today }, today).start : fyRange.start, end: mode === 'lastFortnight' ? lastFortnight.end : mode === 'upcomingFortnight' ? L.upcomingFortnightRangeForProperty({ lease_anchor: today }, today).end : fyRange.end };
+    const ranges = db.properties.map((property) => rangeForProperty(property, mode));
+    const starts = ranges.map((range) => range.start).filter(Boolean); 
+    const ends = ranges.map((range) => range.end).filter(Boolean);
+    return {
+      start: starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : fyRange.start,
+      end: ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : fyRange.end,
+    };
+  };
+  const summaryRange = propertyRangeSummary(rangeMode);
+  const monthStart = `${selectedMonth}-01`;
+  const monthEndRaw = new Date(`${selectedMonth}-01T00:00:00Z`);
+  const monthEnd = new Date(Date.UTC(monthEndRaw.getUTCFullYear(), monthEndRaw.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const start = rangeMode === 'custom' ? customStart : rangeMode === 'month' ? monthStart : rangeMode === 'lastFortnight' || rangeMode === 'upcomingFortnight' ? summaryRange.start : fyRange.start;
+  const end = rangeMode === 'custom' ? customEnd : rangeMode === 'month' ? monthEnd : rangeMode === 'lastFortnight' || rangeMode === 'upcomingFortnight' ? summaryRange.end : fyRange.end;
+  const label = rangeMode === 'custom' ? `${nice(start)} – ${nice(end)}` : rangeMode === 'month' ? `Monthly · ${new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}` : rangeMode === 'lastFortnight' ? `Last fortnight · ${nice(start)} – ${nice(end)}` : rangeMode === 'upcomingFortnight' ? `Upcoming fortnight · ${nice(start)} – ${nice(end)}` : fyRange.label;
   const rangeError = !start || !end || start > end;
   const inR = (s) => s >= start && s <= end;
-  const charges = d.people.flatMap((p) => p.charges.map((c) => ({ ...c, property_id: p.property_id, name: p.name })));
-  const earnedC = charges.filter((c) => inR(c.due_date) && c.due_date <= today);
   const allPays = db.payments.filter((p) => inR(p.date) && p.date <= today);
   const pays = allPays.filter((p) => !p.kind || p.kind === 'rent');
   const bondReceipts = sum(allPays.filter((p) => p.kind === 'bond'), (p) => p.amount);
@@ -605,15 +862,52 @@ function Reports({ db, d, today }) {
   const bondRetained = sum(allPays.filter((p) => p.kind === 'bond_deducted'), (p) => p.amount);
   const bondsHeld = sum(d.people, (p) => p.bond_held);
   const exps = d.expenses.filter((e) => inR(e.date) && e.date <= today);
-  const houses = [...db.properties].sort((a, b) => a.name.localeCompare(b.name)).map((p) => {
-    const earned = sum(earnedC.filter((c) => c.property_id === p.id), (c) => c.amount);
-    const spent = sum(exps.filter((e) => e.property_id === p.id), (e) => e.amount);
-    const landlord = sum(exps.filter((e) => e.property_id === p.id && e.category === 'Landlord rent'), (e) => e.amount);
-    const bondIncome = sum(allPays.filter((x) => x.kind === 'bond_deducted' && x.property_id === p.id), (x) => x.amount);
-    return { p, earned, rentCollected: sum(pays.filter((x) => x.property_id === p.id), (x) => x.amount), landlord, bondIncome, spent, net: L.money(earned + bondIncome - spent), owed: sum(d.people.filter((x) => x.property_id === p.id), (x) => x.owed) };
+  const charges = d.people.flatMap((person) => person.charges.map((charge) => ({ ...charge, property_id: person.property_id, name: person.name })));
+  const earnedC = charges.filter((charge) => inR(charge.due_date) && charge.due_date <= today);
+
+  const reportRows = [...db.properties].sort((a, b) => a.name.localeCompare(b.name)).map((property) => {
+    const cycleRange = rangeMode === 'lastFortnight' ? L.lastFortnightRangeForProperty(property) : rangeMode === 'upcomingFortnight' ? L.upcomingFortnightRangeForProperty(property, today) : { start, end };
+    const propertyStart = cycleRange.start;
+    const propertyEnd = cycleRange.end;
+    const residents = d.people.filter((person) => person.property_id === property.id);
+    const expectedRent = sum(residents, (person) => L.defaultRentForPeriod(person, property, propertyStart, propertyEnd));
+    const propertyPayments = db.payments.filter((payment) => {
+      const person = d.people.find((candidate) => candidate.id === payment.person_id);
+      const propertyMatches = payment.property_id === property.id || (person && person.property_id === property.id);
+      const isRent = !payment.kind || payment.kind === 'rent';
+      return propertyMatches && isRent && payment.date >= propertyStart && payment.date <= propertyEnd;
+    });
+    const propertyPaymentTotal = L.propertyCycleRentCollected(property, d.people, db.payments, propertyStart, propertyEnd);
+    const actualRentCollected = propertyPayments.length > 0 ? propertyPaymentTotal : expectedRent;
+    const landlordExpensesForCycle = L.landlordExpenses(property, propertyEnd).filter((expense) => expense.date >= propertyStart && expense.date <= propertyEnd);
+    const landlordRent = landlordExpensesForCycle.length ? sum(landlordExpensesForCycle, (expense) => expense.amount) : (+property.lease_rent || 0);
+    const otherCosts = sum(exps.filter((expense) => expense.property_id === property.id && expense.category !== 'Landlord rent' && expense.date >= propertyStart && expense.date <= propertyEnd), (expense) => expense.amount);
+    const bills = L.propertyBillsForPeriod(property, propertyStart, propertyEnd);
+    const net = L.money(actualRentCollected - landlordRent - bills - otherCosts);
+    return {
+      property,
+      cycleRange,
+      residents,
+      expectedRent,
+      actualRentCollected,
+      landlordRent,
+      bills,
+      otherCosts,
+      net,
+    };
   });
+
+  const totals = reportRows.reduce((acc, row) => {
+    acc.expectedRent += row.expectedRent;
+    acc.actualRentCollected += row.actualRentCollected;
+    acc.landlordRent += row.landlordRent;
+    acc.bills += row.bills;
+    acc.otherCosts += row.otherCosts;
+    acc.net += row.net;
+    return acc;
+  }, { expectedRent: 0, actualRentCollected: 0, landlordRent: 0, bills: 0, otherCosts: 0, net: 0 });
+
   const overhead = sum(exps.filter((e) => !e.property_id), (e) => e.amount);
-  const earned = sum(houses, (h) => h.earned), spent = sum(exps, (e) => e.amount);
   const byCat = Object.values(CATS).flat().map((c) => [c, sum(exps.filter((e) => e.category === c), (e) => e.amount)]).filter(([, v]) => v);
 
   const exportCsv = () => {
@@ -624,7 +918,6 @@ function Reports({ db, d, today }) {
       ...allPays.map((p) => ['payment', p.date, house(p.property_id), name(p.person_id), p.kind || 'rent', p.amount, p.method, p.received_by, p.note || '']),
       ...exps.map((e) => ['expense', e.date, house(e.property_id), '', e.category, e.amount, e.paid_from, '', e.note || ''])]
       .sort((a, b) => (a[1] < b[1] ? -1 : 1));
-    // Quote every cell and neutralize spreadsheet formulas from user-entered notes/names.
     const csvCell = (value) => {
       let text = String(value ?? '');
       if (typeof value === 'string' && /^[\s]*[=+@\-\t\r]/.test(text)) text = `'${text}`;
@@ -644,20 +937,43 @@ function Reports({ db, d, today }) {
   return (
     <>
       <h1 className="screen-title">Property reports</h1>
-      <div className="report-controls"><div className="seg">{[['fy','Financial year'],['month','This month'],['custom','Date range']].map(([key,title]) => <button type="button" key={key} className={rangeMode === key ? 'on' : ''} onClick={() => setRangeMode(key)}>{title}</button>)}</div>
-        {rangeMode === 'fy' && <label>Financial year<select value={fy} onChange={(e) => setFy(+e.target.value)}>{years.map((y) => <option key={y} value={y}>{L.fyRange(y).label}</option>)}</select></label>}
+      <div className="report-controls">
+        <div className="seg">{[['fy', 'Financial year'], ['month', 'Monthly'], ['lastFortnight', 'Last fortnight'], ['upcomingFortnight', 'Upcoming fortnight'], ['custom', 'Date range']].map(([key, title]) => <button type="button" key={key} className={rangeMode === key ? 'on' : ''} onClick={() => setRangeMode(key)}>{title}</button>)}</div>
+        {rangeMode === 'fy' && <label>Financial year<select value={fy} onChange={(e) => setFy(+e.target.value)}>{years.map((year) => <option key={year} value={year}>{L.fyRange(year).label}</option>)}</select></label>}
+        {rangeMode === 'month' && <label>Month<select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>{monthOptions.map((month) => <option key={month.key} value={month.key}>{month.label}</option>)}</select></label>}
         {rangeMode === 'custom' && <div className="custom-range"><label>From<input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} /></label><label>To<input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} /></label></div>}
       </div>
       {rangeError && <p className="err">Choose a valid report range. The start date must be on or before the end date.</p>}
-      <div className="hero" style={{ marginTop: 12 }}><small>Net operating result {label} (earned income + retained bonds − expenses)</small><b>{fmt(earned + bondRetained - spent)}</b>
-        <small>Resident charges earned {fmt(earned)} · rent collected {fmt(sum(pays, (p) => p.amount))} · operating costs {fmt(spent)}</small></div>
-      <div className="card between report-bonds"><span>Bond liability<small>FY received {fmt(bondReceipts)} · refunded {fmt(bondRefunds)} · retained {fmt(bondRetained)} (counted as other income)</small></span><b>{fmt(bondsHeld)} held now</b></div>
-      <h2>By house</h2>
-      <table><thead><tr><th>Property</th><th>Resident charges earned</th><th>Rent collected</th><th>Landlord rent</th><th>Bond retained</th><th>All costs</th><th>Net</th><th>Owed now</th></tr></thead>
-        <tbody>{houses.map((h) => <tr key={h.p.id}><td>{h.p.name}</td><td>{fmt(h.earned)}</td><td>{fmt(h.rentCollected)}</td><td>{fmt(h.landlord)}</td><td>{fmt(h.bondIncome)}</td><td>{fmt(h.spent)}</td><td><b>{fmt(h.net)}</b></td><td className={h.owed ? 'err' : ''}>{fmt(h.owed)}</td></tr>)}
-          {overhead > 0 && <tr><td>Whole business</td><td></td><td></td><td></td><td></td><td>{fmt(overhead)}</td><td>{fmt(-overhead)}</td><td></td></tr>}</tbody></table>
-      <h2>Expenses by category</h2>
-      <table><tbody>{byCat.map(([c, v]) => <tr key={c}><td>{c}</td><td>{fmt(v)}</td></tr>)}</tbody></table>
+
+      <div className="hero" style={{ marginTop: 12 }}>
+        <small>Actual rent collected {label}</small>
+        <b>{fmt(totals.actualRentCollected)}</b>
+        <small>Expected rent {fmt(totals.expectedRent)} · landlord rent {fmt(totals.landlordRent)} · bills {fmt(totals.bills)} · other costs {fmt(totals.otherCosts)} · net {fmt(totals.net)}</small>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>Cycle</th>
+            {rangeMode !== 'upcomingFortnight' && <th>Rent collected</th>}
+            <th>Landlord rent</th>
+            {rangeMode !== 'upcomingFortnight' && <th>Profit / loss</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {reportRows.map(({ property, cycleRange, actualRentCollected, landlordRent, net }) => (
+            <tr key={property.id}>
+              <td>{property.name}</td>
+              <td>{nice(cycleRange.start)} – {nice(cycleRange.end)}</td>
+              {rangeMode !== 'upcomingFortnight' && <td>{fmt(actualRentCollected)}</td>}
+              <td>{fmt(landlordRent)}</td>
+              {rangeMode !== 'upcomingFortnight' && <td className={net < 0 ? 'err' : 'ok'}><b>{fmt(net)}</b></td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <button className="primary" disabled={rangeError} onClick={exportCsv}>Export {label} transactions (CSV)</button>
     </>
   );
@@ -666,13 +982,18 @@ function Reports({ db, d, today }) {
 /* ---------------- Activity ---------------- */
 function Activity({ db, session, reload }) {
   const backup = () => {
-    const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sakan-ledger-backup-${L.todayStr()}.json`;
-    a.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    try {
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sakan-ledger-backup-${L.todayStr()}.json`;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Backup export failed:', error);
+      alert(error?.message || 'Could not export the backup.');
+    }
   };
   const restore = async (event) => {
     const file = event.target.files?.[0];

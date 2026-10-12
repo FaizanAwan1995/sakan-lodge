@@ -9,6 +9,8 @@ create table properties (
   lease_end date,
   lease_first_amount numeric,
   electricity_cap numeric not null default 800,
+  bills_amount numeric not null default 0,
+  bills_frequency text not null default 'monthly' check (bills_frequency in ('monthly', 'yearly')),
   created_at timestamptz default now()
 );
 
@@ -24,9 +26,10 @@ create table people (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   phone text,
+  email text,
   property_id uuid not null references properties,
   room_id uuid references rooms on delete set null,
-  stay_type text not null default 'long' check (stay_type in ('long','short')),
+  stay_type text not null default 'long' check (stay_type in ('long','short','per_night')),
   weekly_rate numeric,
   nightly_rate numeric,
   start_date date not null,
@@ -35,7 +38,8 @@ create table people (
   opening_balance numeric not null default 0,
   first_charge_amount numeric,
   bond numeric not null default 0,
-  bond_status text not null default 'held' check (bond_status in ('held','refunded','deducted')),
+  bond_status text not null default 'not_paid' check (bond_status in ('not_paid','paid','refunded','deducted')),
+  documents text[] not null default '{}',
   created_at timestamptz default now()
 );
 

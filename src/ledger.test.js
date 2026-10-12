@@ -1,10 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as L from './ledger.js';
+import { bondStatusLabel, tabFromPath } from './app-helpers.js';
 
 const fulham = { id: 'f', lease_rent: 1500, lease_anchor: '2026-09-02', lease_start: null };
 const woodville = { id: 'w', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null };
 const clapham = { id: 'c', lease_rent: 1680, lease_anchor: '2026-08-29', lease_start: '2026-08-29', lease_first_amount: 1680 };
+
+test('room URLs resolve to the rooms tab and bond labels are readable', () => {
+  assert.equal(tabFromPath('/rooms/abc123'), 'rooms');
+  assert.equal(tabFromPath('/home'), 'today');
+  assert.equal(bondStatusLabel('not_paid'), 'Not paid');
+  assert.equal(bondStatusLabel('paid'), 'Paid');
+});
 
 test('spec example: $170/week arriving Tuesday before Friday cycle proposes $70', () => {
   const r = L.proposeFirstCharge(170, '2026-09-22', woodville.lease_anchor);
@@ -69,6 +77,25 @@ test('upcoming landlord payment reflects a future first-payment override', () =>
   assert.deepEqual(L.nextLandlordPayment(p, '2026-10-11'), { date: '2026-10-20', days: 9, amount: 1234 });
 });
 
+test('Fulham uses the next scheduled cycle date from its anchor rather than a stale past due date', () => {
+  const state = L.landlordPaymentStatus({ ...fulham, lease_anchor: '2026-10-13' }, '2026-10-12', []);
+  assert.equal(state.status, 'Upcoming');
+  assert.equal(state.next.date, '2026-10-13');
+  assert.equal(state.next.days, 1);
+  assert.equal(state.next.amount, 1500);
+  assert.equal(state.paid, false);
+});
+
+test('the next scheduled landlord payment follows the property anchor, even when an older cycle has passed', () => {
+  const p = { ...woodville, lease_start: null };
+  const state = L.landlordPaymentStatus(p, '2026-10-11', []);
+  assert.equal(state.status, 'Upcoming');
+  assert.equal(state.next.date, '2026-10-23');
+  assert.equal(state.next.days, 12);
+  assert.equal(state.next.amount, 1650);
+  assert.equal(state.paid, false);
+});
+
 test('balance allocates payments oldest-first and reports late days', () => {
   const charges = [{ due_date: '2026-09-25', amount: 340 }, { due_date: '2026-10-09', amount: 340 }];
   const b = L.balance(charges, [{ date: '2026-10-01', amount: 340 }], '2026-10-11');
@@ -98,6 +125,60 @@ test('electricity excess is allocated by quarter nights and excludes departed re
 test('electricity under the cap creates no resident charges', () => {
   const r = L.electricitySplit({ amount: 700, cap: 800, qStart: '2026-07-01', qEnd: '2026-09-30', billDate: '2026-10-10', people: [{ start_date: '2026-01-01' }] });
   assert.equal(r.shares.length, 0);
+});
+
+test('this fortnight and last fortnight ranges are calculated correctly', () => {
+  assert.deepEqual(L.thisFortnightRange('2026-10-12'), { start: '2026-09-29', end: '2026-10-12', label: 'This fortnight' });
+  assert.deepEqual(L.lastFortnightRange('2026-10-12'), { start: '2026-09-15', end: '2026-09-28', label: 'Last fortnight' });
+});
+
+test('property fortnight ranges are anchored per property instead of sharing one global window', () => {
+  const clapham = { lease_anchor: '2026-10-23' };
+  const woodville = { lease_anchor: '2026-10-11' };
+  assert.deepEqual(L.lastFortnightRangeForProperty(clapham), { start: '2026-10-10', end: '2026-10-22', label: 'Last fortnight' });
+  assert.deepEqual(L.thisFortnightRangeForProperty(woodville), { start: '2026-10-11', end: '2026-10-24', label: 'This fortnight' });
+});
+
+test('upcoming fortnight uses the next property cycle on or after today', () => {
+  const clapham = { lease_anchor: '2026-10-23' };
+  const woodville = { lease_anchor: '2026-10-11' };
+  assert.deepEqual(L.upcomingFortnightRangeForProperty(clapham, '2026-10-12'), { start: '2026-10-23', end: '2026-11-05', label: 'Upcoming fortnight' });
+  assert.deepEqual(L.upcomingFortnightRangeForProperty(woodville, '2026-10-12'), { start: '2026-10-25', end: '2026-11-07', label: 'Upcoming fortnight' });
+});
+
+test('last-fortnight rent collected uses the property fortnight rent schedule when tenants are all paid', () => {
+  const property = { id: 'prop-1', name: 'Clapham' };
+  const people = [
+    { id: 'p1', property_id: 'prop-1', name: 'Alice', weekly_rate: 350 },
+    { id: 'p2', property_id: 'prop-1', name: 'Bob', weekly_rate: 450 },
+  ];
+  const payments = [
+    { person_id: 'p1', property_id: 'prop-1', kind: 'rent', date: '2026-10-10', amount: 400 },
+    { person_id: 'p2', property_id: 'prop-1', kind: 'rent', date: '2026-10-20', amount: 500 },
+    { person_id: 'p2', property_id: 'prop-1', kind: 'bond', date: '2026-10-20', amount: 1000 },
+    { person_id: 'p3', property_id: 'prop-2', kind: 'rent', date: '2026-10-20', amount: 250 },
+  ];
+  assert.equal(L.propertyCycleRentCollected(property, people, payments, '2026-10-10', '2026-10-22'), 900);
+  assert.equal(L.money(350 + 450), 800);
+});
+
+test('monthly default rent is calculated from each resident room rate when no manual totals are entered', () => {
+  const property = { id: 'prop-1', name: 'Sample property' };
+  const people = [
+    { id: 'p1', property_id: 'prop-1', stay_type: 'long', weekly_rate: 350, start_date: '2026-09-01', end_date: null },
+    { id: 'p2', property_id: 'prop-1', stay_type: 'short', nightly_rate: 80, start_date: '2026-09-05', end_date: '2026-09-10' },
+  ];
+
+  assert.equal(L.defaultRentForPeriod(people[0], property, '2026-09-01', '2026-09-30'), 1500);
+  assert.equal(L.defaultRentForPeriod(people[1], property, '2026-09-01', '2026-09-30'), 400);
+  assert.equal(L.money(1500 + 400), 1900);
+});
+
+test('derive tolerates null or missing table payloads instead of blanking the app', () => {
+  const out = L.derive({ properties: null, people: null, charges: null, payments: null, expenses: null }, '2026-10-12');
+  assert.deepEqual(out.props, {});
+  assert.deepEqual(out.people, []);
+  assert.deepEqual(out.expenses, []);
 });
 
 test('Australian financial-year boundaries are 1 July through 30 June', () => {

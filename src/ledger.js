@@ -37,7 +37,7 @@ export function rentCharges(person, property, asOf) {
   const lim = d2n(asOf);
   const base = { kind: 'rent', person_id: person.id, derived: true };
 
-  if (person.stay_type === 'short') {
+  if (person.stay_type === 'short' || person.stay_type === 'per_night') {
     // Rule 3.4: one charge for the whole booking at the nightly rate.
     const s = d2n(person.start_date);
     const e = person.end_date ? d2n(person.end_date) : s + 1;
@@ -124,6 +124,17 @@ export function nextLandlordPayment(p, today) {
   return { date: n2d(n), days: n - from, amount: +p.lease_rent };
 }
 
+export function landlordPaymentStatus(property, today, expenses = []) {
+  const next = nextLandlordPayment(property, today);
+  const matchingExpense = expenses
+    .filter((expense) => expense.property_id === property.id && expense.category === 'Landlord rent')
+    .find((expense) => d2n(expense.date) <= d2n(next.date) && +expense.amount >= +next.amount * 0.99);
+
+  const paid = Boolean(matchingExpense);
+  const status = paid ? 'Paid' : next.days <= 0 ? 'Unpaid' : 'Upcoming';
+  return { next, paid, status, days: next.days };
+}
+
 /** Balance with oldest-first allocation of payments, for "days late". */
 export function balance(charges, payments, asOf) {
   const due = charges.filter((c) => c.due_date <= asOf).sort((a, b) => (a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0));
@@ -170,13 +181,73 @@ export function electricitySplit({ amount, cap, qStart, qEnd, billDate, people }
 // Rule 3.9: Australian FY. fyEndYear('2026-10-11') === 2027 (FY 2026–27).
 export const fyEndYear = (s) => (+s.slice(5, 7) >= 7 ? +s.slice(0, 4) + 1 : +s.slice(0, 4));
 export const fyRange = (y) => ({ start: `${y - 1}-07-01`, end: `${y}-06-30`, label: `FY ${y - 1}–${String(y).slice(2)}` });
+export const thisFortnightRange = (s) => ({ start: n2d(d2n(s) - 13), end: s, label: 'This fortnight' });
+export const lastFortnightRange = (s) => ({ start: n2d(d2n(s) - 27), end: n2d(d2n(s) - 14), label: 'Last fortnight' });
+export const thisFortnightRangeForProperty = (property) => {
+  const anchor = property?.lease_anchor || todayStr();
+  const anchorDay = d2n(anchor);
+  return { start: anchor, end: n2d(anchorDay + 13), label: 'This fortnight' };
+};
+export const lastFortnightRangeForProperty = (property) => {
+  const anchor = property?.lease_anchor || todayStr();
+  const anchorDay = d2n(anchor);
+  return { start: n2d(anchorDay - 13), end: n2d(anchorDay - 1), label: 'Last fortnight' };
+};
+export const upcomingFortnightRangeForProperty = (property, asOf = todayStr()) => {
+  const anchor = property?.lease_anchor || asOf;
+  const start = nextCycleOnOrAfter(anchor, d2n(asOf));
+  return { start: n2d(start), end: n2d(start + 13), label: 'Upcoming fortnight' };
+};
+export function defaultRentForPeriod(person, property, start, end) {
+  if (!person || !start || !end || start > end) return 0;
+  const activeStart = Math.max(d2n(person.start_date || start), d2n(start));
+  const activeEndExclusive = Math.min(person.end_date ? d2n(person.end_date) : d2n(end) + 1, d2n(end) + 1);
+  if (activeEndExclusive <= activeStart) return 0;
+
+  if (person.stay_type === 'short' || person.stay_type === 'per_night') {
+    return money((+person.nightly_rate || 0) * (activeEndExclusive - activeStart));
+  }
+
+  if (person.stay_type === 'long') {
+    return money((+person.weekly_rate || 0) * ((activeEndExclusive - activeStart) / 7));
+  }
+
+  return 0;
+}
+
+export function propertyCycleRentCollected(property, people, payments, start, end) {
+  if (!property) return 0;
+  const rows = payments.filter((payment) => {
+    const person = people.find((candidate) => candidate.id === payment.person_id);
+    const propertyMatches = payment.property_id === property.id || (person && person.property_id === property.id);
+    const isRent = !payment.kind || payment.kind === 'rent';
+    return propertyMatches && isRent && payment.date >= start && payment.date <= end;
+  });
+  return money(rows.reduce((sum, payment) => sum + (+payment.amount || 0), 0));
+}
+export function propertyBillsForPeriod(property, start, end) {
+  if (!property || !(+property.bills_amount > 0)) return 0;
+  const amount = +property.bills_amount || 0;
+  const cycle = property.bills_frequency === 'yearly' ? 'yearly' : 'monthly';
+  const days = Math.max(1, d2n(end) - d2n(start) + 1);
+  return money(cycle === 'yearly' ? (days / 365) * amount : (days / 30) * amount);
+}
+
+const asArray = (value) => Array.isArray(value) ? value : [];
 
 /** Everything derived from stored rows. */
 export function derive(db, asOf) {
-  const props = Object.fromEntries(db.properties.map((p) => [p.id, p]));
-  const people = db.people.map((p) => {
-    const charges = [...openingCharge(p), ...rentCharges(p, props[p.property_id], asOf), ...db.charges.filter((c) => c.person_id === p.id)];
-    const payments = db.payments.filter((x) => x.person_id === p.id);
+  const safeDb = db || {};
+  const properties = asArray(safeDb.properties);
+  const peopleRows = asArray(safeDb.people);
+  const chargesRows = asArray(safeDb.charges);
+  const paymentsRows = asArray(safeDb.payments);
+  const expensesRows = asArray(safeDb.expenses);
+
+  const props = Object.fromEntries(properties.map((p) => [p.id, p]));
+  const people = peopleRows.map((p) => {
+    const charges = [...openingCharge(p), ...rentCharges(p, props[p.property_id], asOf), ...chargesRows.filter((c) => c.person_id === p.id)];
+    const payments = paymentsRows.filter((x) => x.person_id === p.id);
     const bondTx = payments.filter((x) => ['bond', 'bond_refund', 'bond_deducted'].includes(x.kind) && x.date <= asOf);
     const bondReceived = money(bondTx.filter((x) => x.kind === 'bond').reduce((s, x) => s + +x.amount, 0));
     const bondRefunded = money(bondTx.filter((x) => x.kind === 'bond_refund').reduce((s, x) => s + +x.amount, 0));
@@ -184,6 +255,6 @@ export function derive(db, asOf) {
     const bondHeld = money(Math.max(0, bondReceived - bondRefunded - bondDeducted));
     return { ...p, charges, payments, bond_paid: bondReceived, bond_refunded: bondRefunded, bond_deducted: bondDeducted, bond_due: money(Math.max(0, (+p.bond || 0) - bondReceived)), bond_held: bondHeld, ...balance(charges, payments, asOf) };
   });
-  const expenses = [...db.expenses, ...db.properties.flatMap((p) => landlordExpenses(p, asOf))];
+  const expenses = [...expensesRows, ...properties.flatMap((p) => landlordExpenses(p, asOf))];
   return { props, people, expenses };
 }
