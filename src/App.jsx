@@ -294,7 +294,7 @@ function Today({ db, d, today, go }) {
   const bonds = sum(d.people, (p) => p.bond_held);
   const props = [...db.properties].sort((a, b) => a.name.localeCompare(b.name));
 
-  const SECTION_DEFAULT_ORDER = ['propertyPulse', 'balanceHero', 'shortcuts', 'attention', 'repairFollowUps', 'leaseReviews', 'schedule', 'bonds'];
+  const SECTION_DEFAULT_ORDER = ['attention', 'propertyPulse', 'balanceHero', 'shortcuts', 'repairFollowUps', 'leaseReviews', 'schedule', 'bonds'];
   const readStoredJson = (key, fallback) => {
     if (typeof window === 'undefined') return fallback;
     try {

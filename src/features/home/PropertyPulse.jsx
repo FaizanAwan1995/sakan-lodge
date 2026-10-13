@@ -41,9 +41,11 @@ export default function PropertyPulseList({ properties, people, payments, today,
 
   if (!onReorderProperty) {
     pulses.sort((a, b) => {
-      const aDate = a.tenantDue ? L.d2n(today) : L.d2n(a.landlordNext.date);
-      const bDate = b.tenantDue ? L.d2n(today) : L.d2n(b.landlordNext.date);
-      return aDate - bDate || Number(b.isUrgent) - Number(a.isUrgent);
+      const urgencyDiff = Number(b.isUrgent) - Number(a.isUrgent);
+      if (urgencyDiff !== 0) return urgencyDiff;
+      const aPriority = a.tenantDue ? (a.tenantDue.daysLate || 0) + (a.tenantDue.owed || 0) : (a.landlordNext.days || 0);
+      const bPriority = b.tenantDue ? (b.tenantDue.daysLate || 0) + (b.tenantDue.owed || 0) : (b.landlordNext.days || 0);
+      return bPriority - aPriority;
     });
   }
 
