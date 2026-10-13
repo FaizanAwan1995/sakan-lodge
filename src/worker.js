@@ -63,10 +63,23 @@ export default {
     if (
       pathname === '/favicon.ico' ||
       pathname === '/sakan-logo.jpg' ||
+      pathname === '/sakan-logo-circle-main.png' ||
+      pathname === '/sakan-logo-circle-trimmed.svg' ||
+      pathname === '/sakan-logo-cropped.png' ||
+      pathname === '/sakan-logo-trimmed.svg' ||
+      pathname === '/shared-room-1.png' ||
+      pathname === '/private-room-1.png' ||
       pathname.startsWith('/assets/') ||
       pathname.startsWith('/manifest') ||
-      pathname === '/icon.svg'
+      pathname === '/icon.svg' ||
+      pathname.startsWith('/sakan-') ||
+      pathname.startsWith('/shared-') ||
+      pathname.startsWith('/private-')
     ) {
+      return env.ASSETS.fetch(request);
+    }
+
+    if (pathname.includes('.')) {
       return env.ASSETS.fetch(request);
     }
 
