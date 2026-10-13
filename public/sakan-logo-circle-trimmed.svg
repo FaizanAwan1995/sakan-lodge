@@ -1,0 +1,33 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGlow" x1="300" y1="200" x2="900" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F1D89B"/>
+      <stop offset="0.55" stop-color="#E6C87E"/>
+      <stop offset="1" stop-color="#D3AA4B"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="600" cy="600" r="545" fill="url(#goldGlow)"/>
+  <circle cx="600" cy="600" r="522" stroke="#B7882B" stroke-width="7"/>
+
+  <g transform="translate(0 30)">
+    <path d="M260 500L420 390L600 490L790 390L950 500" stroke="#B61D1D" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M295 520L425 440L600 515L770 440L905 520" stroke="#7D5A2B" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+
+    <g font-family="Arial, Helvetica, sans-serif" font-weight="900">
+      <text x="180" y="665" font-size="210" fill="#0D5F53" letter-spacing="-12">SAK</text>
+      <text x="560" y="665" font-size="210" fill="#0D5F53" letter-spacing="-12">AN</text>
+      <text x="470" y="790" font-size="214" fill="#B8892B" letter-spacing="-12">LODGE</text>
+    </g>
+
+    <g opacity="0.95">
+      <path d="M275 555H920" stroke="#0D5F53" stroke-width="10" stroke-linecap="round"/>
+      <path d="M315 600H875" stroke="#0D5F53" stroke-width="10" stroke-linecap="round" opacity="0.7"/>
+      <path d="M350 645H840" stroke="#0D5F53" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+    </g>
+
+    <path d="M320 380L470 470L610 380L740 470L865 380" stroke="#0D5F53" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" opacity="0.2"/>
+  </g>
+
+  <text x="600" y="960" text-anchor="middle" font-size="64" font-weight="600" font-style="italic" fill="#3A312D" font-family="Georgia, 'Times New Roman', serif">Hospitality in its True Sense</text>
+</svg>

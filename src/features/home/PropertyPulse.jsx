@@ -11,7 +11,11 @@ export default function PropertyPulseList({ properties, people, payments, today,
         ...person,
         dueText: person.daysLate > 0 ? `${person.daysLate} day${person.daysLate === 1 ? '' : 's'} late` : person.owed > 0 ? 'Due today' : 'Up to date',
       }))
-      .sort((a, b) => (b.owed || 0) - (a.owed || 0) || (b.daysLate || 0) - (a.daysLate || 0));
+      .sort((a, b) => {
+        const unpaidDiff = Number(Boolean(b.owed > 0)) - Number(Boolean(a.owed > 0));
+        if (unpaidDiff !== 0) return unpaidDiff;
+        return (b.owed || 0) - (a.owed || 0) || (b.daysLate || 0) - (a.daysLate || 0);
+      });
     const tenantArrears = tenantRows.filter((person) => person.owed > 0);
     const tenantDue = tenantArrears[0];
     const residentOwed = sum(tenantArrears, (person) => person.owed);
@@ -39,15 +43,22 @@ export default function PropertyPulseList({ properties, people, payments, today,
     };
   });
 
-  if (!onReorderProperty) {
-    pulses.sort((a, b) => {
-      const urgencyDiff = Number(b.isUrgent) - Number(a.isUrgent);
-      if (urgencyDiff !== 0) return urgencyDiff;
-      const aPriority = a.tenantDue ? (a.tenantDue.daysLate || 0) + (a.tenantDue.owed || 0) : (a.landlordNext.days || 0);
-      const bPriority = b.tenantDue ? (b.tenantDue.daysLate || 0) + (b.tenantDue.owed || 0) : (b.landlordNext.days || 0);
-      return bPriority - aPriority;
-    });
-  }
+  pulses.sort((a, b) => {
+    const aHasTenantDue = Boolean(a.tenantDue && a.tenantDue.owed > 0);
+    const bHasTenantDue = Boolean(b.tenantDue && b.tenantDue.owed > 0);
+    const tenantDiff = Number(bHasTenantDue) - Number(aHasTenantDue);
+    if (tenantDiff !== 0) return tenantDiff;
+
+    const aTenantUrgency = a.tenantDue ? (a.tenantDue.owed || 0) + (a.tenantDue.daysLate || 0) * 10 : 0;
+    const bTenantUrgency = b.tenantDue ? (b.tenantDue.owed || 0) + (b.tenantDue.daysLate || 0) * 10 : 0;
+    if (aTenantUrgency !== bTenantUrgency) return bTenantUrgency - aTenantUrgency;
+
+    const aLandlordUrgency = a.landlordPayment.paid ? 0 : Math.max(0, 30 - (a.landlordNext.days || 30));
+    const bLandlordUrgency = b.landlordPayment.paid ? 0 : Math.max(0, 30 - (b.landlordNext.days || 30));
+    if (aLandlordUrgency !== bLandlordUrgency) return bLandlordUrgency - aLandlordUrgency;
+
+    return b.residentOwed - a.residentOwed || Number(b.isUrgent) - Number(a.isUrgent);
+  });
 
   return pulses.map(({ id, name, residentCount, beds, residentOwed, tenantDue, landlordNext, landlordPayment, isUrgent, rentIn, tenantRows }) => {
     const tenantLabel = tenantDue ? `${tenantDue.name}${tenantDue.daysLate > 0 ? ` · ${tenantDue.daysLate}d late` : ' · due today'}` : 'No tenant arrears';

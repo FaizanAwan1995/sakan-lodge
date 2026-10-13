@@ -2,11 +2,11 @@ import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
-import { bondStatusLabel, reorderList, tabFromPath } from './app-helpers.js';
+import { bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
 
 const TEAM = ['Danish', 'Faizan'];
-const LOGO = '/sakan-logo.jpg';
+const LOGO = '/ledger/sakan-logo.jpg';
 const CATS = {
   'Head lease': ['Landlord rent'],
   'Running the houses': ['Cleaning', 'Lawn mowing', 'Rubbish removal'],
@@ -294,7 +294,7 @@ function Today({ db, d, today, go }) {
   const bonds = sum(d.people, (p) => p.bond_held);
   const props = [...db.properties].sort((a, b) => a.name.localeCompare(b.name));
 
-  const SECTION_DEFAULT_ORDER = ['attention', 'propertyPulse', 'balanceHero', 'shortcuts', 'repairFollowUps', 'leaseReviews', 'schedule', 'bonds'];
+  const SECTION_DEFAULT_ORDER = ['balanceHero', 'attention', 'propertyPulse', 'shortcuts', 'repairFollowUps', 'leaseReviews', 'schedule', 'bonds'];
   const readStoredJson = (key, fallback) => {
     if (typeof window === 'undefined') return fallback;
     try {
@@ -445,10 +445,13 @@ function Today({ db, d, today, go }) {
     }
   };
 
+  const visibleSections = visibleTodaySections(sectionOrder, { behind, followups, leaseReviews });
+  const orderedSections = visibleSections.includes('balanceHero') ? ['balanceHero', ...visibleSections.filter((sectionId) => sectionId !== 'balanceHero')] : visibleSections;
+
   return (
     <>
       <h1 className="screen-title">Today</h1>
-      {sectionOrder.map((sectionId) => (
+      {orderedSections.map((sectionId) => (
         <div
           key={sectionId}
           className="today-segment"
@@ -465,7 +468,7 @@ function Today({ db, d, today, go }) {
           }}
         >
           <div className="section-drag-header">
-            <span className="drag-indicator">↕ Drag to reorder</span>
+            <span className="drag-indicator" aria-label="Drag to reorder section">⋮⋮</span>
           </div>
           {renderSectionContent(sectionId)}
         </div>
@@ -497,34 +500,45 @@ function Rooms({ db, d, today, reload, residentId }) {
     <>
       <div className="between screen-heading"><h1>Rooms & residents</h1><div className="screen-actions"><button className="small" onClick={() => setEdit({ type: 'house', data: { name: '', lease_rent: '', lease_anchor: today, lease_start: today, lease_end: '', lease_first_amount: '', electricity_cap: 800 } })}>+ Property</button><button className="small" onClick={() => setEdit({ type: 'person', data: { property_id: db.properties[0]?.id, room_id: '', stay_type: 'long', start_date: today } })}>+ Check in</button></div></div>
       {[...db.properties].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-        <section key={p.id}>
+        <section key={p.id} className="property-group">
           <h2><button className="link" onClick={() => setEdit({ type: 'house', data: p })}>{p.name} ⚙︎</button></h2>
-          {db.rooms.filter((r) => r.property_id === p.id).sort((a, b) => a.sort - b.sort).map((r) => {
+          {sortRoomsByRentUrgency(
+            db.rooms.filter((r) => r.property_id === p.id),
+            d.people,
+          ).map((r) => {
             const assigned = d.people.filter((x) => x.room_id === r.id && L.isActive(x, today));
-            const occ = assigned.filter((x) => x.start_date <= today);
+            const occ = sortPeopleByRentUrgency(assigned.filter((x) => x.start_date <= today));
             const future = assigned.filter((x) => x.start_date > today);
-            const owed = sum(occ, (x) => x.owed);
+            const owed = sum(assigned.filter((x) => x.start_date <= today), (x) => x.owed);
             return (
               <div className="card" key={r.id}>
                 <div className="between">
                   <button className="link" onClick={() => setEdit({ type: 'room', data: r })}>{r.label} · {occ.length}/{r.capacity}{future.length ? ` · ${future.length} booked` : ''}</button>
                   <span>{fmt(sum(occ.filter((x) => x.stay_type === 'long'), (x) => x.weekly_rate))}/wk{owed > 0 && <span className="err"> · {fmt(owed)} owed</span>}</span>
                 </div>
-                {occ.map((x) => (
-                  <div className="row resident-row" key={x.id}>
-                    <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
-                      <span>{x.name}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond {bondStatusLabel(x.bond_status)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
-                      {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
+                {occ.map((x) => {
+                  const bondStatus = normaliseBondStatus(x.bond_status || 'not_paid');
+                  const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
+                  return (
+                    <div className="row resident-row" key={x.id}>
+                      <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
+                        <span>{x.name}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
+                        {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
+                      </button>
+                      <button className="small checkout-button" onClick={() => setEdit({ type: 'checkout', data: x })}>Check out</button>
+                    </div>
+                  );
+                })}
+                {future.map((x) => {
+                  const bondStatus = normaliseBondStatus(x.bond_status || 'not_paid');
+                  const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
+                  return (
+                    <button className="row" key={x.id} onClick={() => navigate(`/rooms/${x.id}`)}>
+                      <span>{x.name}<small>Arrives {nice(x.start_date)} · {x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small></span>
+                      <small className="muted">Booked</small>
                     </button>
-                    <button className="small checkout-button" onClick={() => setEdit({ type: 'checkout', data: x })}>Check out</button>
-                  </div>
-                ))}
-                {future.map((x) => (
-                  <button className="row" key={x.id} onClick={() => navigate(`/rooms/${x.id}`)}>
-                    <span>{x.name}<small>Arrives {nice(x.start_date)} · {x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · bond {bondStatusLabel(x.bond_status)}</small></span>
-                    <small className="muted">Booked</small>
-                  </button>
-                ))}
+                  );
+                })}
                 {occ.length + future.length < r.capacity && <button className="small" onClick={() => setEdit({ type: 'person', data: { property_id: p.id, room_id: r.id, stay_type: 'long', start_date: today, bond_status: 'held' } })}>+ Check in</button>}
               </div>
             );

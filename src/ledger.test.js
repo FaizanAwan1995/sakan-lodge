@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as L from './ledger.js';
-import { bondStatusLabel, reorderList, tabFromPath } from './app-helpers.js';
+import { bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
 
 const fulham = { id: 'f', lease_rent: 1500, lease_anchor: '2026-09-02', lease_start: null };
 const woodville = { id: 'w', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null };
@@ -17,6 +17,36 @@ test('room URLs resolve to the rooms tab and bond labels are readable', () => {
 test('dashboard widgets can be reordered in place', () => {
   assert.deepEqual(reorderList(['summary', 'shortcuts', 'attention'], 0, 2), ['shortcuts', 'attention', 'summary']);
   assert.deepEqual(reorderList(['summary', 'shortcuts', 'attention'], 1, 1), ['summary', 'shortcuts', 'attention']);
+});
+
+test('today only shows sections that actually have content', () => {
+  assert.deepEqual(visibleTodaySections(['balanceHero', 'attention', 'repairFollowUps', 'leaseReviews', 'schedule'], {
+    behind: [],
+    followups: [],
+    leaseReviews: [],
+  }), ['balanceHero', 'schedule']);
+
+  assert.deepEqual(visibleTodaySections(['balanceHero', 'attention', 'repairFollowUps', 'schedule'], {
+    behind: [{ id: 'p1', owed: 100 }],
+    followups: [{ id: 'j1' }],
+    leaseReviews: [],
+  }), ['balanceHero', 'attention', 'repairFollowUps', 'schedule']);
+});
+
+test('rooms and residents sort by rent urgency first', () => {
+  const people = [
+    { id: 'a', name: 'Alice', owed: 0, daysLate: 0, room_id: 'room-1' },
+    { id: 'b', name: 'Bob', owed: 300, daysLate: 6, room_id: 'room-1' },
+    { id: 'c', name: 'Chris', owed: 120, daysLate: 3, room_id: 'room-1' },
+    { id: 'd', name: 'Diana', owed: 220, daysLate: 2, room_id: 'room-2' },
+  ];
+  const rooms = [
+    { id: 'room-1', label: 'Room 1', sort: 1 },
+    { id: 'room-2', label: 'Room 2', sort: 2 },
+  ];
+
+  assert.deepEqual(sortPeopleByRentUrgency(people.filter((p) => p.room_id === 'room-1')).map((p) => p.id), ['b', 'c', 'a']);
+  assert.deepEqual(sortRoomsByRentUrgency(rooms, people).map((r) => r.id), ['room-1', 'room-2']);
 });
 
 test('spec example: $170/week arriving Tuesday before Friday cycle proposes $70', () => {

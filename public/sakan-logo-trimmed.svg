@@ -1,0 +1,18 @@
+<svg width="960" height="560" viewBox="0 0 960 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="480" cy="280" r="220" fill="#E8D59D"/>
+  <circle cx="480" cy="280" r="214" stroke="#C69A3A" stroke-width="6"/>
+
+  <path d="M234 240L360 170L480 230L600 170L725 240" stroke="#B5241A" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M250 245L360 195L480 245L600 195L710 245" stroke="#7A8F6C" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-weight="900">
+    <text x="225" y="345" font-size="146" fill="#0B5E52" letter-spacing="-10">SAK</text>
+    <text x="507" y="345" font-size="146" fill="#0B5E52" letter-spacing="-10">AN</text>
+    <text x="505" y="422" font-size="146" fill="#BD7E1A" letter-spacing="-10">LODGE</text>
+  </g>
+
+  <path d="M275 302H685" stroke="#0B5E52" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <path d="M315 262H645" stroke="#0B5E52" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+
+  <text x="480" y="500" text-anchor="middle" font-size="34" font-weight="600" font-style="italic" fill="#3B332E" font-family="Georgia, 'Times New Roman', serif">Hospitality in its True Sense</text>
+</svg>
