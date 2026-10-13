@@ -1,8 +1,9 @@
 name = "sakan-lodge"
-compatibility_date = "2026-10-12"
+main = "src/worker.js"
+compatibility_date = "2026-10-13"
 
 routes = [
-  "https://sakanlodge.com/ledger/*"
+  "https://sakanlodge.com/*"
 ]
 
 [assets]
