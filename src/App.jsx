@@ -2,7 +2,7 @@ import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
-import { bondStatusLabel, tabFromPath } from './app-helpers.js';
+import { bondStatusLabel, reorderList, tabFromPath } from './app-helpers.js';
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
 
 const TEAM = ['Danish', 'Faizan'];
@@ -293,36 +293,124 @@ function Today({ db, d, today, go }) {
   const behind = d.people.filter((p) => p.owed > 0.005).sort((a, b) => b.daysLate - a.daysLate || b.owed - a.owed);
   const bonds = sum(d.people, (p) => p.bond_held);
   const props = [...db.properties].sort((a, b) => a.name.localeCompare(b.name));
+
+  const SECTION_DEFAULT_ORDER = ['propertyPulse', 'balanceHero', 'shortcuts', 'attention', 'repairFollowUps', 'leaseReviews', 'schedule', 'bonds'];
+  const readStoredJson = (key, fallback) => {
+    if (typeof window === 'undefined') return fallback;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      return parsed;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const [sectionOrder, setSectionOrder] = useState(() => {
+    const saved = readStoredJson('sakan-today-section-order', null);
+    return Array.isArray(saved) && saved.length === SECTION_DEFAULT_ORDER.length ? saved : SECTION_DEFAULT_ORDER;
+  });
+
+  const [propertyOrder, setPropertyOrder] = useState(() => readStoredJson('sakan-property-order', null));
+
+  const orderedProps = useMemo(() => {
+    const ids = props.map((property) => String(property.id));
+    const savedOrder = Array.isArray(propertyOrder) && propertyOrder.length === ids.length ? propertyOrder : ids;
+    const orderMap = new Map(savedOrder.map((id, index) => [String(id), index]));
+    return [...props].sort((a, b) => (orderMap.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER) - (orderMap.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER));
+  }, [props, propertyOrder]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ids = props.map((property) => String(property.id));
+    const savedOrder = Array.isArray(propertyOrder) && propertyOrder.length === ids.length ? propertyOrder : ids;
+    try {
+      window.localStorage.setItem('sakan-property-order', JSON.stringify(savedOrder));
+    } catch {
+      // Ignore storage quota and browser privacy failures.
+    }
+  }, [props, propertyOrder]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('sakan-today-section-order', JSON.stringify(sectionOrder));
+    } catch {
+      // Ignore storage quota and browser privacy failures.
+    }
+  }, [sectionOrder]);
+
+  const handleReorderProperty = (sourceId, targetId) => {
+    if (!sourceId || !targetId) return;
+    try {
+      const ids = orderedProps.map((property) => String(property.id));
+      const fromIndex = ids.indexOf(String(sourceId));
+      const toIndex = ids.indexOf(String(targetId));
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+      setPropertyOrder(reorderList(ids, fromIndex, toIndex));
+    } catch {
+      // Ignore invalid drag payloads.
+    }
+  };
+
+  const handleReorderSection = (sourceId, targetId) => {
+    if (!sourceId || !targetId) return;
+    try {
+      const fromIndex = sectionOrder.indexOf(sourceId);
+      const toIndex = sectionOrder.indexOf(targetId);
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+      setSectionOrder(reorderList(sectionOrder, fromIndex, toIndex));
+    } catch {
+      // Ignore invalid drag payloads.
+    }
+  };
+
   const next14 = L.n2d(L.d2n(today) + 14);
   const arrivals = d.people.filter((p) => p.start_date >= today && p.start_date <= next14).sort((a, b) => a.start_date.localeCompare(b.start_date));
   const departures = d.people.filter((p) => p.end_date && p.end_date >= today && p.end_date <= next14).sort((a, b) => a.end_date.localeCompare(b.end_date));
   const fortnightStart = L.n2d(L.d2n(today) - 13);
-  return (
-    <>
-      <h1 className="screen-title">Today</h1>
-      <h2>Property pulse</h2>
-      <PropertyPulseList
-        properties={props.map((property) => ({
-          ...property,
-          rooms: db.rooms.filter((room) => room.property_id === property.id),
-        }))}
-        people={d.people}
-        payments={db.payments}
-        today={today}
-        fortnightStart={fortnightStart}
-        onSelectTenant={(personId) => go('rent', personId)}
-      />
-      <div className="hero"><small>Resident balances outstanding</small><b>{fmt(sum(behind, (p) => p.owed))}</b><small>Includes rent and resident utility charges.</small></div>
-      <div className="today-shortcuts"><button onClick={() => go('rent')}>Record money</button><button onClick={() => go('rooms')}>Manage rooms & residents</button><button onClick={() => go('expenses')}>Open expenses</button></div>
-      <h2>Needs attention</h2>
-      {behind.length ? behind.map((p) => (
-        <button className="row" key={p.id} onClick={() => go('rent', p.id)}>
-          <span>{p.name}<small>{d.props[p.property_id]?.name} · {p.daysLate ? `${p.daysLate} day${p.daysLate > 1 ? 's' : ''} late` : 'due today'}</small></span>
-          <b className="err">{fmt(p.owed)}</b>
-        </button>
-      )) : <p className="muted">Everyone is square.</p>}
-      {(() => {
-        const followups = (db.maintenance || []).filter((job) => job.status !== 'complete' && (job.priority === 'urgent' || (job.due_date && job.due_date < today))).sort((a, b) => (a.due_date || '9999-99-99').localeCompare(b.due_date || '9999-99-99'));
+  const followups = (db.maintenance || []).filter((job) => job.status !== 'complete' && (job.priority === 'urgent' || (job.due_date && job.due_date < today))).sort((a, b) => (a.due_date || '9999-99-99').localeCompare(b.due_date || '9999-99-99'));
+  const windowEnd = L.n2d(L.d2n(today) + 60);
+  const leaseReviews = db.properties.filter((p) => p.lease_end && p.lease_end <= windowEnd).sort((a, b) => a.lease_end.localeCompare(b.lease_end));
+
+  const renderSectionContent = (sectionId) => {
+    switch (sectionId) {
+      case 'propertyPulse':
+        return (
+          <>
+            <h2>Property pulse</h2>
+            <PropertyPulseList
+              properties={orderedProps.map((property) => ({
+                ...property,
+                rooms: db.rooms.filter((room) => room.property_id === property.id),
+              }))}
+              people={d.people}
+              payments={db.payments}
+              today={today}
+              fortnightStart={fortnightStart}
+              onSelectTenant={(personId) => go('rent', personId)}
+              onReorderProperty={handleReorderProperty}
+            />
+          </>
+        );
+      case 'balanceHero':
+        return <div className="hero"><small>Resident balances outstanding</small><b>{fmt(sum(behind, (p) => p.owed))}</b><small>Includes rent and resident utility charges.</small></div>;
+      case 'shortcuts':
+        return <div className="today-shortcuts"><button onClick={() => go('rent')}>Record money</button><button onClick={() => go('rooms')}>Manage rooms & residents</button><button onClick={() => go('expenses')}>Open expenses</button></div>;
+      case 'attention':
+        return (
+          <>
+            <h2>Needs attention</h2>
+            {behind.length ? behind.map((p) => (
+              <button className="row" key={p.id} onClick={() => go('rent', p.id)}>
+                <span>{p.name}<small>{d.props[p.property_id]?.name} · {p.daysLate ? `${p.daysLate} day${p.daysLate > 1 ? 's' : ''} late` : 'due today'}</small></span>
+                <b className="err">{fmt(p.owed)}</b>
+              </button>
+            )) : <p className="muted">Everyone is square.</p>}
+          </>
+        );
+      case 'repairFollowUps':
         return followups.length > 0 && <>
           <h2>Repair follow-ups</h2>
           {followups.slice(0, 4).map((job) => <button className="row" key={job.id} onClick={() => go('expenses', 'maintenance')}>
@@ -330,10 +418,7 @@ function Today({ db, d, today, go }) {
             <b className={job.due_date && job.due_date < today ? 'err' : 'priority-urgent'}>{job.due_date && job.due_date < today ? 'Overdue' : 'Urgent'}</b>
           </button>)}
         </>;
-      })()}
-      {(() => {
-        const windowEnd = L.n2d(L.d2n(today) + 60);
-        const leaseReviews = db.properties.filter((p) => p.lease_end && p.lease_end <= windowEnd).sort((a, b) => a.lease_end.localeCompare(b.lease_end));
+      case 'leaseReviews':
         return leaseReviews.length > 0 && <>
           <h2>Lease dates to review</h2>
           {leaseReviews.map((p) => {
@@ -341,13 +426,50 @@ function Today({ db, d, today, go }) {
             return <div className="row" key={p.id}><span>{p.name}<small>{days < 0 ? `Lease end date passed ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago` : days === 0 ? 'Lease end date is today' : `Lease ends in ${days} day${days === 1 ? '' : 's'}`}</small></span><b className={days <= 14 ? 'err' : ''}>{nice(p.lease_end)}</b></div>;
           })}
         </>;
-      })()}
-      <div className="schedule-grid">
-        <section className="schedule-card"><h2>Arrivals · next 14 days</h2>{arrivals.length ? arrivals.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.start_date)} · {db.rooms.find((r) => r.id === p.room_id)?.label}</small></span></div>) : <p className="muted">No arrivals booked.</p>}</section>
-        <section className="schedule-card"><h2>Departures · next 14 days</h2>{departures.length ? departures.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.end_date)}</small></span></div>) : <p className="muted">No check-outs scheduled.</p>}</section>
-      </div>
-      <h2>Bonds held</h2>
-      <div className="card between"><span>On residents’ behalf (not income)</span><b>{fmt(bonds)}</b></div>
+      case 'schedule':
+        return (
+          <div className="schedule-grid">
+            <section className="schedule-card"><h2>Arrivals · next 14 days</h2>{arrivals.length ? arrivals.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.start_date)} · {db.rooms.find((r) => r.id === p.room_id)?.label}</small></span></div>) : <p className="muted">No arrivals booked.</p>}</section>
+            <section className="schedule-card"><h2>Departures · next 14 days</h2>{departures.length ? departures.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.end_date)}</small></span></div>) : <p className="muted">No check-outs scheduled.</p>}</section>
+          </div>
+        );
+      case 'bonds':
+        return (
+          <>
+            <h2>Bonds held</h2>
+            <div className="card between"><span>On residents’ behalf (not income)</span><b>{fmt(bonds)}</b></div>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <>
+      <h1 className="screen-title">Today</h1>
+      {sectionOrder.map((sectionId) => (
+        <div
+          key={sectionId}
+          className="today-segment"
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', sectionId);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const sourceId = event.dataTransfer.getData('text/plain') || sectionId;
+            handleReorderSection(sourceId, sectionId);
+          }}
+        >
+          <div className="section-drag-header">
+            <span className="drag-indicator">↕ Drag to reorder</span>
+          </div>
+          {renderSectionContent(sectionId)}
+        </div>
+      ))}
     </>
   );
 }

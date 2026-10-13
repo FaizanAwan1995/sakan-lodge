@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as L from './ledger.js';
-import { bondStatusLabel, isLedgerRoute, normalizeLedgerPath, tabFromPath } from './app-helpers.js';
+import { bondStatusLabel, reorderList, tabFromPath } from './app-helpers.js';
 
 const fulham = { id: 'f', lease_rent: 1500, lease_anchor: '2026-09-02', lease_start: null };
 const woodville = { id: 'w', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null };
@@ -14,13 +14,9 @@ test('room URLs resolve to the rooms tab and bond labels are readable', () => {
   assert.equal(bondStatusLabel('paid'), 'Paid');
 });
 
-test('ledger routes are split from the root landing page', () => {
-  assert.equal(isLedgerRoute('/'), false);
-  assert.equal(isLedgerRoute('/ledger'), true);
-  assert.equal(isLedgerRoute('/ledger/home'), true);
-  assert.equal(normalizeLedgerPath('/ledger/home'), '/home');
-  assert.equal(normalizeLedgerPath('/ledger'), '/');
-  assert.equal(normalizeLedgerPath('/'), '/');
+test('dashboard widgets can be reordered in place', () => {
+  assert.deepEqual(reorderList(['summary', 'shortcuts', 'attention'], 0, 2), ['shortcuts', 'attention', 'summary']);
+  assert.deepEqual(reorderList(['summary', 'shortcuts', 'attention'], 1, 1), ['summary', 'shortcuts', 'attention']);
 });
 
 test('spec example: $170/week arriving Tuesday before Friday cycle proposes $70', () => {

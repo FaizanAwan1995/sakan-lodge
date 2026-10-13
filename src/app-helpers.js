@@ -9,6 +9,15 @@ export function tabFromPath(pathname = '/') {
   return 'today';
 }
 
+export function reorderList(items, fromIndex, toIndex) {
+  if (!Array.isArray(items) || fromIndex === toIndex) return items;
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  if (typeof moved === 'undefined') return items;
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
 export function bondStatusLabel(value) {
   const normalized = String(value || '').toLowerCase();
   switch (normalized) {
