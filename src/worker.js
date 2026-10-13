@@ -4,31 +4,49 @@ function normalizeLedgerPath(pathname) {
   return pathname;
 }
 
+async function fetchFromAssets(env, request, assetPath) {
+  try {
+    return await env.ASSETS.fetch(new Request(new URL(assetPath, request.url).toString(), request));
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
     if (pathname === '/' || pathname === '/landing.html') {
-      const landingHtml = await env.ASSETS.fetch(new Request(new URL('/landing.html', request.url), request));
-      return new Response(await landingHtml.text(), {
-        status: landingHtml.status,
-        headers: {
-          'content-type': 'text/html; charset=utf-8',
-          'cache-control': 'no-store',
-        },
+      const response = await fetchFromAssets(env, request, '/landing.html');
+      if (response && response.status !== 404) {
+        return new Response(await response.text(), {
+          status: response.status,
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            'cache-control': 'no-store',
+          },
+        });
+      }
+
+      return new Response('<!doctype html><html><head><meta charset="utf-8"><title>SAKAN Lodge</title></head><body style="margin:0;background:#f3efe6;color:#1b1a17;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;"><main style="text-align:center;padding:2rem"><h1 style="font-size:2.5rem;letter-spacing:-0.05em;margin:0 0 1rem;">SAKAN Lodge</h1><p style="margin:0;color:#58534d;">The landing page is loading.</p></main></body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
       });
     }
 
     if (pathname === '/landing.css') {
-      const landingCss = await env.ASSETS.fetch(new Request(new URL('/landing.css', request.url), request));
-      return new Response(await landingCss.text(), {
-        status: landingCss.status,
-        headers: {
-          'content-type': 'text/css; charset=utf-8',
-          'cache-control': 'no-store',
-        },
-      });
+      const response = await fetchFromAssets(env, request, '/landing.css');
+      if (response && response.status !== 404) {
+        return new Response(await response.text(), {
+          status: response.status,
+          headers: {
+            'content-type': 'text/css; charset=utf-8',
+            'cache-control': 'no-store',
+          },
+        });
+      }
+      return new Response('', { status: 204, headers: { 'content-type': 'text/css; charset=utf-8' } });
     }
 
     if (pathname === '/ledger' || pathname.startsWith('/ledger/')) {
@@ -37,12 +55,13 @@ export default {
 
       const assetResponse = await env.ASSETS.fetch(new Request(rewritten, request));
       if (assetResponse.status === 404) {
-        return env.ASSETS.fetch(new Request(new URL('/', request.url).toString(), request));
+        return env.ASSETS.fetch(new Request(new URL('/landing.html', request.url), request));
       }
       return assetResponse;
     }
 
     if (
+      pathname === '/favicon.ico' ||
       pathname === '/sakan-logo.jpg' ||
       pathname.startsWith('/assets/') ||
       pathname.startsWith('/manifest') ||
