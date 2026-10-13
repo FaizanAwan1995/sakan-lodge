@@ -2,36 +2,29 @@
   --bg: #f3efe6;
   --bg-strong: #e7dcc0;
   --paper: #fffdf9;
-  --ink: #1b1a17;
-  --muted: #58534d;
+  --ink: #171512;
+  --muted: #5d564f;
   --forest: #2f524d;
   --forest-soft: #edf4f1;
   --gold: #d4ad5f;
   --gold-deep: #b98b3a;
   --line: rgba(47, 82, 77, 0.12);
-  --shadow: 0 22px 52px rgba(46, 41, 32, 0.1);
+  --shadow: 0 22px 52px rgba(46, 41, 32, 0.09);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
   min-height: 100vh;
   font-family: "Inter", "Segoe UI", sans-serif;
-  background: linear-gradient(180deg, #f8f4ee 0%, var(--bg) 38%, var(--bg-strong) 100%);
+  background: #f5f0e7;
   color: var(--ink);
 }
 
-img {
-  max-width: 100%;
-  display: block;
-}
+img { max-width: 100%; display: block; }
 
 .page-shell {
   min-height: 100vh;
@@ -89,13 +82,7 @@ img {
   padding: 10px 16px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.32);
-  transition: background 0.18s ease, transform 0.18s ease;
-}
-
-.top-links a:hover {
-  background: rgba(212, 173, 95, 0.12);
-  transform: translateY(-1px);
+  background: rgba(255,255,255,0.32);
 }
 
 .hero {
@@ -105,15 +92,11 @@ img {
   text-align: center;
   border: 1px solid var(--line);
   border-radius: 30px;
-  background: rgba(255, 255, 255, 0.38);
-  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.38);
   box-shadow: var(--shadow);
 }
 
-.badge-row {
-  display: flex;
-  justify-content: center;
-}
+.badge-row { display: flex; justify-content: center; }
 
 .badge {
   display: inline-flex;
@@ -130,6 +113,18 @@ img {
   font-weight: 800;
 }
 
+.hero-visual {
+  width: min(240px, 42vw);
+  margin: 26px auto 0;
+}
+
+.hero-visual img {
+  width: 100%;
+  height: auto;
+  border-radius: 50%;
+  box-shadow: 0 16px 32px rgba(35, 28, 19, 0.08);
+}
+
 h1 {
   margin: 24px auto 18px;
   max-width: 820px;
@@ -140,7 +135,7 @@ h1 {
 }
 
 .subtitle {
-  max-width: 700px;
+  max-width: 720px;
   margin: 0 auto;
   color: var(--muted);
   font-size: 1.12rem;
@@ -165,24 +160,18 @@ h1 {
   border-radius: 14px;
   text-decoration: none;
   font-weight: 700;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .primary {
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%);
+  background: var(--gold);
   color: #201d19;
   box-shadow: 0 12px 22px rgba(185, 139, 58, 0.18);
 }
 
 .secondary {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255,255,255,0.4);
   border: 1px solid var(--line);
   color: var(--forest);
-}
-
-.primary:hover,
-.secondary:hover {
-  transform: translateY(-2px);
 }
 
 .info-grid {
@@ -197,11 +186,11 @@ h1 {
   padding: 20px 18px;
   border-radius: 22px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.34);
+  background: rgba(255,255,255,0.34);
 }
 
 .feature-spotlight {
-  background: linear-gradient(135deg, rgba(212, 173, 95, 0.12), rgba(47, 82, 77, 0.04));
+  background: rgba(212, 173, 95, 0.10);
 }
 
 .eyebrow {
@@ -234,13 +223,61 @@ h1 {
   padding-left: 1.1rem;
 }
 
+.image-grid {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.room-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: #f0eadf;
+  min-height: 320px;
+}
+
+.room-card img {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  object-fit: cover;
+}
+
+.room-copy {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  color: white;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+}
+
+.room-copy strong {
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
+
+.room-copy span {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
 @media (max-width: 760px) {
   .topbar {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .info-grid {
+  .info-grid,
+  .image-grid {
     grid-template-columns: 1fr;
   }
 
