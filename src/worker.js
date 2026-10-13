@@ -55,7 +55,7 @@ export default {
 
       const assetResponse = await env.ASSETS.fetch(new Request(rewritten, request));
       if (assetResponse.status === 404) {
-        return env.ASSETS.fetch(new Request(new URL('/landing.html', request.url), request));
+        return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
       }
       return assetResponse;
     }
