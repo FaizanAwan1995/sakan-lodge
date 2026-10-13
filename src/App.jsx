@@ -107,14 +107,8 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isLocalMode && selectedUser && location.pathname === '/signin') {
-      navigate('/home', { replace: true });
-    }
-  }, [isLocalMode, selectedUser, location.pathname, navigate]);
-
   if (session === undefined) return <div className="pad">Loading…</div>;
-  if (showUserChooser || (isLocalMode && !selectedUser)) {
+  if (showUserChooser || (isLocalMode && (!selectedUser || location.pathname === '/signin'))) {
     return (
       <Routes>
         <Route path="/signin" element={<UserChooser onPick={(name) => {
