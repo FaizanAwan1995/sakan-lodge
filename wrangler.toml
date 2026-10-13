@@ -1,0 +1,11 @@
+name = "sakan-lodge"
+compatibility_date = "2026-10-12"
+
+routes = [
+  "https://sakanlodge.com/ledger/*"
+]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
