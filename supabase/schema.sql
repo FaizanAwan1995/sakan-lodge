@@ -27,6 +27,8 @@ create table people (
   name text not null,
   phone text,
   email text,
+  document_url text,
+  document_notes text,
   property_id uuid not null references properties,
   room_id uuid references rooms on delete set null,
   stay_type text not null default 'long' check (stay_type in ('long','short','per_night')),

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as L from './ledger.js';
@@ -215,6 +216,14 @@ test('derive tolerates null or missing table payloads instead of blanking the ap
   assert.deepEqual(out.props, {});
   assert.deepEqual(out.people, []);
   assert.deepEqual(out.expenses, []);
+});
+
+test('resident schema includes the fields used by the app for contact and document metadata', () => {
+  const schema = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
+  assert.match(schema, /create table people \(/);
+  assert.match(schema, /email text/i);
+  assert.match(schema, /document_url text/i);
+  assert.match(schema, /document_notes text/i);
 });
 
 test('Australian financial-year boundaries are 1 July through 30 June', () => {
