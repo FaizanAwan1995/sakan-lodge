@@ -2,10 +2,10 @@ import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
-import { bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
+import { accountChoices, bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
 
-const TEAM = ['Danish', 'Faizan'];
+const TEAM = accountChoices();
 const LOGO = '/ledger/sakan-logo.jpg';
 const CATS = {
   'Head lease': ['Landlord rent'],
@@ -200,7 +200,10 @@ function UserChooser({ onPick }) {
       <p className="tagline">Hospitality in its true sense</p>
       <p className="chooser-prompt">Who's using the ledger?</p>
       <div className="chooser-buttons">
-        {TEAM.map((name, i) => <button className={i === 0 ? 'danish' : 'faizan'} key={name} onClick={() => onPick(name)}>{name}</button>)}
+        {TEAM.map((name) => {
+          const className = name === 'Danish' ? 'danish' : name === 'Faizan' ? 'faizan' : 'joint';
+          return <button className={className} key={name} onClick={() => onPick(name)}>{name}</button>;
+        })}
       </div>
       <p className="chooser-note">Choose who is using the ledger. Changes are saved in this browser and activity is labelled with your name. Set up Supabase later to share updates across devices.</p>
     </div>

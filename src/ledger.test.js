@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as L from './ledger.js';
-import { bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
+import { accountChoices, bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
 
 const fulham = { id: 'f', lease_rent: 1500, lease_anchor: '2026-09-02', lease_start: null };
 const woodville = { id: 'w', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null };
 const clapham = { id: 'c', lease_rent: 1680, lease_anchor: '2026-08-29', lease_start: '2026-08-29', lease_first_amount: 1680 };
 
-test('room URLs resolve to the rooms tab and bond labels are readable', () => {
+test('account chooser includes a joint account option alongside the individual users', () => {
+  assert.deepEqual(accountChoices(), ['Danish', 'Faizan', 'Joint account']);
   assert.equal(tabFromPath('/rooms/abc123'), 'rooms');
   assert.equal(tabFromPath('/home'), 'today');
   assert.equal(bondStatusLabel('not_paid'), 'Not paid');

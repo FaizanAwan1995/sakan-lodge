@@ -1,3 +1,7 @@
+export function accountChoices() {
+  return ['Danish', 'Faizan', 'Joint account'];
+}
+
 export function tabFromPath(pathname = '/') {
   const path = (pathname || '/').toLowerCase();
   if (path === '/' || path === '/home' || path.startsWith('/home/') || path === '/today' || path.startsWith('/today/')) return 'today';

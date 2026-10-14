@@ -12,8 +12,6 @@ function serveSakanRoutes(req, res, next) {
 
   const url = new URL(req.url, 'http://localhost');
   const pathname = url.pathname;
-  const appPaths = ['/home', '/signin', '/today', '/rooms', '/rent', '/expenses', '/reports', '/activity'];
-  const isAppRoute = appPaths.includes(pathname) || pathname.startsWith('/rooms/') || pathname.startsWith('/ledger/');
 
   if (pathname === '/' || pathname === '/index.html') {
     res.statusCode = 200;
@@ -22,11 +20,17 @@ function serveSakanRoutes(req, res, next) {
     return;
   }
 
-  if (pathname === '/ledger' || pathname === '/ledger/' || isAppRoute) {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(appHtml);
-    return;
+  if (pathname === '/ledger' || pathname === '/ledger/' || pathname.startsWith('/ledger/')) {
+    const normalized = pathname === '/ledger' || pathname === '/ledger/' ? '/index.html' : pathname.slice('/ledger'.length) || '/index.html';
+    const isAssetRequest = normalized.includes('.') || normalized.startsWith('/src/') || normalized.startsWith('/@vite/') || normalized.startsWith('/node_modules/') || normalized.startsWith('/assets/') || normalized.startsWith('/manifest') || normalized.startsWith('/sakan-') || normalized.startsWith('/shared-') || normalized.startsWith('/private-');
+
+    if (isAssetRequest) {
+      req.url = normalized;
+      return next();
+    }
+
+    req.url = '/index.html';
+    return next();
   }
 
   next();

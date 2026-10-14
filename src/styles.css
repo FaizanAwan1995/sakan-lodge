@@ -167,6 +167,7 @@ input[type="checkbox"] { accent-color: var(--brand); }
 .chooser-buttons button:hover { transform: translateY(-2px); }
 .chooser-buttons .danish { background: var(--brand-deep); color: #fff; }
 .chooser-buttons .faizan { background: #efe8df; color: var(--brand-deep); }
+.chooser-buttons .joint { background: #efe7c6; color: var(--brand-deep); }
 .chooser-note { max-width: 460px; margin: 48px 0 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
 .login-as { color: var(--muted); }
 .chooser-back { display: block; margin: 14px auto; border: 0; background: transparent; color: var(--brand-alt); text-decoration: underline; text-underline-offset: 4px; padding: 8px; font-weight: 700; }
