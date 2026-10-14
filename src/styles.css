@@ -51,7 +51,20 @@ button { font: inherit; cursor: pointer; }
 .ok-soft { color: var(--ok); background: var(--ok-soft); border: 1px solid rgba(47,125,90,.18); border-radius: 999px; padding: 3px 8px; display: inline-flex; align-items: center; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; } td, th { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; } td:first-child, th:first-child { text-align: left; }
 .login { max-width: 360px; padding-top: 15vh; } .login input { margin-bottom: 10px; }
-.receipt { background: rgba(18,25,22,.9); border: 1px solid rgba(125,211,165,.18); border-radius: 12px; padding: 12px; margin-top: 12px; }
+.receipt {
+  background: #edf4ee;
+  border: 1px solid rgba(45,75,67,.18);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  color: var(--brand-deep);
+  box-shadow: 0 10px 22px rgba(58,42,26,.04);
+  line-height: 1.5;
+}
+.receipt b {
+  color: var(--brand-deep);
+  font-size: 18px;
+}
 
 /* Small responsive refinements for everyday phone use and laptop reporting. */
 .pad { padding-top: max(18px, env(safe-area-inset-top)); }
