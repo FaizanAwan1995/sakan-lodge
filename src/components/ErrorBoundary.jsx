@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { errorMessage, reportError } from '../error-handling.js';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -7,11 +8,11 @@ export default class ErrorBoundary extends Component {
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, message: error?.message || 'Something went wrong.' };
+    return { hasError: true, message: errorMessage(error) };
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('App error boundary caught an error:', error, errorInfo);
+    reportError('React render boundary', error);
   }
 
   render() {
