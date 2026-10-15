@@ -194,6 +194,7 @@ function Login({ selectedUser, onBack }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   return (
     <form className="pad login" onSubmit={async (e) => {
@@ -220,6 +221,23 @@ function Login({ selectedUser, onBack }) {
       <input type="email" placeholder="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" placeholder="Password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
       <button className="primary" disabled={loading}>{loading ? 'Signing in…' : `Sign in as ${selectedUser}`}</button>
+      <div className="login-divider" role="separator" aria-label="Alternative sign-in">or</div>
+      <button type="button" disabled={loading || googleLoading || isLocalMode} onClick={async () => {
+        setErr('');
+        setGoogleLoading(true);
+        try {
+          if (!supabase) throw new Error('Supabase is not configured.');
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.origin + '/home' },
+          });
+          if (error) throw error;
+        } catch (error) {
+          setErr(errorMessage(error));
+          setGoogleLoading(false);
+        }
+      }}>{googleLoading ? 'Connecting to Google…' : 'Continue with Google'}</button>
+      <p className="muted">Google sign-in must first be linked to your existing Sakan Lodge account. Sign in with your current password before connecting Google in account settings.</p>
       {err && <p className="err">{err}</p>}
       <button type="button" className="chooser-back" onClick={onBack}>Choose a different user</button>
     </form>
