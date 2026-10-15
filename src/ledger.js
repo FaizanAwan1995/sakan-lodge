@@ -128,7 +128,7 @@ export function landlordPaymentStatus(property, today, expenses = []) {
   const next = nextLandlordPayment(property, today);
   const matchingExpense = expenses
     .filter((expense) => expense.property_id === property.id && expense.category === 'Landlord rent')
-    .find((expense) => d2n(expense.date) <= d2n(next.date) && +expense.amount >= +next.amount * 0.99);
+    .find((expense) => expense.date === next.date && +expense.amount >= +next.amount * 0.99);
 
   const paid = Boolean(matchingExpense);
   const status = paid ? 'Paid' : next.days <= 0 ? 'Unpaid' : 'Upcoming';
