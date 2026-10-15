@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { errorMessage } from './error-handling.js';
 import { findPossibleDuplicatePayment } from './financial-safety.js';
+import { findPossibleDuplicatePayment } from './financial-safety.js';
 import TenantStatements from './features/reports/TenantStatements.jsx';
 import { propertyProfitability } from './features/reports/finance-utils.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -740,6 +741,7 @@ function Rent({ db, d, today, payFor, reload }) {
         if (!person || !(+amount > 0) || paymentError) return;
         setBusy(true);
         const row = { person_id: person.id, property_id: person.property_id, date, amount: L.money(amount), method, received_by: by, kind, note: nn(note) };
+        if (!editingId && findPossibleDuplicatePayment(db.payments, row, null) && !window.confirm('A payment with the same resident, date, amount and method already exists. Record another payment anyway?')) { setBusy(false); return; }
         const possibleDuplicate = !editingId && findPossibleDuplicatePayment(db.payments, row, editingId);
         if (possibleDuplicate && !window.confirm('A matching payment already exists for this resident, date, amount and method. Record another payment anyway?')) { setBusy(false); return; }
         const ok = await save('payments', row, editingId, `${editingId ? 'updated' : 'recorded'} ${kind.replace('_', ' ')} payment for ${person.name} (${fmt(amount)})`);
