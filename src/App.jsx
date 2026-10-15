@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import TenantStatements from './features/reports/TenantStatements.jsx';
+import { propertyProfitability } from './features/reports/finance-utils.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
@@ -1045,6 +1047,14 @@ function Reports({ db, d, today }) {
 
   return (
     <>
+      <TenantStatements db={db} today={today} />
+      <section className="card">
+        <h2>Property cash flow · {nice(start)} – {nice(end)}</h2>
+        <p className="muted">Rent received less recorded expenses and scheduled landlord rent. Bond transactions are excluded. This is cash-flow reporting, not tax accounting.</p>
+        {!rangeError && <div style={{overflowX:'auto'}}><table><thead><tr><th>Property</th><th>Rent received</th><th>Expenses</th><th>Net</th></tr></thead><tbody>
+          {propertyProfitability(db, start, end).map(x => <tr key={x.property.id}><td>{x.property.name}</td><td>{fmt(x.rent)}</td><td>{fmt(x.expenses)}</td><td className={x.net < 0 ? 'err' : 'ok'}>{fmt(x.net)}</td></tr>)}
+        </tbody></table></div>}
+      </section>
       <h1 className="screen-title">Property reports</h1>
       <div className="report-controls">
         <div className="seg">{[['fy', 'Financial year'], ['month', 'Monthly'], ['lastFortnight', 'Last fortnight'], ['upcomingFortnight', 'Upcoming fortnight'], ['custom', 'Date range']].map(([key, title]) => <button type="button" key={key} className={rangeMode === key ? 'on' : ''} onClick={() => setRangeMode(key)}>{title}</button>)}</div>
