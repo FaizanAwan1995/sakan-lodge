@@ -116,10 +116,9 @@ function readLocalDb() {
       window.localStorage.setItem(LOCAL_KEY, JSON.stringify(db));
     }
     return db;
-  } catch {
-    const seed = makeSeedDb();
-    window.localStorage.setItem(LOCAL_KEY, JSON.stringify(seed));
-    return seed;
+  } catch (error) {
+    // Preserve the original local data for recovery. Never silently replace it.
+    throw new Error('Local Sakan Lodge data could not be read. Your existing browser data has been preserved. Export or copy the local storage entry before attempting recovery.', { cause: error });
   }
 }
 
