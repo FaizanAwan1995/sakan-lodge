@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders } from './email-utils.js';
+import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isValidTenantEmail } from './email-utils.js';
 
 export default function TenantCommunications({ db, today }) {
   const [propertyId, setPropertyId] = useState('');
@@ -22,7 +22,9 @@ export default function TenantCommunications({ db, today }) {
     setMessage(templates[value].body);
     setPreview(false);
   };
+  const tenants = useMemo(() => db.people.filter((p) => (!p.end_date || p.end_date > today) && (!propertyId || String(p.property_id) === String(propertyId))), [db.people, today, propertyId]);
   const recipients = useMemo(() => eligibleRecipients(db.people, today, propertyId), [db.people, today, propertyId]);
+  const missingEmails = tenants.filter((p) => !isValidTenantEmail(p.email));
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
   const allSelected = recipients.length > 0 && chosen.length === recipients.length;
   const emailList = uniqueRecipientEmails(chosen);
@@ -40,12 +42,14 @@ export default function TenantCommunications({ db, today }) {
         {db.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
     </label>
-    <p>{recipients.length} active tenant(s) with valid email addresses.</p>
+    <p>{tenants.length} active tenant(s) at the selected property; {recipients.length} with valid email addresses saved in their tenant records.</p>
+    {missingEmails.length > 0 && <p role="status">{missingEmails.length} tenant(s) cannot receive emails until their address is added or corrected in Rooms → resident record.</p>}
+    <h2>Choose individual tenants</h2>
     <label><input type="checkbox" checked={allSelected} onChange={(e) => setSelected(e.target.checked ? recipients.map((p) => String(p.id)) : [])} /> Select all eligible tenants in this view</label>
     <div style={{ maxHeight: 260, overflowY: 'auto', margin: '1rem 0' }}>
-      {recipients.map((p) => <label key={p.id} style={{ display: 'block', padding: '0.4rem 0' }}>
-        <input type="checkbox" checked={selected.includes(String(p.id))} onChange={(e) => setSelected((old) => e.target.checked ? [...old, String(p.id)] : old.filter((id) => id !== String(p.id)))} />
-        {' '}{p.name} — {p.email}
+      {tenants.map((p) => <label key={p.id} style={{ display: 'block', padding: '0.4rem 0' }}>
+        <input type="checkbox" disabled={!isValidTenantEmail(p.email)} checked={selected.includes(String(p.id))} onChange={(e) => setSelected((old) => e.target.checked ? [...old, String(p.id)] : old.filter((id) => id !== String(p.id)))} />
+        {' '}{p.name} — {isValidTenantEmail(p.email) ? p.email.trim() : 'No valid email saved (edit resident record)'}
       </label>)}
     </div>
     <label>Email purpose
