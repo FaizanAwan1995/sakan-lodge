@@ -12,6 +12,7 @@ test('account chooser includes a joint account option alongside the individual u
   assert.deepEqual(accountChoices(), ['Danish', 'Faizan', 'Joint account']);
   assert.equal(tabFromPath('/rooms/abc123'), 'rooms');
   assert.equal(tabFromPath('/home'), 'today');
+  assert.equal(tabFromPath('/communications'), 'communications');
   assert.equal(bondStatusLabel('not_paid'), 'Not paid');
   assert.equal(bondStatusLabel('paid'), 'Paid');
 });
