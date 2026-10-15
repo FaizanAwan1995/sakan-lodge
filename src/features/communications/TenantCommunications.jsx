@@ -1,14 +1,5 @@
 import { useMemo, useState } from 'react';
-import { isActive } from '../../ledger.js';
-
-export function eligibleRecipients(people, today, propertyId = '') {
-  return people.filter((person) =>
-    isActive(person, today) &&
-    (!propertyId || String(person.property_id) === String(propertyId)) &&
-    typeof person.email === 'string' &&
-    /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(person.email.trim())
-  );
-}
+import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders } from './email-utils.js';
 
 export default function TenantCommunications({ db, today }) {
   const [propertyId, setPropertyId] = useState('');
@@ -34,9 +25,9 @@ export default function TenantCommunications({ db, today }) {
   const recipients = useMemo(() => eligibleRecipients(db.people, today, propertyId), [db.people, today, propertyId]);
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
   const allSelected = recipients.length > 0 && chosen.length === recipients.length;
-  const emailList = [...new Set(chosen.map((p) => p.email.trim().toLowerCase()))];
+  const emailList = uniqueRecipientEmails(chosen);
   const send = () => {
-    if (!emailList.length || !subject.trim() || !message.trim()) return;
+    if (!emailList.length || !subject.trim() || !message.trim() || hasUnfilledPlaceholders(message)) return;
     const query = new URLSearchParams({ bcc: emailList.join(','), subject: subject.trim(), body: message.trim() });
     window.location.href = 'mailto:?' + query.toString();
   };
@@ -70,8 +61,9 @@ export default function TenantCommunications({ db, today }) {
     {template !== 'general' && <p>Review and replace all bracketed placeholders before opening your email app. Receipts must be checked against the recorded payment. Inspection notices must meet applicable notice requirements.</p>}
     <label>Subject<input value={subject} onChange={(e) => { setSubject(e.target.value); setPreview(false); }} placeholder="e.g. Property notice" /></label>
     <label>Message<textarea rows={7} value={message} onChange={(e) => { setMessage(e.target.value); setPreview(false); }} placeholder="Write your message to tenants" /></label>
+    {hasUnfilledPlaceholders(message) && <p role="alert">Replace all bracketed template placeholders before preparing this email.</p>}
     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-      <button type="button" disabled={!emailList.length || !subject.trim() || !message.trim()} onClick={() => setPreview(true)}>Preview email</button>
+      <button type="button" disabled={!emailList.length || !subject.trim() || !message.trim() || hasUnfilledPlaceholders(message)} onClick={() => setPreview(true)}>Preview email</button>
       {preview && <button type="button" onClick={send}>Open in email app ({emailList.length})</button>}
     </div>
     {preview && <div className="card" style={{ marginTop: '1rem', overflowWrap: 'anywhere' }}>
