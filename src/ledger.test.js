@@ -231,3 +231,11 @@ test('Australian financial-year boundaries are 1 July through 30 June', () => {
   assert.equal(L.fyEndYear('2027-06-30'), 2027);
   assert.deepEqual(L.fyRange(2027), { start: '2026-07-01', end: '2027-06-30', label: 'FY 2026–27' });
 });
+
+test('landlord payment status does not count an older rent expense as the next payment', () => {
+  const property = { id: 'p', lease_anchor: '2026-10-01', lease_rent: 1000 };
+  const expenses = [{ property_id: 'p', category: 'Landlord rent', date: '2026-10-01', amount: 1000 }];
+  assert.equal(L.landlordPaymentStatus(property, '2026-10-14', expenses).status, 'Upcoming');
+  assert.equal(L.landlordPaymentStatus(property, '2026-10-15', expenses).status, 'Unpaid');
+  assert.equal(L.landlordPaymentStatus(property, '2026-10-15', [...expenses, { ...expenses[0], date: '2026-10-15' }]).status, 'Paid');
+});
