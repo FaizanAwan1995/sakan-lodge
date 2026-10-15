@@ -185,7 +185,8 @@ export async function deleteRow(table, id) {
     if (!supabase) throw new Error('Supabase is not configured.');
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) {
-      alert(error.message);
+      reportError('database operation', error);
+      alert(errorMessage(error));
       return false;
     }
     return true;
