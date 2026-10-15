@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { errorMessage } from './error-handling.js';
+import { findPossibleDuplicatePayment } from './financial-safety.js';
 import TenantStatements from './features/reports/TenantStatements.jsx';
 import { propertyProfitability } from './features/reports/finance-utils.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -558,7 +559,7 @@ function HouseForm({ p, done }) {
         <option value="yearly">Yearly</option>
       </select>
       <button className="primary">{p.id ? 'Save property settings' : 'Add property'}</button>
-      {p.id && <button type="button" className="small err" onClick={async () => { if (confirm(`Delete the entire ${p.name} property and all of its rooms, residents, payments, expenses, and repairs?`)) { const ok = await deleteRow('properties', p.id); if (ok) done(); } }}>Delete property</button>}
+      {p.id && <button type="button" className="small err" onClick={async () => { if (window.prompt(`Permanently delete ${p.name} and all linked records? Type DELETE ${p.name} to confirm:`) === `DELETE ${p.name}`) { const ok = await deleteRow('properties', p.id); if (ok) done(); } }}>Delete property</button>}
       <button type="button" className="small" onClick={done}>Cancel</button>
     </form>
   );
@@ -734,6 +735,8 @@ function Rent({ db, d, today, payFor, reload }) {
         if (!person || !(+amount > 0) || paymentError) return;
         setBusy(true);
         const row = { person_id: person.id, property_id: person.property_id, date, amount: L.money(amount), method, received_by: by, kind, note: nn(note) };
+        const possibleDuplicate = !editingId && findPossibleDuplicatePayment(db.payments, row, editingId);
+        if (possibleDuplicate && !window.confirm('A matching payment already exists for this resident, date, amount and method. Record another payment anyway?')) { setBusy(false); return; }
         const ok = await save('payments', row, editingId, `${editingId ? 'updated' : 'recorded'} ${kind.replace('_', ' ')} payment for ${person.name} (${fmt(amount)})`);
         setBusy(false);
         if (ok) {
@@ -766,7 +769,7 @@ function Rent({ db, d, today, payFor, reload }) {
       {recent.map((p) => {
         const who = d.people.find((x) => x.id === p.person_id);
         const label = { rent: 'Rent', bond: 'Bond received', bond_refund: 'Bond refunded', bond_deducted: 'Bond retained' }[p.kind || 'rent'];
-        return <div className="row" key={p.id}><span>{who?.name}<small>{label} · {nice(p.date)} · {p.method} · {p.received_by}{p.note ? ` · ${p.note}` : ''}</small></span><span><b>{fmt(p.amount)}</b><button type="button" className="small" onClick={() => { setEditingId(p.id); setPid(p.person_id); setAmount(String(p.amount)); setKind(p.kind || 'rent'); setMethod(p.method || 'cash'); setBy(p.received_by || TEAM[0]); setDate(p.date); setNote(p.note || ''); setReceipt(null); window.scrollTo(0,0); }}>Edit</button><button type="button" className="small" onClick={async () => { if (confirm('Delete this payment or bond transaction?')) { const ok = await deleteRow('payments', p.id); if (ok) reload(); if (editingId === p.id) setEditingId(null); } }}>Delete</button></span></div>;
+        return <div className="row" key={p.id}><span>{who?.name}<small>{label} · {nice(p.date)} · {p.method} · {p.received_by}{p.note ? ` · ${p.note}` : ''}</small></span><span><b>{fmt(p.amount)}</b><button type="button" className="small" onClick={() => { setEditingId(p.id); setPid(p.person_id); setAmount(String(p.amount)); setKind(p.kind || 'rent'); setMethod(p.method || 'cash'); setBy(p.received_by || TEAM[0]); setDate(p.date); setNote(p.note || ''); setReceipt(null); window.scrollTo(0,0); }}>Edit</button><button type="button" className="small" onClick={async () => { if (window.prompt('Deleting a financial transaction changes resident balances. Type DELETE to confirm:') === 'DELETE') { const ok = await deleteRow('payments', p.id); if (ok) reload(); if (editingId === p.id) setEditingId(null); } }}>Delete</button></span></div>;
       })}
     </>
   );
@@ -819,7 +822,7 @@ function Expenses({ db, d, today, reload, payFor }) {
       {personal.map((e) => <div className="row" key={e.id}><span>{e.category} · {house(e.property_id)}<small>{nice(e.date)} {e.note}</small></span><button className="small" onClick={async () => { await save('expenses', { reimbursed: true }, e.id); reload(); }}>Mark reimbursed {fmt(e.amount)}</button></div>)}
       <h2>Recent expenses</h2>
       <p className="muted">Landlord rent is raised automatically and appears in Reports.</p>
-      {recent.map((e) => <div className="row" key={e.id}><span>{e.category} · {house(e.property_id)}<small>{nice(e.date)} {e.note}{e.paid_from === 'personal' ? ' · personal' : ''}</small></span><span><b>{fmt(e.amount)}</b> {e.category !== 'Electricity' && <><button type="button" className="small" onClick={() => { setEditingId(e.id); setF({ date: e.date, category: e.category, amount: String(e.amount), property_id: e.property_id || '', note: e.note || '', paid_from: e.paid_from || 'business', reimbursed: Boolean(e.reimbursed) }); window.scrollTo(0,0); }}>Edit</button> <button type="button" className="small" onClick={async () => { if (confirm('Delete this expense?')) { const ok = await deleteRow('expenses', e.id); if (ok) reload(); } }}>Delete</button></>}{e.category === 'Electricity' && <small className="muted">linked bill</small>}</span></div>)}
+      {recent.map((e) => <div className="row" key={e.id}><span>{e.category} · {house(e.property_id)}<small>{nice(e.date)} {e.note}{e.paid_from === 'personal' ? ' · personal' : ''}</small></span><span><b>{fmt(e.amount)}</b> {e.category !== 'Electricity' && <><button type="button" className="small" onClick={() => { setEditingId(e.id); setF({ date: e.date, category: e.category, amount: String(e.amount), property_id: e.property_id || '', note: e.note || '', paid_from: e.paid_from || 'business', reimbursed: Boolean(e.reimbursed) }); window.scrollTo(0,0); }}>Edit</button> <button type="button" className="small" onClick={async () => { if (window.prompt('Deleting an expense changes financial reports. Type DELETE to confirm:') === 'DELETE') { const ok = await deleteRow('expenses', e.id); if (ok) reload(); } }}>Delete</button></>}{e.category === 'Electricity' && <small className="muted">linked bill</small>}</span></div>)}
     </>
   );
 }
