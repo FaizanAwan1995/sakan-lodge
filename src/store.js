@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState } from 'react';
 import { errorMessage, reportError } from './error-handling.js';
+import { validateFinancialRow } from './financial-safety.js';
 
 const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 // Prefer the current key type, retaining the old anon variable for existing setups.
@@ -316,6 +317,8 @@ export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, 
 }
 
 export async function save(table, row, id, action) {
+  const validationError = validateFinancialRow(table, row);
+  if (validationError) { alert(validationError); return false; }
   if (isLocalMode) {
     try {
       const db = readLocalDb();
