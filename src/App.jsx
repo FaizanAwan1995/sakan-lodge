@@ -250,6 +250,8 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const navigate = useNavigate();
   const { residentId } = useParams();
   const [payFor, setPayFor] = useState(null);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+  const [linkMessage, setLinkMessage] = useState('');
   const today = L.todayStr();
   const d = useMemo(() => db && L.derive(db, today), [db, today]);
   const tab = tabFromPath(location.pathname);
@@ -270,6 +272,17 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
           <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
           <time>{nice(today)}</time>
         </header>
+        {!isLocalMode && <section aria-label="Google account connection" className="card" style={{marginBottom:'1rem'}}>
+          <div className="between"><div><strong>Google account</strong><p className="muted">Connect your Google account to this existing Sakan Lodge login. This preserves your user ID and records.</p></div>
+          <button type="button" disabled={linkingGoogle || session.user.identities?.some(identity => identity.provider === 'google')} onClick={async () => {
+            setLinkingGoogle(true); setLinkMessage('');
+            try {
+              const { error } = await supabase.auth.linkIdentity({provider:'google',options:{redirectTo:window.location.origin+'/home'}});
+              if (error) throw error;
+            } catch(error) { setLinkMessage(errorMessage(error)); setLinkingGoogle(false); }
+          }}>{session.user.identities?.some(identity => identity.provider === 'google') ? 'Google connected' : linkingGoogle ? 'Connecting…' : 'Link Google account'}</button></div>
+          {linkMessage && <p role="alert" className="err">{linkMessage}</p>}
+        </section>}
         {isLocalMode && <div className="local-banner"><strong>Local preview</strong><span>Saved only in this browser · not synced or backed up</span></div>}
         {tab === 'today' && <Today {...ctx} />}
         {tab === 'rooms' && <Rooms {...ctx} residentId={residentId || null} />}
