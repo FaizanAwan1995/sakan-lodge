@@ -719,7 +719,12 @@ function Rent({ db, d, today, payFor, reload }) {
   const [editingId, setEditingId] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [busy, setBusy] = useState(false);
-  const recent = [...db.payments].sort((a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at)).slice(0, 25);
+  const [paymentPage, setPaymentPage] = useState(0);
+  const paymentPageSize = 25;
+  const sortedPayments = [...db.payments].sort((a, b) => ((b.date || '') + (b.created_at || '')).localeCompare((a.date || '') + (a.created_at || '')));
+  const paymentPages = Math.max(1, Math.ceil(sortedPayments.length / paymentPageSize));
+  const currentPaymentPage = Math.min(paymentPage, paymentPages - 1);
+  const recent = sortedPayments.slice(currentPaymentPage * paymentPageSize, (currentPaymentPage + 1) * paymentPageSize);
   const fortnightStart = L.n2d(L.d2n(today) - 13);
   const rentReceivedFortnight = sum(db.payments.filter((p) => (!p.kind || p.kind === 'rent') && p.date >= fortnightStart && p.date <= today), (p) => p.amount);
   const originalPayment = db.payments.find((p) => p.id === editingId);
@@ -765,13 +770,15 @@ function Rent({ db, d, today, payFor, reload }) {
         {editingId && <button type="button" className="small" onClick={() => { setEditingId(null); setKind('rent'); setPid(''); setAmount(''); setNote(''); }}>Cancel edit</button>}
       </form>
       {receipt && <div className="receipt"><b>Receipt</b><br />{receipt.name}: {receipt.kind === 'bond' ? 'bond received' : receipt.kind === 'bond_refund' ? 'bond refunded' : receipt.kind === 'bond_deducted' ? 'bond retained' : 'rent received'} {fmt(receipt.amount)} on {nice(receipt.date)}{receipt.method !== 'adjustment' ? ` by ${receipt.method}` : ''}, handled by {receipt.received_by}.</div>}
-      <h2>Recent payments</h2>
+      <h2>Payment history</h2>
+      <p className="muted">Showing {recent.length} of {sortedPayments.length} transactions.</p>
       {recent.map((p) => {
         const who = d.people.find((x) => x.id === p.person_id);
         const label = { rent: 'Rent', bond: 'Bond received', bond_refund: 'Bond refunded', bond_deducted: 'Bond retained' }[p.kind || 'rent'];
         return <div className="row" key={p.id}><span>{who?.name}<small>{label} · {nice(p.date)} · {p.method} · {p.received_by}{p.note ? ` · ${p.note}` : ''}</small></span><span><b>{fmt(p.amount)}</b><button type="button" className="small" onClick={() => { setEditingId(p.id); setPid(p.person_id); setAmount(String(p.amount)); setKind(p.kind || 'rent'); setMethod(p.method || 'cash'); setBy(p.received_by || TEAM[0]); setDate(p.date); setNote(p.note || ''); setReceipt(null); window.scrollTo(0,0); }}>Edit</button><button type="button" className="small" onClick={async () => { if (window.prompt('Deleting a financial transaction changes resident balances. Type DELETE to confirm:') === 'DELETE') { const ok = await deleteRow('payments', p.id); if (ok) reload(); if (editingId === p.id) setEditingId(null); } }}>Delete</button></span></div>;
       })}
-    </>
+
+      <nav aria-label="Payment history pages" className="between"><button type="button" className="small" disabled={currentPaymentPage===0} onClick={()=>setPaymentPage(p=>Math.max(0,p-1))}>Previous</button><span>Page {currentPaymentPage+1} of {paymentPages}</span><button type="button" className="small" disabled={currentPaymentPage>=paymentPages-1} onClick={()=>setPaymentPage(p=>Math.min(paymentPages-1,p+1))}>Next</button></nav>    </>
   );
 }
 
