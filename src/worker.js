@@ -12,8 +12,7 @@ async function fetchFromAssets(env, request, assetPath) {
   }
 }
 
-export default {
-  async fetch(request, env) {
+async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
@@ -87,5 +86,20 @@ export default {
       status: 404,
       headers: { 'content-type': 'text/plain; charset=utf-8' },
     });
+}
+
+export default {
+  async fetch(request, env) {
+    const response = await handleRequest(request, env);
+    const headers = new Headers(response.headers);
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    headers.set('X-Frame-Options', 'DENY');
+    headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+    if (new URL(request.url).protocol === 'https:') {
+      headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
