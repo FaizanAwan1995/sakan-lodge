@@ -192,3 +192,9 @@ body { background: var(--bg); }
 .property-group .small:last-child { margin-top: 8px; }
 h2 { color: var(--property-heading); font-family: Georgia, 'Times New Roman', serif; text-transform: none; letter-spacing: 0; font-size: 19px; font-weight: 500; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(201,152,59,.2); outline-offset: 2px; }
+
+/* Accessible keyboard navigation */
+.skip-link { position: fixed; z-index: 10000; top: 0.5rem; left: 0.5rem; padding: 0.75rem 1rem; background: #fff; color: #111; border: 2px solid #111; border-radius: 0.5rem; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
+:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
