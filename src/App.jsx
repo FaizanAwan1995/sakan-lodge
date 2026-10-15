@@ -245,7 +245,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
           <nav className="top-nav">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => ctx.go(k)}>{l}</button>)}</nav>
         </div>
       </header>
-      <main className="pad">
+      <main className="pad" id="main-content" tabIndex="-1">
         <header className="app-header">
           <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
           <time>{nice(today)}</time>
