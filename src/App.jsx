@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { errorMessage } from './error-handling.js';
 import { findPossibleDuplicatePayment } from './financial-safety.js';
-import { findPossibleDuplicatePayment } from './financial-safety.js';
 import TenantStatements from './features/reports/TenantStatements.jsx';
 import { propertyProfitability } from './features/reports/finance-utils.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
