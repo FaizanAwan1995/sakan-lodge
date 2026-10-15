@@ -1,11 +1,14 @@
 import { isActive } from '../../ledger.js';
 
+export function isValidTenantEmail(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 export function eligibleRecipients(people, today, propertyId = '') {
   return people.filter((person) =>
     isActive(person, today) &&
     (!propertyId || String(person.property_id) === String(propertyId)) &&
-    typeof person.email === 'string' &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email.trim())
+    isValidTenantEmail(person.email)
   );
 }
 
