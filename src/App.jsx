@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { errorMessage } from './error-handling.js';
 import TenantStatements from './features/reports/TenantStatements.jsx';
 import { propertyProfitability } from './features/reports/finance-utils.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -233,7 +234,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const today = L.todayStr();
   const d = useMemo(() => db && L.derive(db, today), [db, today]);
   const tab = tabFromPath(location.pathname);
-  if (error) return <div className="pad err">{String(error.message || error)}</div>;
+  if (error) return <div className="pad err" role="alert"><h2>Unable to load Sakan Lodge</h2><p>{errorMessage(error)}</p><button type="button" onClick={reload}>Try again</button></div>;
   if (!d) return <div className="pad">Loading…</div>;
   const ctx = { db, d, today, reload, session, go: (t, pid) => { setPayFor(pid ?? null); const route = t === 'today' ? '/home' : `/${t}`; navigate(route); window.scrollTo(0, 0); } };
   const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['activity', 'Activity']];
