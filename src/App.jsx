@@ -1,4 +1,5 @@
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
@@ -18,34 +19,6 @@ const fmt = (n) => '$' + (+n || 0).toLocaleString('en-AU', { minimumFractionDigi
 const sum = (xs, f = (x) => x) => L.money(xs.reduce((s, x) => s + (+f(x) || 0), 0));
 const nice = (s) => (s ? new Date(s + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : '');
 const dayAfter = (s) => { if (!s) return undefined; const d = new Date(`${s}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
-
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, message: '' };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, message: error?.message || 'Something went wrong.' };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('App error boundary caught an error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="pad err">
-          <h2>Something went wrong</h2>
-          <p>{this.state.message}</p>
-          <button type="button" onClick={() => window.location.reload()}>Refresh the app</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 export default function App() {
   const [session, setSession] = useState(undefined);
