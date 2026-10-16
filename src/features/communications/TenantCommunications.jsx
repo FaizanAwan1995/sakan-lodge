@@ -94,15 +94,15 @@ export default function TenantCommunications({ db, today }) {
     {missingEmails.length > 0 && <p role="status">{missingEmails.length} tenant(s) cannot receive emails until their address is added or corrected in Rooms → resident record.</p>}
     <h3 style={{ marginBottom: '.5rem' }}>Choose individual tenants</h3>
     <label>Search by name, email or room<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="e.g. Chauhan Zaman or MZ Avinash" /></label>
-    <label><input type="checkbox" checked={allSelected} onChange={(e) => setSelected(e.target.checked ? recipients.map((p) => String(p.id)) : [])} /> Select all eligible tenants in this view</label>
+    <label><input type="checkbox" checked={allSelected} onChange={(e) => { setSelected(e.target.checked ? recipients.map((p) => String(p.id)) : []); setPreview(false); }} /> Select all eligible tenants at this property (including search-hidden tenants)</label>
     <div style={{ maxHeight: 300, overflowY: 'auto', margin: '1rem 0', padding: '.5rem', border: '1px solid var(--border, #d8dfd8)', borderRadius: 12 }}>
       {visibleTenants.length === 0 && <p style={{ padding: '.75rem' }}>No matching tenants. Try a different search or property.</p>}
       {visibleTenants.map((p) => <label key={p.id} style={{ display: 'block', padding: '.65rem .5rem', borderBottom: '1px solid var(--border, #edf0ed)', cursor: 'pointer' }}>
-        <input type="checkbox" disabled={!isValidTenantEmail(p.email)} checked={selected.includes(String(p.id))} onChange={(e) => setSelected((old) => e.target.checked ? [...old, String(p.id)] : old.filter((id) => id !== String(p.id)))} />
+        <input type="checkbox" disabled={!isValidTenantEmail(p.email)} checked={selected.includes(String(p.id))} onChange={(e) => { setSelected((old) => e.target.checked ? [...old, String(p.id)] : old.filter((id) => id !== String(p.id))); setPreview(false); }} />
         {' '}{p.name} · {propertyName(p.property_id)} · {db.rooms.find((r) => String(r.id) === String(p.room_id))?.label || 'Room not assigned'} — {isValidTenantEmail(p.email) ? p.email.trim() : 'No valid email saved (edit resident record)'}
       </label>)}
     </div>
-    <p>{chosen.length} tenant(s) selected across {new Set(chosen.map((p) => String(p.property_id))).size} property/properties.</p>
+    <p aria-live="polite">{chosen.length} tenant(s) selected across {new Set(chosen.map((p) => String(p.property_id))).size} property/properties.</p>
     <h2 style={{ marginTop: '1.75rem' }}>2. Compose message</h2>
     <label>CC (Faizan and Danish; separate addresses with commas)<input type="text" value={cc} onChange={(e) => { setCc(e.target.value); setPreview(false); }} placeholder="faizan@example.com, danish@example.com" /></label>
     {!ccValid && <p role="alert" className="err">Please correct the CC email addresses.</p>}
