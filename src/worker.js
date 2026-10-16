@@ -1,3 +1,5 @@
+import { gmailCallback } from './gmail-oauth-callback.js';
+
 function normalizeLedgerPath(pathname) {
   if (pathname === '/ledger' || pathname === '/ledger/') return '/';
   if (pathname.startsWith('/ledger/')) return pathname.slice('/ledger'.length) || '/';
@@ -15,6 +17,8 @@ async function fetchFromAssets(env, request, assetPath) {
 async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
 
     if (pathname === '/' || pathname === '/landing.html') {
       const response = await fetchFromAssets(env, request, '/landing.html');
