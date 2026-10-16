@@ -27,17 +27,20 @@ export async function gmailStart(request, env) {
   if (!env.GMAIL_CLIENT_ID || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_STORE ||
       !env.SUPABASE_URL || !env.SUPABASE_PUBLIC_KEY) return reply('Gmail connection not configured', 503);
   const bearer = request.headers.get('Authorization') || '';
-  if (!/^Bearer [^\\s]+$/.test(bearer)) return reply('Sign in required', 401);
-  const userResponse = await fetch(env.SUPABASE_URL.replace(/\\/$/, '') + '/auth/v1/user', {
+  if (!/^Bearer \S+$/.test(bearer)) return reply('Sign in required', 401);
+  let userResponse;
+  try { userResponse = await fetch(env.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user', {
     headers: { Authorization: bearer, apikey: env.SUPABASE_PUBLIC_KEY }
-  });
+  }); } catch { return reply('Authentication service unavailable', 503); }
   if (!userResponse.ok) return reply('Session expired', 401);
-  const user = await userResponse.json();
+  let user;
+  try { user = await userResponse.json(); } catch { return reply('Invalid authentication response', 502); }
   if (!user.email_confirmed_at || !ADMINS.has((user.email || '').toLowerCase())) return reply('Administrator access required', 403);
   const nonce = toHex(crypto.getRandomValues(new Uint8Array(16)));
   const expiryText = String(Date.now() + 300000);
   const mac = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
-  await env.GMAIL_TOKEN_STORE.put('oauth-state:' + nonce, expiryText, { expirationTtl: 300 });
+  try { await env.GMAIL_TOKEN_STORE.put('oauth-state:' + nonce, expiryText, { expirationTtl: 300 }); }
+  catch { return reply('Unable to save authorisation request', 503); }
   const oauth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   for (const [k,v] of Object.entries({
     client_id: env.GMAIL_CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code',
@@ -56,6 +59,7 @@ export async function gmailCallback(request, env) {
     return reply('Gmail connection is not configured yet.', 503);
   }
   const url = new URL(request.url);
+  if (url.searchParams.has('error')) return reply('Google authorisation was cancelled or denied.', 400);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   if (!code || !state || code.length > 4096 || state.length > 1024) return reply('Invalid authorisation response.', 400);
@@ -70,23 +74,28 @@ export async function gmailCallback(request, env) {
   if (!equal(expected, mac)) return reply('Invalid authorisation state.', 403);
   // Consume the state once to prevent callback replay.
   const stateKey = 'oauth-state:' + nonce;
-  const stored = await env.GMAIL_TOKEN_STORE.get(stateKey);
+  let stored;
+  try { stored = await env.GMAIL_TOKEN_STORE.get(stateKey); } catch { return reply('Authorisation storage unavailable', 503); }
   if (stored !== expiryText) return reply('Authorisation already used or expired.', 403);
-  await env.GMAIL_TOKEN_STORE.delete(stateKey);
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+  try { await env.GMAIL_TOKEN_STORE.delete(stateKey); } catch { return reply('Unable to complete authorisation', 503); }
+  let tokenResponse;
+  try { tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code, client_id: env.GMAIL_CLIENT_ID,
       client_secret: env.GMAIL_CLIENT_SECRET, redirect_uri: REDIRECT, grant_type: 'authorization_code' })
-  });
+  }); } catch { return reply('Google authorisation service unavailable', 502); }
   if (!tokenResponse.ok) return reply('Google could not complete authorisation.', 502);
-  const tokens = await tokenResponse.json();
+  let tokens;
+  try { tokens = await tokenResponse.json(); } catch { return reply('Invalid Google token response', 502); }
   if (!tokens.access_token || !tokens.refresh_token) return reply('No offline authorisation granted. Reconnect with consent.', 400);
-  const identityResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+  let identityResponse;
+  try { identityResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
     headers: { Authorization: 'Bearer ' + tokens.access_token }
-  });
+  }); } catch { return reply('Gmail identity service unavailable', 502); }
   if (!identityResponse.ok) return reply('Could not verify the Gmail sender.', 502);
-  const profile = await identityResponse.json();
+  let profile;
+  try { profile = await identityResponse.json(); } catch { return reply('Invalid Gmail identity response', 502); }
   if ((profile.emailAddress || '').toLowerCase() !== SENDER) return reply('Please authorise only sakanlodges@gmail.com.', 403);
   // The refresh token is encrypted at rest using the Web Crypto API, with a key
   // stored separately as a Cloudflare secret; never persist plaintext in KV.
@@ -96,8 +105,8 @@ export async function gmailCallback(request, env) {
   const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, utf8.encode(tokens.refresh_token)));
-  await env.GMAIL_TOKEN_STORE.put('gmail:sender:encrypted-refresh-token', JSON.stringify({
+  try { await env.GMAIL_TOKEN_STORE.put('gmail:sender:encrypted-refresh-token', JSON.stringify({
     iv: Array.from(iv), data: Array.from(ciphertext), account: SENDER
-  }));
+  })); } catch { return reply('Unable to store encrypted Gmail authorisation', 503); }
   return reply('SAKAN Lodge Gmail sender connected successfully. You may close this page.');
 }
