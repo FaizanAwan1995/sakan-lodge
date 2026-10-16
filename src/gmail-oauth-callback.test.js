@@ -23,7 +23,7 @@ test('start rejects absent and malformed authentication', async () => {
   assert.equal((await gmailStart(request(url, 'POST', { Origin: 'https://sakanlodge.com', Authorization: 'Bearer' }), env)).status, 401);
 });
 test('start fails closed if required configuration is absent', async () => {
-  const response = await gmailStart(request('https://sakanlodge.com/api/gmail/start', 'POST', { Origin: 'https://sakanlodge.com' }), { ...env, GMAIL_TOKEN_STORE: null });
+  const response = await gmailStart(request('https://sakanlodge.com/api/gmail/start', 'POST', { Origin: 'https://sakanlodge.com' }), { ...env, GMAIL_OAUTH_STATE: null });
   assert.equal(response.status, 503);
 });
 test('callback rejects cancellation and malformed OAuth responses', async () => {
