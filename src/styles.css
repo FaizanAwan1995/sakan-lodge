@@ -198,3 +198,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .skip-link:focus { transform: translateY(0); }
 :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+
+/* Branded Google sign-in and one-time account-link invitation */
+.google-signin{display:flex;align-items:center;justify-content:center;gap:.8rem;width:100%;min-height:48px;border:1px solid #d2c8b6;border-radius:12px;background:#fffdf9;color:#25241f;font:inherit;font-weight:650;cursor:pointer;box-shadow:0 2px 8px rgba(36,30,20,.07);transition:background .18s,border-color .18s,transform .18s}
+.google-signin:hover:not(:disabled){background:#f6f0e6;border-color:#99846b;transform:translateY(-1px)}
+.google-signin:focus-visible,.google-link-action:focus-visible{outline:3px solid #a78b61;outline-offset:3px}
+.google-signin:disabled{opacity:.65;cursor:wait}
+.google-g{width:22px;height:22px;flex-shrink:0}
+.google-link-card{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.google-link-info{flex:1 1 250px}
+.google-link-info p{margin:.35rem 0 0}
+.google-link-action{border:1px solid #ad9475;border-radius:10px;background:#fffaf2;color:#3c3126;font:inherit;font-weight:650;padding:.75rem 1.1rem;cursor:pointer}
+.google-link-action:hover:not(:disabled){background:#f3e9db}
