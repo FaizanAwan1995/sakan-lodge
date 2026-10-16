@@ -69,7 +69,8 @@ export default function TenantCommunications({ db, today }) {
     const query = new URLSearchParams(fields);
     window.location.href = 'mailto:' + (emailList.length === 1 ? encodeURIComponent(emailList[0]) : '') + '?' + query.toString();
   };
-  return <section className="card" style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
+  return <section className="card tenant-communications" style={{ width: '100%', boxSizing: 'border-box', minWidth: 0, maxWidth: 1080, margin: '0 auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
+    <style>{`.tenant-communications { overflow-wrap: anywhere; } .tenant-communications input:not([type="checkbox"]), .tenant-communications select, .tenant-communications textarea { max-width: 100%; min-width: 0; box-sizing: border-box; font-size: 16px; } .tenant-communications button { min-height: 44px; max-width: 100%; white-space: normal; } .tenant-communications input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; vertical-align: middle; } .tenant-communications label { overflow-wrap: anywhere; } @media (max-width: 600px) { .tenant-communications { padding: 16px !important; } .tenant-communications h1 { font-size: clamp(1.55rem, 7vw, 2rem); } .tenant-communications button { width: 100%; } }`}</style>
     <header style={{ marginBottom: '1.5rem' }}>
       <p style={{ textTransform: 'uppercase', letterSpacing: '.12em', fontSize: '.75rem', fontWeight: 700, opacity: .65, marginBottom: '.35rem' }}>Sakan Lodge · Communications</p>
       <h1 style={{ margin: 0 }}>Tenant emails</h1>
