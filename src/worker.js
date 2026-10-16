@@ -34,6 +34,18 @@ async function handleRequest(request, env) {
       });
     }
 
+    if (pathname === '/privacy' || pathname === '/privacy/' || pathname === '/terms' || pathname === '/terms/') {
+      const page = pathname.startsWith('/privacy') ? '/privacy.html' : '/terms.html';
+      const response = await fetchFromAssets(env, request, page);
+      if (response && response.status === 200) {
+        return new Response(response.body, {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' },
+        });
+      }
+      return new Response('Page unavailable', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    }
+
     if (pathname === '/landing.css') {
       const response = await fetchFromAssets(env, request, '/landing.css');
       if (response && response.status !== 404) {
