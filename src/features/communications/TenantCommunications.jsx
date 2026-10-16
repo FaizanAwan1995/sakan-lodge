@@ -16,8 +16,11 @@ export default function TenantCommunications({ db, today }) {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + session.access_token }
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.url) throw new Error(payload.error || 'Gmail connection is not available yet.');
+      const raw = await response.text();
+      let payload = {};
+      try { payload = JSON.parse(raw); } catch { /* Server may return plain-text errors. */ }
+      if (!response.ok || !payload.url) throw new Error(payload.error || (!response.ok && raw && raw.length < 180 ? raw : 'Gmail connection is not available yet.'));
+      if (!payload.url.startsWith('https://accounts.google.com/o/oauth2/v2/auth?')) throw new Error('Unexpected authorisation destination.');
       window.location.assign(payload.url);
     } catch (error) {
       setGmailError(error.message || 'Unable to start Gmail connection.');
