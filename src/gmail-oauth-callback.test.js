@@ -50,6 +50,11 @@ test('start accepts confirmed administrator and generates scoped Google consent 
   assert.match(parsed.searchParams.get('scope'), /gmail\.send/);
   assert.match(parsed.searchParams.get('scope'), /openid email/);
   assert.ok(stored[0].startsWith('oauth-state:'));
+  assert.equal(parsed.searchParams.get('code_challenge_method'), 'S256');
+  assert.match(parsed.searchParams.get('code_challenge'), /^[A-Za-z0-9_-]{43}$/);
+  const saved = JSON.parse(stored[1]);
+  assert.match(saved.verifier, /^[A-Za-z0-9_-]{43}$/);
+  assert.notEqual(saved.verifier, parsed.searchParams.get('code_challenge'));
 });
 test('start denies unconfirmed and non-admin accounts', async (t) => {
   const original = globalThis.fetch;
