@@ -1,4 +1,4 @@
-import { gmailCallback } from './gmail-oauth-callback.js';
+import { gmailCallback, gmailStart } from './gmail-oauth-callback.js';
 
 function normalizeLedgerPath(pathname) {
   if (pathname === '/ledger' || pathname === '/ledger/') return '/';
@@ -18,6 +18,7 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    if (pathname === '/api/gmail/start') return gmailStart(request, env);
     if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
 
     if (pathname === '/' || pathname === '/landing.html') {
