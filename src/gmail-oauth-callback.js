@@ -52,7 +52,7 @@ export async function gmailStart(request, env) {
 }
 export async function gmailCallback(request, env) {
   if (request.method !== 'GET') return reply('Method not allowed', 405);
-  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_STORE) {
+  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_ENCRYPTION_KEY || !env.GMAIL_TOKEN_STORE) {
     return reply('Gmail connection is not configured yet.', 503);
   }
   const url = new URL(request.url);
