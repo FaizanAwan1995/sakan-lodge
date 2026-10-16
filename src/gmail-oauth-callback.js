@@ -5,6 +5,7 @@ const REDIRECT = 'https://sakanlodge.com/api/gmail/callback';
 const SENDER = 'sakanlodges@gmail.com';
 const utf8 = new TextEncoder();
 const toHex = bytes => [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
+const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
 const reply = (message, status = 200) => new Response(message, {
   status,
   headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store',
@@ -39,13 +40,16 @@ export async function gmailStart(request, env) {
   const nonce = toHex(crypto.getRandomValues(new Uint8Array(16)));
   const expiryText = String(Date.now() + 300000);
   const mac = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
-  try { await env.GMAIL_TOKEN_STORE.put('oauth-state:' + nonce, expiryText, { expirationTtl: 300 }); }
+  const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = base64url(await crypto.subtle.digest('SHA-256', utf8.encode(verifier)));
+  try { await env.GMAIL_TOKEN_STORE.put('oauth-state:' + nonce, JSON.stringify({ expiryText, verifier }), { expirationTtl: 300 }); }
   catch { return reply('Unable to save authorisation request', 503); }
   const oauth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   for (const [k,v] of Object.entries({
     client_id: env.GMAIL_CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code',
     scope: 'openid email https://www.googleapis.com/auth/gmail.send',
     access_type: 'offline', prompt: 'consent select_account',
+    code_challenge: challenge, code_challenge_method: 'S256',
     login_hint: SENDER, state: nonce + '.' + expiryText + '.' + mac
   })) oauth.searchParams.set(k,v);
   return new Response(JSON.stringify({ url: oauth.toString() }), {
@@ -76,14 +80,16 @@ export async function gmailCallback(request, env) {
   const stateKey = 'oauth-state:' + nonce;
   let stored;
   try { stored = await env.GMAIL_TOKEN_STORE.get(stateKey); } catch { return reply('Authorisation storage unavailable', 503); }
-  if (stored !== expiryText) return reply('Authorisation already used or expired.', 403);
+  let saved;
+  try { saved = JSON.parse(stored); } catch { return reply('Authorisation already used or expired.', 403); }
+  if (saved?.expiryText !== expiryText || !/^[A-Za-z0-9_-]{43}$/.test(saved?.verifier || '')) return reply('Authorisation already used or expired.', 403);
   try { await env.GMAIL_TOKEN_STORE.delete(stateKey); } catch { return reply('Unable to complete authorisation', 503); }
   let tokenResponse;
   try { tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code, client_id: env.GMAIL_CLIENT_ID,
-      client_secret: env.GMAIL_CLIENT_SECRET, redirect_uri: REDIRECT, grant_type: 'authorization_code' })
+      client_secret: env.GMAIL_CLIENT_SECRET, redirect_uri: REDIRECT, grant_type: 'authorization_code', code_verifier: saved.verifier })
   }); } catch { return reply('Google authorisation service unavailable', 502); }
   if (!tokenResponse.ok) return reply('Google could not complete authorisation.', 502);
   let tokens;
