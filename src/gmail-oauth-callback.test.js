@@ -33,3 +33,56 @@ test('callback rejects cancellation and malformed OAuth responses', async () => 
 test('callback fails closed without secure token storage', async () => {
   assert.equal((await gmailCallback(request(base + '?code=test&state=invalid'), { ...env, GMAIL_TOKEN_STORE: null })).status, 503);
 });
+
+test('start accepts confirmed administrator and generates scoped Google consent URL', async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  globalThis.fetch = async () => Response.json({ email: 'faizanasif117@gmail.com', email_confirmed_at: '2026-01-01T00:00:00Z' });
+  let stored;
+  const response = await gmailStart(request('https://sakanlodge.com/api/gmail/start', 'POST', {
+    Origin: 'https://sakanlodge.com', Authorization: 'Bearer valid-test-token'
+  }), { ...env, GMAIL_TOKEN_STORE: { put: async (...args) => { stored = args; } } });
+  assert.equal(response.status, 200);
+  const { url } = await response.json();
+  const parsed = new URL(url);
+  assert.equal(parsed.origin, 'https://accounts.google.com');
+  assert.equal(parsed.searchParams.get('login_hint'), 'sakanlodges@gmail.com');
+  assert.match(parsed.searchParams.get('scope'), /gmail\.send/);
+  assert.match(parsed.searchParams.get('scope'), /openid email/);
+  assert.ok(stored[0].startsWith('oauth-state:'));
+});
+test('start denies unconfirmed and non-admin accounts', async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  for (const user of [
+    { email: 'other@example.com', email_confirmed_at: '2026-01-01' },
+    { email: 'faizanasif117@gmail.com', email_confirmed_at: null }
+  ]) {
+    globalThis.fetch = async () => Response.json(user);
+    const response = await gmailStart(request('https://sakanlodge.com/api/gmail/start', 'POST', {
+      Origin: 'https://sakanlodge.com', Authorization: 'Bearer valid-test-token'
+    }), env);
+    assert.equal(response.status, 403);
+  }
+});
+test('start handles authentication network and storage errors without exposing tokens', async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  const req = request('https://sakanlodge.com/api/gmail/start', 'POST', {
+    Origin: 'https://sakanlodge.com', Authorization: 'Bearer secret-test-token'
+  });
+  globalThis.fetch = async () => { throw new Error('secret-test-token'); };
+  let response = await gmailStart(req, env);
+  assert.equal(response.status, 503);
+  assert.doesNotMatch(await response.text(), /secret-test-token/);
+  globalThis.fetch = async () => Response.json({ email: 'danish.mihm@gmail.com', email_confirmed_at: '2026-01-01' });
+  response = await gmailStart(req, { ...env, GMAIL_TOKEN_STORE: { put: async () => { throw new Error('storage error'); } } });
+  assert.equal(response.status, 503);
+});
+test('callback rejects tampered and expired state before exchanging tokens', async () => {
+  const state = 'a'.repeat(32) + '.1000000000000.' + 'b'.repeat(64);
+  assert.equal((await gmailCallback(request(base + '?code=abc&state=' + state), env)).status, 400);
+  const future = String(Date.now() + 120000);
+  const forged = 'a'.repeat(32) + '.' + future + '.' + 'b'.repeat(64);
+  assert.equal((await gmailCallback(request(base + '?code=abc&state=' + forged), env)).status, 403);
+});
