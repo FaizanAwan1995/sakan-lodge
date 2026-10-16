@@ -76,7 +76,9 @@ export async function gmailCallback(request, env) {
       !/^[a-f0-9]{64}$/.test(mac)) return reply('Authorisation expired or invalid.', 400);
   const expected = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
   if (!equal(expected, mac)) return reply('Invalid authorisation state.', 403);
-  // Consume the state once to prevent callback replay.
+  // Best-effort state invalidation: KV reads/deletes are not atomic. Google OAuth
+  // authorization codes are single-use, and PKCE binds them to this verifier.
+  // A Durable Object or transactional store is required for atomic state claims.
   const stateKey = 'oauth-state:' + nonce;
   let stored;
   try { stored = await env.GMAIL_TOKEN_STORE.get(stateKey); } catch { return reply('Authorisation storage unavailable', 503); }
@@ -106,11 +108,14 @@ export async function gmailCallback(request, env) {
   // The refresh token is encrypted at rest using the Web Crypto API, with a key
   // stored separately as a Cloudflare secret; never persist plaintext in KV.
   if (!env.GMAIL_TOKEN_ENCRYPTION_KEY) return reply('Secure token storage is not configured.', 503);
-  const keyBytes = Uint8Array.from(atob(env.GMAIL_TOKEN_ENCRYPTION_KEY), c => c.charCodeAt(0));
-  if (keyBytes.length !== 32) return reply('Invalid token encryption configuration.', 503);
-  const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, utf8.encode(tokens.refresh_token)));
+  let iv, ciphertext;
+  try {
+    const keyBytes = Uint8Array.from(atob(env.GMAIL_TOKEN_ENCRYPTION_KEY), c => c.charCodeAt(0));
+    if (keyBytes.length !== 32) return reply('Invalid token encryption configuration.', 503);
+    const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['encrypt']);
+    iv = crypto.getRandomValues(new Uint8Array(12));
+    ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, utf8.encode(tokens.refresh_token)));
+  } catch { return reply('Secure token encryption failed.', 503); }
   try { await env.GMAIL_TOKEN_STORE.put('gmail:sender:encrypted-refresh-token', JSON.stringify({
     iv: Array.from(iv), data: Array.from(ciphertext), account: SENDER
   })); } catch { return reply('Unable to store encrypted Gmail authorisation', 503); }
