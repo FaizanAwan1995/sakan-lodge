@@ -12,3 +12,8 @@ binding = "ASSETS"
 html_handling = "none"
 not_found_handling = "single-page-application"
 run_worker_first = true
+
+# Dedicated storage for Gmail OAuth state and encrypted refresh token.
+[[kv_namespaces]]
+binding = "GMAIL_TOKEN_STORE"
+id = "1561e031bea149a4a9e4efe340058d8b"
