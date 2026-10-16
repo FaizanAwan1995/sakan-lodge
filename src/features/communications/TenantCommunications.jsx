@@ -30,7 +30,7 @@ export default function TenantCommunications({ db, today }) {
   const [propertyId, setPropertyId] = useState('');
   const [search, setSearch] = useState('');
   const [cc, setCc] = useState('faizanasif117@gmail.com, danish.mihm@gmail.com');
-  const [sender, setSender] = useState('sakanlodges@gmail.com');
+  const sender = 'sakanlodges@gmail.com';
   const [selected, setSelected] = useState([]);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -38,11 +38,11 @@ export default function TenantCommunications({ db, today }) {
   const [template, setTemplate] = useState('general');
   const templates = {
     general: { subject: '', body: '' },
-    inspection: { subject: 'Routine property inspection notice', body: 'Dear tenant,\\n\\nWe are writing to notify you of an upcoming routine property inspection. Inspection date and time: [ENTER DATE AND TIME].\\n\\nPlease contact Sakan Lodge if you have any questions.\\n\\nKind regards,\\nSakan Lodge' },
-    reminder: { subject: 'Reminder: upcoming routine property inspection', body: 'Dear tenant,\\n\\nThis is a reminder of the upcoming routine inspection at your property. Date and time: [ENTER DATE AND TIME].\\n\\nKind regards,\\nSakan Lodge' },
-    receipt: { subject: 'Rent receipt — Sakan Lodge', body: 'Dear tenant,\\n\\nThank you for your rent payment.\\n\\nPayment date: [VERIFY PAYMENT DATE]\\nAmount received: [VERIFY AMOUNT]\\nPeriod covered: [VERIFY PERIOD]\\n\\nKind regards,\\nSakan Lodge' },
-    checkout: { subject: 'Tenancy checkout confirmation', body: 'Dear tenant,\\n\\nThis email confirms your tenancy checkout arrangements.\\n\\nCheckout date: [VERIFY DATE]\\nKeys and room condition: [ADD DETAILS]\\nBond settlement: [CONFIRM SEPARATELY]\\n\\nKind regards,\\nSakan Lodge' },
-    onboarding: { subject: 'Sakan Lodge — tenant onboarding details', body: 'Dear tenant,\\n\\nWelcome to Sakan Lodge. Please review the onboarding details and form, which will be provided separately.\\n\\n[FORM TEMPLATE TO BE ADDED]\\n\\nKind regards,\\nSakan Lodge' },
+    inspection: { subject: 'Routine property inspection notice', body: 'Dear tenant,\n\nWe are writing to notify you of an upcoming routine property inspection. Inspection date and time: [ENTER DATE AND TIME].\n\nPlease contact Sakan Lodge if you have any questions.\n\nKind regards,\nSakan Lodge' },
+    reminder: { subject: 'Reminder: upcoming routine property inspection', body: 'Dear tenant,\n\nThis is a reminder of the upcoming routine inspection at your property. Date and time: [ENTER DATE AND TIME].\n\nKind regards,\nSakan Lodge' },
+    receipt: { subject: 'Rent receipt — Sakan Lodge', body: 'Dear tenant,\n\nThank you for your rent payment.\n\nPayment date: [VERIFY PAYMENT DATE]\nAmount received: [VERIFY AMOUNT]\nPeriod covered: [VERIFY PERIOD]\n\nKind regards,\nSakan Lodge' },
+    checkout: { subject: 'Tenancy checkout confirmation', body: 'Dear tenant,\n\nThis email confirms your tenancy checkout arrangements.\n\nCheckout date: [VERIFY DATE]\nKeys and room condition: [ADD DETAILS]\nBond settlement: [CONFIRM SEPARATELY]\n\nKind regards,\nSakan Lodge' },
+    onboarding: { subject: 'Sakan Lodge — tenant onboarding details', body: 'Dear tenant,\n\nWelcome to Sakan Lodge. Please review the onboarding details and form, which will be provided separately.\n\n[FORM TEMPLATE TO BE ADDED]\n\nKind regards,\nSakan Lodge' },
   };
   const chooseTemplate = (value) => {
     setTemplate(value);
@@ -69,34 +69,41 @@ export default function TenantCommunications({ db, today }) {
     const query = new URLSearchParams(fields);
     window.location.href = 'mailto:' + (emailList.length === 1 ? encodeURIComponent(emailList[0]) : '') + '?' + query.toString();
   };
-  return <section className="card">
-    <h1>Tenant emails</h1>
-    {!isLocalMode && <div className="card" style={{ marginBottom: '1rem' }}>
-      <h2>Official Sakan Lodge Gmail</h2>
-      <p>Connect the business mailbox once to enable secure sending from <strong>sakanlodges@gmail.com</strong>. Only authorised administrators can start this connection.</p>
-      <button type="button" disabled={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Connect Sakan Lodge Gmail'}</button>
+  return <section className="card" style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
+    <header style={{ marginBottom: '1.5rem' }}>
+      <p style={{ textTransform: 'uppercase', letterSpacing: '.12em', fontSize: '.75rem', fontWeight: 700, opacity: .65, marginBottom: '.35rem' }}>Sakan Lodge · Communications</p>
+      <h1 style={{ margin: 0 }}>Tenant emails</h1>
+      <p style={{ marginTop: '.5rem', opacity: .8 }}>Choose recipients, prepare a notice and review it before opening your email app.</p>
+    </header>
+    {!isLocalMode && <div className="card" style={{ marginBottom: '1.5rem', padding: '1.25rem', border: '1px solid var(--border, #d8dfd8)', borderRadius: 14, background: 'var(--surface, #f6f9f6)' }}>
+      <h2 style={{ marginTop: 0 }}>Connect business Gmail</h2>
+      <p>Authorise <strong>sakanlodges@gmail.com</strong> for future direct sending. The composer below currently opens your email app; connecting Gmail does not send messages automatically.</p>
+      <button type="button" disabled={gmailBusy} aria-busy={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Connect Sakan Lodge Gmail'}</button>
       {gmailError && <p role="alert" className="err">{gmailError}</p>}
     </div>}
-    <p>Internal staff composer for Faizan and Danish. Choose tenants from existing resident records; tenants never log into Sakan Lodge. Your email app opens for final review and sending.</p>
-    <p role="note"><strong>Sender:</strong> {sender}. To send from this address, sign in to that Gmail account in your email app or configure it as an authorised sending alias. The app cannot force the From address.</p>
+    <h2 style={{ marginTop: '1.5rem' }}>1. Select recipients</h2>
+    <p style={{ opacity: .75 }}>Only Faizan and Danish can use this internal composer. Tenants never log in.</p>
+    <p style={{ padding: '.75rem 1rem', borderRadius: 10, background: 'var(--surface, #f4f7f4)' }}><strong>Preferred sender:</strong> {sender}. Confirm this account is selected in your email app before sending.</p>
     <label>Property
       <select value={propertyId} onChange={(e) => { setPropertyId(e.target.value); setSelected([]); setPreview(false); }}>
         <option value="">All properties (review carefully)</option>
         {db.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
     </label>
-    <p>{tenants.length} active tenant(s) at the selected property; {recipients.length} with valid email addresses saved in their tenant records.</p>
+    <p aria-live="polite" style={{ fontWeight: 600 }}>{tenants.length} active tenants · {recipients.length} valid email addresses · {chosen.length} selected</p>
     {missingEmails.length > 0 && <p role="status">{missingEmails.length} tenant(s) cannot receive emails until their address is added or corrected in Rooms → resident record.</p>}
-    <h2>Choose individual tenants</h2>
+    <h3 style={{ marginBottom: '.5rem' }}>Choose individual tenants</h3>
     <label>Search by name, email or room<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="e.g. Chauhan Zaman or MZ Avinash" /></label>
     <label><input type="checkbox" checked={allSelected} onChange={(e) => setSelected(e.target.checked ? recipients.map((p) => String(p.id)) : [])} /> Select all eligible tenants in this view</label>
-    <div style={{ maxHeight: 260, overflowY: 'auto', margin: '1rem 0' }}>
-      {visibleTenants.map((p) => <label key={p.id} style={{ display: 'block', padding: '0.4rem 0' }}>
+    <div style={{ maxHeight: 300, overflowY: 'auto', margin: '1rem 0', padding: '.5rem', border: '1px solid var(--border, #d8dfd8)', borderRadius: 12 }}>
+      {visibleTenants.length === 0 && <p style={{ padding: '.75rem' }}>No matching tenants. Try a different search or property.</p>}
+      {visibleTenants.map((p) => <label key={p.id} style={{ display: 'block', padding: '.65rem .5rem', borderBottom: '1px solid var(--border, #edf0ed)', cursor: 'pointer' }}>
         <input type="checkbox" disabled={!isValidTenantEmail(p.email)} checked={selected.includes(String(p.id))} onChange={(e) => setSelected((old) => e.target.checked ? [...old, String(p.id)] : old.filter((id) => id !== String(p.id)))} />
         {' '}{p.name} · {propertyName(p.property_id)} · {db.rooms.find((r) => String(r.id) === String(p.room_id))?.label || 'Room not assigned'} — {isValidTenantEmail(p.email) ? p.email.trim() : 'No valid email saved (edit resident record)'}
       </label>)}
     </div>
     <p>{chosen.length} tenant(s) selected across {new Set(chosen.map((p) => String(p.property_id))).size} property/properties.</p>
+    <h2 style={{ marginTop: '1.75rem' }}>2. Compose message</h2>
     <label>CC (Faizan and Danish; separate addresses with commas)<input type="text" value={cc} onChange={(e) => { setCc(e.target.value); setPreview(false); }} placeholder="faizan@example.com, danish@example.com" /></label>
     {!ccValid && <p role="alert" className="err">Please correct the CC email addresses.</p>}
     <label>Email purpose
@@ -113,11 +120,12 @@ export default function TenantCommunications({ db, today }) {
     <label>Subject<input value={subject} onChange={(e) => { setSubject(e.target.value); setPreview(false); }} placeholder="e.g. Property notice" /></label>
     <label>Message<textarea rows={7} value={message} onChange={(e) => { setMessage(e.target.value); setPreview(false); }} placeholder="Write your message to tenants" /></label>
     {hasUnfilledPlaceholders(message) && <p role="alert">Replace all bracketed template placeholders before preparing this email.</p>}
+    <h2 style={{ marginTop: '1.75rem' }}>3. Review and open</h2>
     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
       <button type="button" disabled={!canCompose} onClick={() => setPreview(true)}>Preview email</button>
       {preview && <button type="button" onClick={send}>Open in email app ({emailList.length})</button>}
     </div>
-    {preview && <div className="card" style={{ marginTop: '1rem', overflowWrap: 'anywhere' }}>
+    {preview && <div className="card" style={{ marginTop: '1rem', overflowWrap: 'anywhere', border: '1px solid var(--border, #d8dfd8)', borderRadius: 12, padding: '1.25rem' }}>
       <h2>Review before sending</h2>
       <p><strong>From (configure in your email app):</strong> {sender}</p>
       <p><strong>Recipients ({emailList.length > 1 ? 'BCC' : 'To'}):</strong> {emailList.join(', ')}</p>
