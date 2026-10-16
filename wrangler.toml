@@ -17,3 +17,11 @@ run_worker_first = true
 [[kv_namespaces]]
 binding = "GMAIL_TOKEN_STORE"
 id = "1561e031bea149a4a9e4efe340058d8b"
+
+[[durable_objects.bindings]]
+name = "GMAIL_OAUTH_STATE"
+class_name = "GmailOAuthState"
+
+[[migrations]]
+tag = "gmail-oauth-state-v1"
+new_sqlite_classes = ["GmailOAuthState"]
