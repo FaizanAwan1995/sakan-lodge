@@ -229,7 +229,7 @@ function Login({ selectedUser, onBack }) {
           if (!supabase) throw new Error('Supabase is not configured.');
           const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: window.location.origin + '/home' },
+            options: { redirectTo: window.location.origin + '/ledger/home' },
           });
           if (error) throw error;
         } catch (error) {
@@ -277,7 +277,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
           <button type="button" disabled={linkingGoogle || session.user.identities?.some(identity => identity.provider === 'google')} onClick={async () => {
             setLinkingGoogle(true); setLinkMessage('');
             try {
-              const { error } = await supabase.auth.linkIdentity({provider:'google',options:{redirectTo:window.location.origin+'/home'}});
+              const { error } = await supabase.auth.linkIdentity({provider:'google',options:{redirectTo:window.location.origin+'/ledger/home'}});
               if (error) throw error;
             } catch(error) { setLinkMessage(errorMessage(error)); setLinkingGoogle(false); }
           }}>{session.user.identities?.some(identity => identity.provider === 'google') ? 'Google connected' : linkingGoogle ? 'Connecting…' : 'Link Google account'}</button></div>
