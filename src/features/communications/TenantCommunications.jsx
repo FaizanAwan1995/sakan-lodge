@@ -4,7 +4,7 @@ import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isV
 export default function TenantCommunications({ db, today }) {
   const [propertyId, setPropertyId] = useState('');
   const [search, setSearch] = useState('');
-  const [cc, setCc] = useState('');
+  const [cc, setCc] = useState('faizanasif117@gmail.com, danish.mihm@gmail.com');
   const [sender, setSender] = useState('sakanlodges@gmail.com');
   const [selected, setSelected] = useState([]);
   const [subject, setSubject] = useState('');
