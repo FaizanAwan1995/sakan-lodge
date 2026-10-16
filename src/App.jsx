@@ -1,4 +1,9 @@
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { errorMessage } from './error-handling.js';
+import { findPossibleDuplicatePayment } from './financial-safety.js';
+import TenantStatements from './features/reports/TenantStatements.jsx';
+import { propertyProfitability } from './features/reports/finance-utils.js';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
@@ -18,34 +23,6 @@ const fmt = (n) => '$' + (+n || 0).toLocaleString('en-AU', { minimumFractionDigi
 const sum = (xs, f = (x) => x) => L.money(xs.reduce((s, x) => s + (+f(x) || 0), 0));
 const nice = (s) => (s ? new Date(s + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) : '');
 const dayAfter = (s) => { if (!s) return undefined; const d = new Date(`${s}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
-
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, message: '' };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, message: error?.message || 'Something went wrong.' };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('App error boundary caught an error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="pad err">
-          <h2>Something went wrong</h2>
-          <p>{this.state.message}</p>
-          <button type="button" onClick={() => window.location.reload()}>Refresh the app</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 export default function App() {
   const [session, setSession] = useState(undefined);
@@ -217,6 +194,7 @@ function Login({ selectedUser, onBack }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   return (
     <form className="pad login" onSubmit={async (e) => {
@@ -243,6 +221,23 @@ function Login({ selectedUser, onBack }) {
       <input type="email" placeholder="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" placeholder="Password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
       <button className="primary" disabled={loading}>{loading ? 'Signing in…' : `Sign in as ${selectedUser}`}</button>
+      <div className="login-divider" role="separator" aria-label="Alternative sign-in">or</div>
+      <button type="button" disabled={loading || googleLoading || isLocalMode} onClick={async () => {
+        setErr('');
+        setGoogleLoading(true);
+        try {
+          if (!supabase) throw new Error('Supabase is not configured.');
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.origin + '/ledger/home' },
+          });
+          if (error) throw error;
+        } catch (error) {
+          setErr(errorMessage(error));
+          setGoogleLoading(false);
+        }
+      }}>{googleLoading ? 'Connecting to Google…' : 'Continue with Google'}</button>
+      <p className="muted">Google sign-in must first be linked to your existing Sakan Lodge account. Sign in with your current password before connecting Google in account settings.</p>
       {err && <p className="err">{err}</p>}
       <button type="button" className="chooser-back" onClick={onBack}>Choose a different user</button>
     </form>
@@ -255,10 +250,12 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const navigate = useNavigate();
   const { residentId } = useParams();
   const [payFor, setPayFor] = useState(null);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+  const [linkMessage, setLinkMessage] = useState('');
   const today = L.todayStr();
   const d = useMemo(() => db && L.derive(db, today), [db, today]);
   const tab = tabFromPath(location.pathname);
-  if (error) return <div className="pad err">{String(error.message || error)}</div>;
+  if (error) return <div className="pad err" role="alert"><h2>Unable to load Sakan Lodge</h2><p>{errorMessage(error)}</p><button type="button" onClick={reload}>Try again</button></div>;
   if (!d) return <div className="pad">Loading…</div>;
   const ctx = { db, d, today, reload, session, go: (t, pid) => { setPayFor(pid ?? null); const route = t === 'today' ? '/home' : `/${t}`; navigate(route); window.scrollTo(0, 0); } };
   const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['activity', 'Activity']];
@@ -270,11 +267,22 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
           <nav className="top-nav">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => ctx.go(k)}>{l}</button>)}</nav>
         </div>
       </header>
-      <main className="pad">
+      <main className="pad" id="main-content" tabIndex="-1">
         <header className="app-header">
           <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
           <time>{nice(today)}</time>
         </header>
+        {!isLocalMode && <section aria-label="Google account connection" className="card" style={{marginBottom:'1rem'}}>
+          <div className="between"><div><strong>Google account</strong><p className="muted">Connect your Google account to this existing Sakan Lodge login. This preserves your user ID and records.</p></div>
+          <button type="button" disabled={linkingGoogle || session.user.identities?.some(identity => identity.provider === 'google')} onClick={async () => {
+            setLinkingGoogle(true); setLinkMessage('');
+            try {
+              const { error } = await supabase.auth.linkIdentity({provider:'google',options:{redirectTo:window.location.origin+'/ledger/home'}});
+              if (error) throw error;
+            } catch(error) { setLinkMessage(errorMessage(error)); setLinkingGoogle(false); }
+          }}>{session.user.identities?.some(identity => identity.provider === 'google') ? 'Google connected' : linkingGoogle ? 'Connecting…' : 'Link Google account'}</button></div>
+          {linkMessage && <p role="alert" className="err">{linkMessage}</p>}
+        </section>}
         {isLocalMode && <div className="local-banner"><strong>Local preview</strong><span>Saved only in this browser · not synced or backed up</span></div>}
         {tab === 'today' && <Today {...ctx} />}
         {tab === 'rooms' && <Rooms {...ctx} residentId={residentId || null} />}
@@ -582,7 +590,7 @@ function HouseForm({ p, done }) {
         <option value="yearly">Yearly</option>
       </select>
       <button className="primary">{p.id ? 'Save property settings' : 'Add property'}</button>
-      {p.id && <button type="button" className="small err" onClick={async () => { if (confirm(`Delete the entire ${p.name} property and all of its rooms, residents, payments, expenses, and repairs?`)) { const ok = await deleteRow('properties', p.id); if (ok) done(); } }}>Delete property</button>}
+      {p.id && <button type="button" className="small err" onClick={async () => { if (window.prompt(`Permanently delete ${p.name} and all linked records? Type DELETE ${p.name} to confirm:`) === `DELETE ${p.name}`) { const ok = await deleteRow('properties', p.id); if (ok) done(); } }}>Delete property</button>}
       <button type="button" className="small" onClick={done}>Cancel</button>
     </form>
   );
@@ -742,7 +750,12 @@ function Rent({ db, d, today, payFor, reload }) {
   const [editingId, setEditingId] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [busy, setBusy] = useState(false);
-  const recent = [...db.payments].sort((a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at)).slice(0, 25);
+  const [paymentPage, setPaymentPage] = useState(0);
+  const paymentPageSize = 25;
+  const sortedPayments = [...db.payments].sort((a, b) => ((b.date || '') + (b.created_at || '')).localeCompare((a.date || '') + (a.created_at || '')));
+  const paymentPages = Math.max(1, Math.ceil(sortedPayments.length / paymentPageSize));
+  const currentPaymentPage = Math.min(paymentPage, paymentPages - 1);
+  const recent = sortedPayments.slice(currentPaymentPage * paymentPageSize, (currentPaymentPage + 1) * paymentPageSize);
   const fortnightStart = L.n2d(L.d2n(today) - 13);
   const rentReceivedFortnight = sum(db.payments.filter((p) => (!p.kind || p.kind === 'rent') && p.date >= fortnightStart && p.date <= today), (p) => p.amount);
   const originalPayment = db.payments.find((p) => p.id === editingId);
@@ -758,6 +771,9 @@ function Rent({ db, d, today, payFor, reload }) {
         if (!person || !(+amount > 0) || paymentError) return;
         setBusy(true);
         const row = { person_id: person.id, property_id: person.property_id, date, amount: L.money(amount), method, received_by: by, kind, note: nn(note) };
+        if (!editingId && findPossibleDuplicatePayment(db.payments, row, null) && !window.confirm('A payment with the same resident, date, amount and method already exists. Record another payment anyway?')) { setBusy(false); return; }
+        const possibleDuplicate = !editingId && findPossibleDuplicatePayment(db.payments, row, editingId);
+        if (possibleDuplicate && !window.confirm('A matching payment already exists for this resident, date, amount and method. Record another payment anyway?')) { setBusy(false); return; }
         const ok = await save('payments', row, editingId, `${editingId ? 'updated' : 'recorded'} ${kind.replace('_', ' ')} payment for ${person.name} (${fmt(amount)})`);
         setBusy(false);
         if (ok) {
@@ -786,13 +802,15 @@ function Rent({ db, d, today, payFor, reload }) {
         {editingId && <button type="button" className="small" onClick={() => { setEditingId(null); setKind('rent'); setPid(''); setAmount(''); setNote(''); }}>Cancel edit</button>}
       </form>
       {receipt && <div className="receipt"><b>Receipt</b><br />{receipt.name}: {receipt.kind === 'bond' ? 'bond received' : receipt.kind === 'bond_refund' ? 'bond refunded' : receipt.kind === 'bond_deducted' ? 'bond retained' : 'rent received'} {fmt(receipt.amount)} on {nice(receipt.date)}{receipt.method !== 'adjustment' ? ` by ${receipt.method}` : ''}, handled by {receipt.received_by}.</div>}
-      <h2>Recent payments</h2>
+      <h2>Payment history</h2>
+      <p className="muted">Showing {recent.length} of {sortedPayments.length} transactions.</p>
       {recent.map((p) => {
         const who = d.people.find((x) => x.id === p.person_id);
         const label = { rent: 'Rent', bond: 'Bond received', bond_refund: 'Bond refunded', bond_deducted: 'Bond retained' }[p.kind || 'rent'];
-        return <div className="row" key={p.id}><span>{who?.name}<small>{label} · {nice(p.date)} · {p.method} · {p.received_by}{p.note ? ` · ${p.note}` : ''}</small></span><span><b>{fmt(p.amount)}</b><button type="button" className="small" onClick={() => { setEditingId(p.id); setPid(p.person_id); setAmount(String(p.amount)); setKind(p.kind || 'rent'); setMethod(p.method || 'cash'); setBy(p.received_by || TEAM[0]); setDate(p.date); setNote(p.note || ''); setReceipt(null); window.scrollTo(0,0); }}>Edit</button><button type="button" className="small" onClick={async () => { if (confirm('Delete this payment or bond transaction?')) { const ok = await deleteRow('payments', p.id); if (ok) reload(); if (editingId === p.id) setEditingId(null); } }}>Delete</button></span></div>;
+        return <div className="row" key={p.id}><span>{who?.name}<small>{label} · {nice(p.date)} · {p.method} · {p.received_by}{p.note ? ` · ${p.note}` : ''}</small></span><span><b>{fmt(p.amount)}</b><button type="button" className="small" onClick={() => { setEditingId(p.id); setPid(p.person_id); setAmount(String(p.amount)); setKind(p.kind || 'rent'); setMethod(p.method || 'cash'); setBy(p.received_by || TEAM[0]); setDate(p.date); setNote(p.note || ''); setReceipt(null); window.scrollTo(0,0); }}>Edit</button><button type="button" className="small" onClick={async () => { if (window.prompt('Deleting a financial transaction changes resident balances. Type DELETE to confirm:') === 'DELETE') { const ok = await deleteRow('payments', p.id); if (ok) reload(); if (editingId === p.id) setEditingId(null); } }}>Delete</button></span></div>;
       })}
-    </>
+
+      <nav aria-label="Payment history pages" className="between"><button type="button" className="small" disabled={currentPaymentPage===0} onClick={()=>setPaymentPage(p=>Math.max(0,p-1))}>Previous</button><span>Page {currentPaymentPage+1} of {paymentPages}</span><button type="button" className="small" disabled={currentPaymentPage>=paymentPages-1} onClick={()=>setPaymentPage(p=>Math.min(paymentPages-1,p+1))}>Next</button></nav>    </>
   );
 }
 
@@ -843,7 +861,7 @@ function Expenses({ db, d, today, reload, payFor }) {
       {personal.map((e) => <div className="row" key={e.id}><span>{e.category} · {house(e.property_id)}<small>{nice(e.date)} {e.note}</small></span><button className="small" onClick={async () => { await save('expenses', { reimbursed: true }, e.id); reload(); }}>Mark reimbursed {fmt(e.amount)}</button></div>)}
       <h2>Recent expenses</h2>
       <p className="muted">Landlord rent is raised automatically and appears in Reports.</p>
-      {recent.map((e) => <div className="row" key={e.id}><span>{e.category} · {house(e.property_id)}<small>{nice(e.date)} {e.note}{e.paid_from === 'personal' ? ' · personal' : ''}</small></span><span><b>{fmt(e.amount)}</b> {e.category !== 'Electricity' && <><button type="button" className="small" onClick={() => { setEditingId(e.id); setF({ date: e.date, category: e.category, amount: String(e.amount), property_id: e.property_id || '', note: e.note || '', paid_from: e.paid_from || 'business', reimbursed: Boolean(e.reimbursed) }); window.scrollTo(0,0); }}>Edit</button> <button type="button" className="small" onClick={async () => { if (confirm('Delete this expense?')) { const ok = await deleteRow('expenses', e.id); if (ok) reload(); } }}>Delete</button></>}{e.category === 'Electricity' && <small className="muted">linked bill</small>}</span></div>)}
+      {recent.map((e) => <div className="row" key={e.id}><span>{e.category} · {house(e.property_id)}<small>{nice(e.date)} {e.note}{e.paid_from === 'personal' ? ' · personal' : ''}</small></span><span><b>{fmt(e.amount)}</b> {e.category !== 'Electricity' && <><button type="button" className="small" onClick={() => { setEditingId(e.id); setF({ date: e.date, category: e.category, amount: String(e.amount), property_id: e.property_id || '', note: e.note || '', paid_from: e.paid_from || 'business', reimbursed: Boolean(e.reimbursed) }); window.scrollTo(0,0); }}>Edit</button> <button type="button" className="small" onClick={async () => { if (window.prompt('Deleting an expense changes financial reports. Type DELETE to confirm:') === 'DELETE') { const ok = await deleteRow('expenses', e.id); if (ok) reload(); } }}>Delete</button></>}{e.category === 'Electricity' && <small className="muted">linked bill</small>}</span></div>)}
     </>
   );
 }
@@ -1072,6 +1090,14 @@ function Reports({ db, d, today }) {
 
   return (
     <>
+      <TenantStatements db={db} today={today} />
+      <section className="card">
+        <h2>Property cash flow · {nice(start)} – {nice(end)}</h2>
+        <p className="muted">Rent received less recorded expenses and scheduled landlord rent. Bond transactions are excluded. This is cash-flow reporting, not tax accounting.</p>
+        {!rangeError && <div style={{overflowX:'auto'}}><table><thead><tr><th>Property</th><th>Rent received</th><th>Expenses</th><th>Net</th></tr></thead><tbody>
+          {propertyProfitability(db, start, end).map(x => <tr key={x.property.id}><td>{x.property.name}</td><td>{fmt(x.rent)}</td><td>{fmt(x.expenses)}</td><td className={x.net < 0 ? 'err' : 'ok'}>{fmt(x.net)}</td></tr>)}
+        </tbody></table></div>}
+      </section>
       <h1 className="screen-title">Property reports</h1>
       <div className="report-controls">
         <div className="seg">{[['fy', 'Financial year'], ['month', 'Monthly'], ['lastFortnight', 'Last fortnight'], ['upcomingFortnight', 'Upcoming fortnight'], ['custom', 'Date range']].map(([key, title]) => <button type="button" key={key} className={rangeMode === key ? 'on' : ''} onClick={() => setRangeMode(key)}>{title}</button>)}</div>

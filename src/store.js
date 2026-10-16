@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState } from 'react';
+import { errorMessage, reportError } from './error-handling.js';
+import { validateFinancialRow } from './financial-safety.js';
 
 const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 // Prefer the current key type, retaining the old anon variable for existing setups.
@@ -116,10 +118,9 @@ function readLocalDb() {
       window.localStorage.setItem(LOCAL_KEY, JSON.stringify(db));
     }
     return db;
-  } catch {
-    const seed = makeSeedDb();
-    window.localStorage.setItem(LOCAL_KEY, JSON.stringify(seed));
-    return seed;
+  } catch (error) {
+    // Preserve the original local data for recovery. Never silently replace it.
+    throw new Error('Local Sakan Lodge data could not be read. Your existing browser data has been preserved. Export or copy the local storage entry before attempting recovery.', { cause: error });
   }
 }
 
@@ -175,8 +176,8 @@ export async function deleteRow(table, id) {
       writeLocalDb(db);
       return true;
     } catch (error) {
-      console.error(`Local delete failed for ${table}:`, error);
-      alert(error?.message || 'Could not delete that item.');
+      reportError(`Local delete failed for ${table}:`, error);
+      alert(errorMessage(error));
       return false;
     }
   }
@@ -185,13 +186,14 @@ export async function deleteRow(table, id) {
     if (!supabase) throw new Error('Supabase is not configured.');
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) {
-      alert(error.message);
+      reportError('database operation', error);
+      alert(errorMessage(error));
       return false;
     }
     return true;
   } catch (error) {
-    console.error(`Supabase delete failed for ${table}:`, error);
-    alert(error?.message || 'Could not delete that item.');
+    reportError(`Supabase delete failed for ${table}:`, error);
+    alert(errorMessage(error));
     return false;
   }
 }
@@ -203,8 +205,8 @@ export async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   } catch (error) {
-    console.error('Sign out failed:', error);
-    alert(error?.message || 'Could not sign out right now.');
+    reportError('Sign out failed:', error);
+    alert(errorMessage(error));
   }
 }
 
@@ -232,6 +234,7 @@ export function useStore(session) {
       setDb(o);
       setError(null);
     } catch (e) {
+      reportError('load records', e);
       setError(e);
     }
   }, []);
@@ -288,8 +291,8 @@ export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, 
       writeLocalDb(db);
       return true;
     } catch (error) {
-      console.error('Posting local electricity bill failed:', error);
-      alert(error?.message || 'Could not save the electricity bill.');
+      reportError('Posting local electricity bill failed:', error);
+      alert(errorMessage(error));
       return false;
     }
   }
@@ -307,13 +310,15 @@ export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, 
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Posting electricity bill failed:', error);
-    alert(`Could not post the electricity bill. Nothing was saved. ${error?.message || 'Unknown error'}`);
+    reportError('Posting electricity bill failed:', error);
+    alert(`Could not post the electricity bill. Nothing was saved. ${errorMessage(error)}`);
     return false;
   }
 }
 
 export async function save(table, row, id, action) {
+  const validationError = validateFinancialRow(table, row);
+  if (validationError) { alert(validationError); return false; }
   if (isLocalMode) {
     try {
       const db = readLocalDb();
@@ -335,8 +340,8 @@ export async function save(table, row, id, action) {
       writeLocalDb(db);
       return true;
     } catch (error) {
-      console.error(`Local save failed for ${table}:`, error);
-      alert(error?.message || 'Could not save that change.');
+      reportError(`Local save failed for ${table}:`, error);
+      alert(errorMessage(error));
       return false;
     }
   }
@@ -348,8 +353,8 @@ export async function save(table, row, id, action) {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error(`Supabase save failed for ${table}:`, error);
-    alert(error?.message || 'Could not save that change.');
+    reportError(`Supabase save failed for ${table}:`, error);
+    alert(errorMessage(error));
     return false;
   }
 }

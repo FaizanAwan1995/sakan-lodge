@@ -10,7 +10,9 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test src/ledger.test.js"
+    "test": "node --test src/*.test.js src/features/communications/*.test.js src/features/reports/*.test.js",
+    "check": "node --check src/financial-safety.js && node --check src/error-handling.js && node --check src/ledger.js && node --check src/store.js && node --check src/app-helpers.js && node --check src/features/communications/email-utils.js",
+    "build:staging": "SAKAN_ENV=staging vite build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

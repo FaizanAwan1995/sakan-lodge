@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './styles.css';
+import { startMonitoring } from './monitoring.js';
+
+startMonitoring();
 
 const routerBase = import.meta.env.VITE_ROUTER_BASENAME || (window.location.pathname.startsWith('/ledger/') ? '/ledger/' : '/');
 
