@@ -1,7 +1,29 @@
 import { useMemo, useState } from 'react';
+import { supabase, isLocalMode } from '../../store.js';
 import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isValidTenantEmail } from './email-utils.js';
 
 export default function TenantCommunications({ db, today }) {
+  const [gmailBusy, setGmailBusy] = useState(false);
+  const [gmailError, setGmailError] = useState('');
+  const connectGmail = async () => {
+    if (!supabase || isLocalMode) return;
+    setGmailBusy(true);
+    setGmailError('');
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session?.access_token) throw new Error('Please sign in again.');
+      const response = await fetch('/api/gmail/start', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.url) throw new Error(payload.error || 'Gmail connection is not available yet.');
+      window.location.assign(payload.url);
+    } catch (error) {
+      setGmailError(error.message || 'Unable to start Gmail connection.');
+      setGmailBusy(false);
+    }
+  };
   const [propertyId, setPropertyId] = useState('');
   const [search, setSearch] = useState('');
   const [cc, setCc] = useState('faizanasif117@gmail.com, danish.mihm@gmail.com');
@@ -46,6 +68,12 @@ export default function TenantCommunications({ db, today }) {
   };
   return <section className="card">
     <h1>Tenant emails</h1>
+    {!isLocalMode && <div className="card" style={{ marginBottom: '1rem' }}>
+      <h2>Official Sakan Lodge Gmail</h2>
+      <p>Connect the business mailbox once to enable secure sending from <strong>sakanlodges@gmail.com</strong>. Only authorised administrators can start this connection.</p>
+      <button type="button" disabled={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Connect Sakan Lodge Gmail'}</button>
+      {gmailError && <p role="alert" className="err">{gmailError}</p>}
+    </div>
     <p>Internal staff composer for Faizan and Danish. Choose tenants from existing resident records; tenants never log into Sakan Lodge. Your email app opens for final review and sending.</p>
     <p role="note"><strong>Sender:</strong> {sender}. To send from this address, sign in to that Gmail account in your email app or configure it as an authorised sending alias. The app cannot force the From address.</p>
     <label>Property
