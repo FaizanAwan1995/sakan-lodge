@@ -20,6 +20,36 @@ function equal(a, b) {
   for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return mismatch === 0;
 }
+const ADMINS = new Set(['faizanasif117@gmail.com', 'danish.mihm@gmail.com']);
+export async function gmailStart(request, env) {
+  if (request.method !== 'POST') return reply('Method not allowed', 405);
+  if (request.headers.get('Origin') !== 'https://sakanlodge.com') return reply('Invalid origin', 403);
+  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_STORE ||
+      !env.SUPABASE_URL || !env.SUPABASE_PUBLIC_KEY) return reply('Gmail connection not configured', 503);
+  const bearer = request.headers.get('Authorization') || '';
+  if (!/^Bearer [^\\s]+$/.test(bearer)) return reply('Sign in required', 401);
+  const userResponse = await fetch(env.SUPABASE_URL.replace(/\\/$/, '') + '/auth/v1/user', {
+    headers: { Authorization: bearer, apikey: env.SUPABASE_PUBLIC_KEY }
+  });
+  if (!userResponse.ok) return reply('Session expired', 401);
+  const user = await userResponse.json();
+  if (!user.email_confirmed_at || !ADMINS.has((user.email || '').toLowerCase())) return reply('Administrator access required', 403);
+  const nonce = toHex(crypto.getRandomValues(new Uint8Array(16)));
+  const expiryText = String(Date.now() + 300000);
+  const mac = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
+  await env.GMAIL_TOKEN_STORE.put('oauth-state:' + nonce, expiryText, { expirationTtl: 300 });
+  const oauth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  for (const [k,v] of Object.entries({
+    client_id: env.GMAIL_CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code',
+    scope: 'https://www.googleapis.com/auth/gmail.send',
+    access_type: 'offline', prompt: 'consent select_account',
+    login_hint: SENDER, state: nonce + '.' + expiryText + '.' + mac
+  })) oauth.searchParams.set(k,v);
+  return new Response(JSON.stringify({ url: oauth.toString() }), {
+    status: 200, headers: { 'content-type': 'application/json', 'cache-control': 'no-store',
+      'Access-Control-Allow-Origin': 'https://sakanlodge.com', 'Vary': 'Origin' }
+  });
+}
 export async function gmailCallback(request, env) {
   if (request.method !== 'GET') return reply('Method not allowed', 405);
   if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_STORE) {
