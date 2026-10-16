@@ -73,7 +73,7 @@ export default function TenantCommunications({ db, today }) {
       <p>Connect the business mailbox once to enable secure sending from <strong>sakanlodges@gmail.com</strong>. Only authorised administrators can start this connection.</p>
       <button type="button" disabled={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Connect Sakan Lodge Gmail'}</button>
       {gmailError && <p role="alert" className="err">{gmailError}</p>}
-    </div>
+    </div>}
     <p>Internal staff composer for Faizan and Danish. Choose tenants from existing resident records; tenants never log into Sakan Lodge. Your email app opens for final review and sending.</p>
     <p role="note"><strong>Sender:</strong> {sender}. To send from this address, sign in to that Gmail account in your email app or configure it as an authorised sending alias. The app cannot force the From address.</p>
     <label>Property
