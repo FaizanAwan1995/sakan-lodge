@@ -25,7 +25,7 @@ const ADMINS = new Set(['faizanasif117@gmail.com', 'danish.mihm@gmail.com']);
 export async function gmailStart(request, env) {
   if (request.method !== 'POST') return reply('Method not allowed', 405);
   if (request.headers.get('Origin') !== 'https://sakanlodge.com') return reply('Invalid origin', 403);
-  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_STORE ||
+  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_OAUTH_STATE || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_TOKEN_ENCRYPTION_KEY ||
       !env.SUPABASE_URL || !env.SUPABASE_PUBLIC_KEY) return reply('Gmail connection not configured', 503);
   const bearer = request.headers.get('Authorization') || '';
   if (!/^Bearer \S+$/.test(bearer)) return reply('Sign in required', 401);
@@ -42,7 +42,11 @@ export async function gmailStart(request, env) {
   const mac = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = base64url(await crypto.subtle.digest('SHA-256', utf8.encode(verifier)));
-  try { await env.GMAIL_TOKEN_STORE.put('oauth-state:' + nonce, JSON.stringify({ expiryText, verifier }), { expirationTtl: 300 }); }
+  try {
+    const stub = env.GMAIL_OAUTH_STATE.get(env.GMAIL_OAUTH_STATE.idFromName(nonce));
+    const stored = await stub.fetch('https://oauth-state/' + nonce, { method: 'PUT', body: JSON.stringify({ expiryText, verifier }) });
+    if (!stored.ok) return reply('Unable to save authorisation request', 503);
+  }
   catch { return reply('Unable to save authorisation request', 503); }
   const oauth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   for (const [k,v] of Object.entries({
@@ -59,7 +63,7 @@ export async function gmailStart(request, env) {
 }
 export async function gmailCallback(request, env) {
   if (request.method !== 'GET') return reply('Method not allowed', 405);
-  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_ENCRYPTION_KEY || !env.GMAIL_TOKEN_STORE) {
+  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_OAUTH_STATE_SECRET || !env.GMAIL_TOKEN_ENCRYPTION_KEY || !env.GMAIL_TOKEN_STORE || !env.GMAIL_OAUTH_STATE) {
     return reply('Gmail connection is not configured yet.', 503);
   }
   const url = new URL(request.url);
@@ -76,16 +80,15 @@ export async function gmailCallback(request, env) {
       !/^[a-f0-9]{64}$/.test(mac)) return reply('Authorisation expired or invalid.', 400);
   const expected = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
   if (!equal(expected, mac)) return reply('Invalid authorisation state.', 403);
-  // Best-effort state invalidation: KV reads/deletes are not atomic. Google OAuth
-  // authorization codes are single-use, and PKCE binds them to this verifier.
-  // A Durable Object or transactional store is required for atomic state claims.
-  const stateKey = 'oauth-state:' + nonce;
-  let stored;
-  try { stored = await env.GMAIL_TOKEN_STORE.get(stateKey); } catch { return reply('Authorisation storage unavailable', 503); }
+  // A Durable Object transaction atomically consumes this single-use state.
   let saved;
-  try { saved = JSON.parse(stored); } catch { return reply('Authorisation already used or expired.', 403); }
-  if (saved?.expiryText !== expiryText || !/^[A-Za-z0-9_-]{43}$/.test(saved?.verifier || '')) return reply('Authorisation already used or expired.', 403);
-  try { await env.GMAIL_TOKEN_STORE.delete(stateKey); } catch { return reply('Unable to complete authorisation', 503); }
+  try {
+    const stub = env.GMAIL_OAUTH_STATE.get(env.GMAIL_OAUTH_STATE.idFromName(nonce));
+    const claimed = await stub.fetch('https://oauth-state/' + nonce, { method: 'POST', body: expiryText });
+    if (!claimed.ok) return reply('Authorisation already used or expired.', 403);
+    saved = await claimed.json();
+  } catch { return reply('Authorisation storage unavailable', 503); }
+  if (saved?.expiryText !== expiryText || !/^[A-Za-z0-9_-]{43}$/.test(saved?.verifier || '')) return reply('Invalid authorisation state.', 403);
   let tokenResponse;
   try { tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
