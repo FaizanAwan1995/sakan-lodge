@@ -5,7 +5,7 @@ const REDIRECT = 'https://sakanlodge.com/api/gmail/callback';
 const SENDER = 'sakanlodges@gmail.com';
 const utf8 = new TextEncoder();
 const toHex = bytes => [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
-const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+const base64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const reply = (message, status = 200) => new Response(message, {
   status,
   headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store',
