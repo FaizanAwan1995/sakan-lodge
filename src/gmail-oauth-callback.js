@@ -44,7 +44,7 @@ export async function gmailStart(request, env) {
   const oauth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   for (const [k,v] of Object.entries({
     client_id: env.GMAIL_CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/gmail.send',
+    scope: 'openid email https://www.googleapis.com/auth/gmail.send',
     access_type: 'offline', prompt: 'consent select_account',
     login_hint: SENDER, state: nonce + '.' + expiryText + '.' + mac
   })) oauth.searchParams.set(k,v);
@@ -90,13 +90,13 @@ export async function gmailCallback(request, env) {
   try { tokens = await tokenResponse.json(); } catch { return reply('Invalid Google token response', 502); }
   if (!tokens.access_token || !tokens.refresh_token) return reply('No offline authorisation granted. Reconnect with consent.', 400);
   let identityResponse;
-  try { identityResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+  try { identityResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
     headers: { Authorization: 'Bearer ' + tokens.access_token }
   }); } catch { return reply('Gmail identity service unavailable', 502); }
   if (!identityResponse.ok) return reply('Could not verify the Gmail sender.', 502);
   let profile;
   try { profile = await identityResponse.json(); } catch { return reply('Invalid Gmail identity response', 502); }
-  if ((profile.emailAddress || '').toLowerCase() !== SENDER) return reply('Please authorise only sakanlodges@gmail.com.', 403);
+  if ((profile.email || '').toLowerCase() !== SENDER || profile.email_verified !== true) return reply('Please authorise only sakanlodges@gmail.com.', 403);
   // The refresh token is encrypted at rest using the Web Crypto API, with a key
   // stored separately as a Cloudflare secret; never persist plaintext in KV.
   if (!env.GMAIL_TOKEN_ENCRYPTION_KEY) return reply('Secure token storage is not configured.', 503);
