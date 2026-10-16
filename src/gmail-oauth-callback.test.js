@@ -9,6 +9,7 @@ const env = {
   GMAIL_OAUTH_STATE_SECRET: 'test-state-secret',
   GMAIL_TOKEN_ENCRYPTION_KEY: btoa('12345678901234567890123456789012'),
   GMAIL_TOKEN_STORE: { get: async () => null, put: async () => {}, delete: async () => {} },
+  GMAIL_OAUTH_STATE: { idFromName: nonce => nonce, get: () => ({ fetch: async (url, options) => options.method === 'PUT' ? new Response('Stored') : new Response('Already used', { status: 403 }) }) },
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_PUBLIC_KEY: 'test-publishable'
 };
@@ -41,7 +42,7 @@ test('start accepts confirmed administrator and generates scoped Google consent 
   let stored;
   const response = await gmailStart(request('https://sakanlodge.com/api/gmail/start', 'POST', {
     Origin: 'https://sakanlodge.com', Authorization: 'Bearer valid-test-token'
-  }), { ...env, GMAIL_TOKEN_STORE: { put: async (...args) => { stored = args; } } });
+  }), { ...env, GMAIL_OAUTH_STATE: { idFromName: nonce => nonce, get: () => ({ fetch: async (...args) => { stored = args; return new Response('Stored'); } }) } });
   assert.equal(response.status, 200);
   const { url } = await response.json();
   const parsed = new URL(url);
@@ -49,10 +50,10 @@ test('start accepts confirmed administrator and generates scoped Google consent 
   assert.equal(parsed.searchParams.get('login_hint'), 'sakanlodges@gmail.com');
   assert.match(parsed.searchParams.get('scope'), /gmail\.send/);
   assert.match(parsed.searchParams.get('scope'), /openid email/);
-  assert.ok(stored[0].startsWith('oauth-state:'));
+  assert.ok(stored[0].startsWith('https://oauth-state/'));
   assert.equal(parsed.searchParams.get('code_challenge_method'), 'S256');
   assert.match(parsed.searchParams.get('code_challenge'), /^[A-Za-z0-9_-]{43}$/);
-  const saved = JSON.parse(stored[1]);
+  const saved = JSON.parse(stored[1].body);
   assert.match(saved.verifier, /^[A-Za-z0-9_-]{43}$/);
   assert.notEqual(saved.verifier, parsed.searchParams.get('code_challenge'));
 });
@@ -81,7 +82,7 @@ test('start handles authentication network and storage errors without exposing t
   assert.equal(response.status, 503);
   assert.doesNotMatch(await response.text(), /secret-test-token/);
   globalThis.fetch = async () => Response.json({ email: 'danish.mihm@gmail.com', email_confirmed_at: '2026-01-01' });
-  response = await gmailStart(req, { ...env, GMAIL_TOKEN_STORE: { put: async () => { throw new Error('storage error'); } } });
+  response = await gmailStart(req, { ...env, GMAIL_OAUTH_STATE: { idFromName: nonce => nonce, get: () => ({ fetch: async () => { throw new Error('storage error'); } }) } });
   assert.equal(response.status, 503);
 });
 test('callback rejects tampered and expired state before exchanging tokens', async () => {
