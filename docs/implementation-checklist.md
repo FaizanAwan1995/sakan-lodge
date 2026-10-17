@@ -27,8 +27,8 @@ Checked implementation items describe source code, not production activation.
 
 ## Verification and release gates
 
-- [ ] Pass final application and PostgreSQL CI for the PR head.
-- [ ] Verify simultaneous holds/check-ins using separate PostgreSQL sessions.
+- [x] Pass application and PostgreSQL CI: 77 application/backup tests and 21 database checks, no failures/skips.
+- [x] Verify holds versus holds, check-ins versus check-ins, and holds versus check-ins in separate PostgreSQL sessions.
 - [ ] Complete authenticated desktop/mobile, accessibility, offline and error-path acceptance.
 - [ ] Verify deployment configuration, migration order and recovery rehearsal.
 - [ ] Approve agreement terms and verified property/room content.
