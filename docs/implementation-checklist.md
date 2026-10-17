@@ -11,6 +11,9 @@ Checked implementation items describe source code, not production activation.
 - [x] Multiple properties per suburb; Fulham, Clapham and Oaklands Park.
 - [x] Nested location/property/room URLs and separate private ledger.
 - [x] Administrator approval before publication; public output excludes private records.
+- [x] Checkout-driven explicit ledger release before readiness and publication approval.
+- [x] Shared-room public availability limited to released bed spaces, not all empty beds.
+- [x] Recover prior agreement/payment/bond decisions; supplied agreement is the private source document.
 
 ## Implementation
 
@@ -24,15 +27,21 @@ Checked implementation items describe source code, not production activation.
 - [x] Manually reviewed notification drafts with uncertain-send reconciliation.
 - [x] Authenticated encrypted backup implementation and synthetic recovery test.
 - [x] Realtime publication and staff refresh support.
+- [x] Ledger release/withdrawal, idempotent release, check-in consumption and checkout-correction safeguards.
 
 ## Verification and release gates
 
-- [x] Pass application and PostgreSQL CI: 77 application/backup tests and 21 database checks, no failures/skips.
+- [x] Existing application/PostgreSQL CI passed before the release-workflow correction.
+- [ ] Verify the exact revised head in CI, including ledger release and post-migration concurrency checks.
 - [x] Verify holds versus holds, check-ins versus check-ins, and holds versus check-ins in separate PostgreSQL sessions.
 - [ ] Complete authenticated desktop/mobile, accessibility, offline and error-path acceptance.
 - [ ] Verify deployment configuration, migration order and recovery rehearsal.
-- [ ] Approve agreement terms and verified property/room content.
+- [x] Recover the supplied agreement, fortnightly-in-advance payment terms and general two-week bond rule.
+- [ ] Prepare the reusable private agreement from that source with current utilities wording, fresh applicant fields and fresh signatures; verify generated output.
+- [ ] Verify and approve room content/readiness as each checked-out space is released from the ledger.
 - [ ] Verify authorized test email delivery.
 - [ ] Verify the deployed release and explicitly enable customer requests after acceptance.
 
 Deployment-specific details and operational findings belong in private records.
+
+The agreed decisions are recorded in [requirements-decisions.md](requirements-decisions.md). Routine release review is not a request to repeat those business decisions.
