@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /ledger/
+Disallow: /api/
+Sitemap: https://sakanlodge.com/sitemap.xml
