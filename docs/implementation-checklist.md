@@ -31,8 +31,8 @@ Checked implementation items describe source code, not production activation.
 
 ## Verification and release gates
 
-- [x] Existing application/PostgreSQL CI passed before the release-workflow correction.
-- [ ] Verify the exact revised head in CI, including ledger release and post-migration concurrency checks.
+- [x] Pass revised application/PostgreSQL CI: 77 application/backup tests and 35 database checks, no failures/skips.
+- [x] Verify competing ledger releases and reservation/check-in races after the release migration in separate PostgreSQL sessions.
 - [x] Verify holds versus holds, check-ins versus check-ins, and holds versus check-ins in separate PostgreSQL sessions.
 - [ ] Complete authenticated desktop/mobile, accessibility, offline and error-path acceptance.
 - [ ] Verify deployment configuration, migration order and recovery rehearsal.
