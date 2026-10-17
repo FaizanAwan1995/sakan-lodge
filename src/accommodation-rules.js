@@ -54,3 +54,16 @@ export function availableSpaces({capacity, residents = [], holds = [], blocks = 
   if (offerType === 'shared') return remaining;
   throw new Error('Unsupported accommodation type.');
 }
+
+/** Public offer type is determined by the ledger room capacity, never by a manual override. */
+export function offerTypeForCapacity(capacity) {
+  if (!Number.isInteger(capacity) || capacity < 1) throw new Error('Invalid room capacity.');
+  return capacity === 1 ? 'private' : 'shared';
+}
+
+/** Enforce capacity-based offering before quoting or accepting a reservation. */
+export function rateForCapacity(capacity, arrivalDate, departureDate) {
+  const offerType = offerTypeForCapacity(capacity);
+  const stayType = classifyStay(arrivalDate, departureDate);
+  return { offerType, stayType, weeklyRate: weeklyAdvertisedRate(offerType, stayType) };
+}
