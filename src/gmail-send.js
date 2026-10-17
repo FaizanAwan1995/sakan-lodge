@@ -40,7 +40,12 @@ export async function gmailSend(request, env) {
     if (!result.ok) return reply({ error: 'Gmail did not confirm sending. Check Sent Mail before retrying.' }, 502);
     const sent = await result.json();
     if (!sent.id) return reply({ error: 'Sending confirmation missing. Check Sent Mail.' }, 502);
-    return reply({ sent: true, recipientCount: addresses.length, messageId: sent.id });
+    const auditResponse = await fetch(env.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/log_sent_email', {
+      method: 'POST',
+      headers: { Authorization: authorization, apikey: env.SUPABASE_PUBLIC_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_subject: subject.trim(), p_count: addresses.length, p_message_id: sent.id })
+    });
+    return reply({ sent: true, recipientCount: addresses.length, messageId: sent.id, logged: auditResponse.ok });
   } catch {
     return reply({ error: 'Unable to confirm sending. Check Sent Mail before retrying.' }, 503);
   }
