@@ -20,8 +20,8 @@ async function rpc(name, args) {
 }
 export default function Reservations({ db, reload }) {
   const detailVersion = useRef(0);
-  const selectedRef=useRef(null);
-  const [stale,setStale]=useState(false);
+  const selectedRef = useRef(null);
+  const [stale, setStale] = useState(false);
   const [creating, setCreating] = useState(false);
   const [rows, setRows] = useState([]),
     [filter, setFilter] = useState("all"),
@@ -43,12 +43,12 @@ export default function Reservations({ db, reload }) {
         .limit(200);
       if (e) throw e;
       setRows(data || []);
-      const current=selectedRef.current;
-      if(current){
-        const next=(data||[]).find(r=>r.id===current.id);
-        if(next && next.revision!==current.revision)setStale(true);
+      const current = selectedRef.current;
+      if (current) {
+        const next = (data || []).find((r) => r.id === current.id);
+        if (next && next.revision !== current.revision) setStale(true);
       }
-      return data||[];
+      return data || [];
     } catch (e) {
       setError(e.message || "Unable to load reservations");
     }
@@ -83,17 +83,32 @@ export default function Reservations({ db, reload }) {
   useEffect(() => {
     refresh();
     if (!supabase) return;
-    const workflowTables=new Set(['reservations','reservation_events','contracts','notification_outbox']);
-    const sync=()=>{
+    const workflowTables = new Set([
+      "reservations",
+      "reservation_events",
+      "contracts",
+      "notification_outbox",
+    ]);
+    const sync = () => {
       void refresh();
-      if(selectedRef.current)void loadDetail(selectedRef.current.id).catch(e=>setError(e.message||'Unable to refresh details'));
+      if (selectedRef.current)
+        void loadDetail(selectedRef.current.id).catch((e) =>
+          setError(e.message || "Unable to refresh details"),
+        );
     };
-    const channel=supabase.channel('reservations-inbox').on('postgres_changes',{event:'*',schema:'public'},payload=>{
-      if(workflowTables.has(payload.table))sync();
-    }).subscribe();
-    window.addEventListener('focus',sync);
-    window.addEventListener('online',sync);
-    return ()=>{supabase.removeChannel(channel);window.removeEventListener('focus',sync);window.removeEventListener('online',sync);};
+    const channel = supabase
+      .channel("reservations-inbox")
+      .on("postgres_changes", { event: "*", schema: "public" }, (payload) => {
+        if (workflowTables.has(payload.table)) sync();
+      })
+      .subscribe();
+    window.addEventListener("focus", sync);
+    window.addEventListener("online", sync);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("online", sync);
+    };
   }, []);
   async function run(fn) {
     setBusy(true);
@@ -111,8 +126,8 @@ export default function Reservations({ db, reload }) {
     }
   }
   async function open(r) {
-    if(!r)return;
-    selectedRef.current=r;
+    if (!r) return;
+    selectedRef.current = r;
     setStale(false);
     setSelected(r);
     setDraft({
@@ -137,14 +152,16 @@ export default function Reservations({ db, reload }) {
   const change = (key, value) => setDraft((x) => ({ ...x, [key]: value }));
   const action = (name, data = {}) =>
     run(async () => {
-      if(stale)throw new Error('This reservation changed. Reload before saving.');
+      if (stale)
+        throw new Error("This reservation changed. Reload before saving.");
       const r = await rpc("manage_reservation", {
         p_id: selected.id,
         p_revision: selected.revision,
         p_action: name,
         p_data: data,
       });
-      selectedRef.current=r;
+      selectedRef.current = r;
+      setStale(false);
       setSelected(r);
       if (name === "check_in") reload?.();
     });
@@ -291,9 +308,32 @@ export default function Reservations({ db, reload }) {
         <>
           {selected ? (
             <article className="card">
-              <button onClick={() => {selectedRef.current=null;setSelected(null);setStale(false);}}>Back to inbox</button>
-              {stale&&<p role="alert" className="err">Another session changed this reservation. Your unsaved fields have been preserved. Reload before saving.</p>}
-              <button disabled={busy} onClick={()=>run(async()=>{const latest=await refresh();await open(latest?.find(r=>r.id===selected.id));})}>Reload this reservation</button>
+              <button
+                onClick={() => {
+                  selectedRef.current = null;
+                  setSelected(null);
+                  setStale(false);
+                }}
+              >
+                Back to inbox
+              </button>
+              {stale && (
+                <p role="alert" className="err">
+                  Another session changed this reservation. Your unsaved fields
+                  have been preserved. Reload before saving.
+                </p>
+              )}
+              <button
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const latest = await refresh();
+                    await open(latest?.find((r) => r.id === selected.id));
+                  })
+                }
+              >
+                Reload this reservation
+              </button>
               <h2>
                 {selected.full_name} · {selected.reservation_code}
               </h2>
