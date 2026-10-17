@@ -11,6 +11,7 @@ import { accountChoices, bondStatusLabel, reorderList, sortPeopleByRentUrgency, 
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
 import TenantCommunications from './features/communications/TenantCommunications.jsx';
 import Reservations from './features/reservations/Reservations.jsx';
+import ReleaseListingButton from './features/reservations/ReleaseListingButton.jsx';
 
 const TEAM = accountChoices();
 const LOGO = '/ledger/sakan-logo.jpg';
@@ -558,10 +559,10 @@ function Rooms({ db, d, today, reload, residentId }) {
         </section>
       ))}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
-        <button className="row" key={x.id} onClick={() => setEdit({ type: 'person', data: x })}>
+        <div className="card" key={x.id}><button className="row" onClick={() => setEdit({ type: 'person', data: x })}>
           <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
           {x.owed > 0 && <b className="err">{fmt(x.owed)}</b>}
-        </button>))}</>}
+        </button><ReleaseListingButton person={x} /></div>))}</>}
     </>
   );
 }
@@ -639,6 +640,7 @@ function CheckoutForm({ person, today, done }) {
   }}>
     <h1>Check out {person.name}</h1>
     <p className="muted">Checked in {nice(person.start_date)}. The checkout date is stored on the resident record and rent is charged up to the day before checkout.</p>
+    <p className="muted">Checkout alone does not publish a listing. After checkout, release the space from Past residents, then verify readiness and approve its listing.</p>
     <label>Checkout date</label><input type="date" min={dayAfter(person.start_date)} value={date} onChange={(e) => setDate(e.target.value)} required />
     <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Confirm checkout'}</button>
     <button type="button" className="small" onClick={done}>Cancel</button>
