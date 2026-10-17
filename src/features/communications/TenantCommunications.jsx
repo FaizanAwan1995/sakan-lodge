@@ -1,11 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase, isLocalMode } from '../../store.js';
 import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isValidTenantEmail } from './email-utils.js';
 
 export default function TenantCommunications({ db, today }) {
   const [gmailBusy, setGmailBusy] = useState(false);
   const [gmailError, setGmailError] = useState('');
-  const gmailConnected = new URLSearchParams(window.location.search).get('gmail') === 'connected';
+  const [gmailConnected, setGmailConnected] = useState(() => new URLSearchParams(window.location.search).get('gmail') === 'connected');
+  const [showGmailSettings, setShowGmailSettings] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('gmail')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('gmail');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+  }, []);
   const connectGmail = async () => {
     if (!supabase || isLocalMode) return;
     setGmailBusy(true);
@@ -30,6 +38,7 @@ export default function TenantCommunications({ db, today }) {
   };
   const [propertyId, setPropertyId] = useState('');
   const [search, setSearch] = useState('');
+  const [customRecipients, setCustomRecipients] = useState('');
   const [cc, setCc] = useState('faizanasif117@gmail.com, danish.mihm@gmail.com');
   const sender = 'sakanlodges@gmail.com';
   const [selected, setSelected] = useState([]);
@@ -58,10 +67,12 @@ export default function TenantCommunications({ db, today }) {
   const missingEmails = tenants.filter((p) => !isValidTenantEmail(p.email));
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
   const allSelected = recipients.length > 0 && chosen.length === recipients.length;
-  const emailList = uniqueRecipientEmails(chosen);
+  const customEmails = customRecipients.split(/[;,\\s]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
+  const invalidCustomEmails = customEmails.filter((email) => !isValidTenantEmail(email));
+  const emailList = [...new Set([...uniqueRecipientEmails(chosen), ...customEmails])];
   const ccEmails = [...new Set(cc.split(/[;,\n]+/).map((email) => email.trim().toLowerCase()).filter(Boolean))];
   const ccValid = ccEmails.every(isValidTenantEmail);
-  const canCompose = emailList.length > 0 && subject.trim() && message.trim() && !hasUnfilledPlaceholders(message) && ccValid;
+  const canCompose = emailList.length > 0 && subject.trim() && message.trim() && !hasUnfilledPlaceholders(message) && ccValid && invalidCustomEmails.length === 0;
   const send = () => {
     if (!canCompose) return;
     const fields = { subject: subject.trim(), body: message.trim() };
@@ -75,18 +86,23 @@ export default function TenantCommunications({ db, today }) {
     <header style={{ marginBottom: '1.5rem' }}>
       <p style={{ textTransform: 'uppercase', letterSpacing: '.12em', fontSize: '.75rem', fontWeight: 700, opacity: .65, marginBottom: '.35rem' }}>Sakan Lodge · Communications</p>
       <h1 style={{ margin: 0 }}>Tenant emails</h1>
-      <p style={{ marginTop: '.5rem', opacity: .8 }}>Choose recipients, prepare a notice and review it before opening your email app.</p>
+      <p style={{ marginTop: '.5rem', opacity: .8 }}>Select recipients, compose your message and review before sending.</p>
     </header>
-    {!isLocalMode && <div className="card" style={{ marginBottom: '1.5rem', padding: '1.25rem', border: '1px solid var(--border, #d8dfd8)', borderRadius: 14, background: 'var(--surface, #f6f9f6)' }}>
-      <h2 style={{ marginTop: 0 }}>Connect business Gmail</h2>
-      <p>Authorise <strong>sakanlodges@gmail.com</strong> for future direct sending. The composer below currently opens your email app; connecting Gmail does not send messages automatically.</p>
-      <button type="button" disabled={gmailBusy} aria-busy={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Connect Sakan Lodge Gmail'}</button>
-      {gmailConnected && <p role="status" style={{ color: 'var(--success, #246a47)', fontWeight: 700 }}>Sakan Lodge Gmail connected successfully. You can now return to tenant emails.</p>}
-      {gmailError && <p role="alert" className="err">{gmailError}</p>}
+    {gmailConnected && <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '.75rem 1rem', marginBottom: '1rem', borderRadius: 12, background: '#e8f3ea', color: '#235c3e' }}>
+      <span><strong>Gmail connected.</strong> Your sender account is authorised.</span>
+      <button type="button" aria-label="Dismiss Gmail confirmation" onClick={() => setGmailConnected(false)} style={{ width: 'auto', minHeight: 36, flexShrink: 0 }}>Dismiss</button>
     </div>}
-    <h2 style={{ marginTop: '1.5rem' }}>1. Select recipients</h2>
-    <p style={{ opacity: .75 }}>Only Faizan and Danish can use this internal composer. Tenants never log in.</p>
-    <p style={{ padding: '.75rem 1rem', borderRadius: 10, background: 'var(--surface, #f4f7f4)' }}><strong>Preferred sender:</strong> {sender}. Confirm this account is selected in your email app before sending.</p>
+    {!isLocalMode && <div style={{ marginBottom: '1.25rem' }}>
+      <button type="button" onClick={() => setShowGmailSettings((value) => !value)} aria-expanded={showGmailSettings} style={{ width: 'auto' }}>{showGmailSettings ? 'Hide Gmail settings' : 'Gmail settings'}</button>
+      {showGmailSettings && <div className="card" style={{ marginTop: '.75rem', padding: '1rem', borderRadius: 12 }}>
+        <p style={{ marginTop: 0 }}><strong>Business account:</strong> {sender}</p>
+        <p style={{ opacity: .75 }}>Reconnect only if access needs to be renewed. This composer currently opens your email app; direct Gmail sending is not yet enabled.</p>
+        <button type="button" disabled={gmailBusy} aria-busy={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Reconnect Gmail'}</button>
+        {gmailError && <p role="alert" className="err">{gmailError}</p>}
+      </div>}
+    </div>}
+    <h2 style={{ marginTop: '1.25rem' }}>1. Recipients</h2>
+    <p style={{ opacity: .75 }}>Select tenants, enter other email addresses, or use both.</p>
     <label>Property
       <select value={propertyId} onChange={(e) => { setPropertyId(e.target.value); setSelected([]); setPreview(false); }}>
         <option value="">All properties (review carefully)</option>
@@ -106,6 +122,12 @@ export default function TenantCommunications({ db, today }) {
       </label>)}
     </div>
     <p aria-live="polite">{chosen.length} tenant(s) selected across {new Set(chosen.map((p) => String(p.property_id))).size} property/properties.</p>
+    <label>Additional recipients (optional)
+      <textarea rows={2} value={customRecipients} onChange={(e) => { setCustomRecipients(e.target.value); setPreview(false); }} placeholder="name@example.com, another@example.com" />
+    </label>
+    <p style={{ opacity: .7, marginTop: '.25rem' }}>Separate addresses with commas, spaces or new lines. Duplicate addresses are removed.</p>
+    {invalidCustomEmails.length > 0 && <p role="alert" className="err">Please correct the additional recipient email addresses before continuing.</p>}
+    <p aria-live="polite"><strong>{emailList.length} unique recipient(s)</strong> ready for review.</p>
     <h2 style={{ marginTop: '1.75rem' }}>2. Compose message</h2>
     <label>CC (Faizan and Danish; separate addresses with commas)<input type="text" value={cc} onChange={(e) => { setCc(e.target.value); setPreview(false); }} placeholder="faizan@example.com, danish@example.com" /></label>
     {!ccValid && <p role="alert" className="err">Please correct the CC email addresses.</p>}
