@@ -2,7 +2,7 @@
 
 This is a review checklist, not a claim that the steps have been performed.
 
-## Before merging PR #3
+## Before merging the current release PR
 1. Confirm latest GitHub Actions run succeeds for the exact head SHA.
 2. Test login and all seven navigation tabs on a mobile phone and desktop.
 3. Verify payment entry, duplicate warning, edit, typed delete confirmation, bond refund and tenant balance on a staging database.
@@ -14,8 +14,17 @@ This is a review checklist, not a claim that the steps have been performed.
 9. Confirm monitoring endpoint ownership and privacy policy before setting VITE_MONITORING_ENDPOINT.
 10. Verify restore using a separate disposable Supabase project; never restore over production to test.
 
-## Access control: security blocker
-The production RLS policies inspected on 2026-10-16 allow every authenticated user full access to properties, rooms, people, payments, expenses, charges, and maintenance (USING true / WITH CHECK true). This is authentication, not role-based authorization. Do not add superficial client-only role restrictions. Define owner/staff roles, provision existing accounts and test RLS in staging before replacing production policies. Do not apply an unverified RLS migration directly to production.
+## Access control verification
+The earlier unrestricted-authentication finding was superseded by staff allowlisting and staff-restricted RLS. Do not treat the old finding as current deployment status. Before release, verify current policies and both approved accounts, and repeat negative tests with anonymous and authenticated non-staff users. Restrict private workflow tables and signed-document storage to staff; public RPCs expose only curated listing fields and aggregate availability. Record environment-specific verification privately.
+
+## Ledger release and agreement acceptance
+1. Apply the reservation/inventory migration before the ledger-listing-release migration in an isolated environment, preserving existing records and agreed amounts.
+2. Verify that an empty room, a future departure and an approved profile alone cannot publish a listing.
+3. Complete an actual checkout, explicitly release the space from the ledger, verify readiness and approve its profile. Confirm the public page and sitemap appear only then.
+4. Release one shared bed with other beds vacant; public availability must remain one. Test withdrawal, check-in consumption, cancellation, expired holds, checkout corrections and capacity changes.
+5. Use the supplied private agreement source with fresh applicant fields and signatures. Apply the later all-inclusive utilities rule to new agreements, preserving historical agreements.
+6. Verify the general two-week bond and fortnightly-in-advance terms without overwriting individually agreed resident rates or bonds.
+7. Do not activate customer requests until browser and real-service acceptance pass.
 
 ## Monitoring
 Optional browser monitoring requires VITE_MONITORING_ENDPOINT to be set to an HTTPS collector controlled by Sakan Lodge. The app sends only whitelisted event names and numeric web vital values; no tenant names, addresses, amounts, tokens or email addresses. Until configured, no events are transmitted.
