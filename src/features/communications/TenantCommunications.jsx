@@ -100,7 +100,7 @@ export default function TenantCommunications({ db, today }) {
       });
       const result = await response.json();
       if (!response.ok || !result.sent) throw new Error(result.error || 'Gmail could not confirm sending.');
-      setSentConfirmation(`Email sent successfully to ${result.recipientCount} recipient(s). Gmail message ID: ${result.messageId}`);
+      setSentConfirmation(`Email sent successfully to ${result.recipientCount} recipient(s). Gmail message ID: ${result.messageId}${result.logged ? ' · Recorded in Activity.' : ' · Activity logging failed; email was sent. Please retain the Gmail message ID.'}`);
       setPreview(false);
       setSelected([]);
       setCustomRecipients('');
