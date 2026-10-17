@@ -17,3 +17,8 @@ test('identifies likely duplicate payment but not edits to the same record',()=>
  assert.equal(findPossibleDuplicatePayment([row],{...row,id:'2'},'2')?.id,'1');
  assert.equal(findPossibleDuplicatePayment([row],row,'1'),null);
 });
+
+test('rejects impossible transaction dates', () => {
+ for (const date of ['2026-02-30', '2026-13-01', '2026-00-01']) assert.ok(validateFinancialRow('payments', { person_id: 'p', amount: 100, date }));
+ assert.equal(validateFinancialRow('payments', { person_id: 'p', amount: 100, date: '2028-02-29' }), null);
+});
