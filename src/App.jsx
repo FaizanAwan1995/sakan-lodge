@@ -10,6 +10,7 @@ import * as L from './ledger.js';
 import { accountChoices, bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
 import TenantCommunications from './features/communications/TenantCommunications.jsx';
+import Reservations from './features/reservations/Reservations.jsx';
 
 const TEAM = accountChoices();
 const LOGO = '/ledger/sakan-logo.jpg';
@@ -133,6 +134,7 @@ export default function App() {
           setSelectedUser(null);
           navigate('/signin', { replace: true });
         }} />} />
+        <Route path="/reservations" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate('/signin', { replace: true }); }} />} />
         <Route path="/communications" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
         <Route path="/rooms" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
           setLocalActor(null);
@@ -258,7 +260,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   if (error) return <div className="pad err" role="alert"><h2>Unable to load Sakan Lodge</h2><p>{errorMessage(error)}</p><button type="button" onClick={reload}>Try again</button></div>;
   if (!d) return <div className="pad">Loading…</div>;
   const ctx = { db, d, today, reload, session, go: (t, pid) => { setPayFor(pid ?? null); const route = t === 'today' ? '/home' : `/${t}`; navigate(route); window.scrollTo(0, 0); } };
-  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['activity', 'Activity']];
+  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['activity', 'Activity']];
   return (
     <>
       <header className={`topbar ${headerVisible ? 'visible' : 'hidden'}`}>
@@ -290,6 +292,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
         {tab === 'communications' && <TenantCommunications db={db} today={today} />}
+        {tab === 'reservations' && <Reservations db={db} />}
         {tab === 'activity' && <Activity {...ctx} />}
       </main>
     </>
