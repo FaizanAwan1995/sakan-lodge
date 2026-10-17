@@ -10,6 +10,7 @@ export function tabFromPath(pathname = '/') {
   if (path === '/expenses' || path.startsWith('/expenses/')) return 'expenses';
   if (path === '/reports' || path.startsWith('/reports/')) return 'reports';
   if (path === '/communications' || path.startsWith('/communications/')) return 'communications';
+  if (path === '/reservations' || path.startsWith('/reservations/')) return 'reservations';
   if (path === '/activity' || path.startsWith('/activity/')) return 'activity';
   return 'today';
 }
