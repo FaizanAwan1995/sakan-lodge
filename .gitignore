@@ -7,3 +7,5 @@ dist/
 .DS_Store
 sakan-*.sql
 sakan-*.dump
+
+/supabase/.temp/
