@@ -9,26 +9,54 @@ const parseLines = (value) =>
 export default function ListingManagement({ db }) {
   const [properties, setProperties] = useState([]),
     [rooms, setRooms] = useState([]),
+    [releases, setReleases] = useState([]),
     [editing, setEditing] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   async function refresh() {
     setError("");
     try {
-      const [p, r] = await Promise.all([
+      const [p, r, l] = await Promise.all([
         supabase.from("property_profiles").select("*"),
         supabase.from("room_profiles").select("*"),
+        supabase.from("room_listing_releases").select("*").is("revoked_at", null).is("consumed_at", null),
       ]);
-      if (p.error || r.error) throw p.error || r.error;
+      if (p.error || r.error || l.error) throw p.error || r.error || l.error;
       setProperties(p.data || []);
       setRooms(r.data || []);
+      setReleases(l.data || []);
     } catch (e) {
       setError(e.message || "Unable to load listings");
     }
   }
   useEffect(() => {
     refresh();
+    const sync = () => { void refresh(); };
+    const channel = supabase.channel("listing-management")
+      .on("postgres_changes", { event: "*", schema: "public" }, ({ table }) => {
+        if (["room_listing_releases", "property_profiles", "room_profiles"].includes(table)) sync();
+      }).subscribe();
+    window.addEventListener("focus", sync);
+    window.addEventListener("online", sync);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("online", sync);
+    };
   }, []);
+  async function withdraw(id) {
+    setBusy(true);
+    setError("");
+    try {
+      const { error: problem } = await supabase.rpc("withdraw_room_listing_release", { p_release: id });
+      if (problem) throw problem;
+      await refresh();
+    } catch (problem) {
+      setError(problem.message || "Unable to withdraw release");
+    } finally {
+      setBusy(false);
+    }
+  }
   const set = (key, value) =>
     setEditing((x) => ({
       ...x,
@@ -84,7 +112,9 @@ export default function ListingManagement({ db }) {
     <section aria-label="Public listing management">
       <h2>Public listings</h2>
       <p>
-        Only approved profiles appear publicly. Public descriptions and photos
+        Only spaces explicitly released from a ledger checkout can go public,
+        after readiness checks and listing approval. Check-ins, holds and blocks
+        reduce availability automatically. Public descriptions and photos
         must not reveal private street addresses or resident details. Existing
         ledger labels and rates are unchanged.
       </p>
@@ -188,7 +218,7 @@ export default function ListingManagement({ db }) {
               checked={editing.published}
               onChange={(e) => set("published", e.target.checked)}
             />{" "}
-            Publish profile
+            Approve profile for publication when a released space is available
           </label>
           {editing.published && (
             <label>
@@ -219,7 +249,7 @@ export default function ListingManagement({ db }) {
             <article key={p.id} className="card">
               <h3>
                 {p.name} —{" "}
-                {profile?.published ? "Published" : "Draft / not public"}
+                {profile?.published ? "Approved profile" : "Draft / not public"}
               </h3>
               <button onClick={() => open("property", p.id, profile)}>
                 Edit public property
@@ -241,17 +271,23 @@ export default function ListingManagement({ db }) {
                   .filter((r) => r.property_id === p.id)
                   .map((r) => {
                     const rp = rooms.find((x) => x.room_id === r.id);
+                    const released = releases.filter((x) => x.room_id === r.id);
                     return (
                       <li key={r.id} style={{ margin: "12px 0" }}>
                         {r.label} · capacity {r.capacity} ·{" "}
-                        {rp?.published ? "Published" : "Draft"} ·{" "}
+                        {rp?.published ? "Approved profile" : "Draft"} ·{" "}
                         {rp?.ready ? "Ready" : "Not ready"}{" "}
+                        · {released.length} released space(s){" "}
                         <button
                           className="small"
                           onClick={() => open("room", r.id, rp)}
                         >
                           Edit public room
                         </button>
+                        {released.map((release) => <div key={release.id}>
+                          <small>Ledger checkout: {release.checkout_date}</small>{" "}
+                          <button className="small" disabled={busy} onClick={() => withdraw(release.id)}>Withdraw released space</button>
+                        </div>)}
                       </li>
                     );
                   })}
