@@ -50,7 +50,8 @@ export function availableSpaces({capacity, residents = [], holds = [], blocks = 
   const activeBlocks = overlapping(blocks);
   const allocated = [...activeResidents,...activeHolds,...activeBlocks].reduce((n,x)=>n+(x.spaces ?? 1),0);
   const remaining = Math.max(0,capacity-allocated);
-  if (offerType === 'private') return allocated === 0 ? capacity : 0;
+  if (offerType !== offerTypeForCapacity(capacity)) throw new Error('Offer type does not match room capacity.');
+  if (offerType === 'private') return allocated === 0 ? 1 : 0;
   if (offerType === 'shared') return remaining;
   throw new Error('Unsupported accommodation type.');
 }
