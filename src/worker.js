@@ -1,5 +1,6 @@
 export { GmailOAuthState } from './gmail-oauth-state.js';
 import { gmailCallback, gmailStart } from './gmail-oauth-callback.js';
+import { gmailSend } from './gmail-send.js';
 
 function normalizeLedgerPath(pathname) {
   if (pathname === '/ledger' || pathname === '/ledger/') return '/';
@@ -21,6 +22,7 @@ async function handleRequest(request, env) {
 
     if (pathname === '/api/gmail/start') return gmailStart(request, env);
     if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
+    if (pathname === '/api/gmail/send') return gmailSend(request, env);
 
     if (pathname === '/' || pathname === '/landing.html') {
       const response = await fetchFromAssets(env, request, '/landing.html');
