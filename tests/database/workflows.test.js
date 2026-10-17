@@ -28,6 +28,40 @@ async function rpc(name, args) {
 async function rejected(q, args, pattern) {
   await assert.rejects(() => sql(q, args), pattern);
 }
+async function assertSingleAllocation(operations) {
+  const clients = await Promise.all(
+    operations.map(async () => {
+      const client = new pg.Client({
+        connectionString: process.env.SAKAN_TEST_DATABASE_URL,
+      });
+      await client.connect();
+      await client.query("begin");
+      await client.query("set local role authenticated");
+      await client.query("select set_config('request.jwt.claim.sub',$1,true)", [
+        STAFF,
+      ]);
+      return client;
+    }),
+  );
+  const results = await Promise.allSettled(
+    clients.map(async (client, index) => {
+      try {
+        await client.query(operations[index].sql, operations[index].args);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      } finally {
+        await client.end();
+      }
+    }),
+  );
+  assert.equal(results.filter((x) => x.status === "fulfilled").length, 1);
+  assert.equal(
+    results.find((x) => x.status === "rejected").reason.code,
+    "23P01",
+  );
+}
 await test("database workflows on isolated PostgreSQL", async (t) => {
   if (process.env.SAKAN_TEST_DATABASE_URL) {
     const testUrl = new URL(process.env.SAKAN_TEST_DATABASE_URL);
@@ -490,6 +524,56 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
         outcome.find((x) => x.status === "rejected").reason.code,
         "23P01",
       );
+    },
+  );
+  await t.test(
+    "competing ledger check-ins cannot take the same private room",
+    { skip: !process.env.SAKAN_TEST_DATABASE_URL },
+    async () => {
+      const statement =
+        "insert into people(name,property_id,room_id,start_date,end_date) values($1,$2,$3,'2033-01-01','2033-03-01')";
+      await assertSingleAllocation([
+        { sql: statement, args: ["Race Resident A", PROP, ROOM] },
+        { sql: statement, args: ["Race Resident B", PROP, ROOM] },
+      ]);
+    },
+  );
+  await t.test(
+    "a reservation hold and ledger check-in share the same room lock",
+    { skip: !process.env.SAKAN_TEST_DATABASE_URL },
+    async () => {
+      const data = {
+        room_id: ROOM,
+        full_name: "Mixed Race Guest",
+        phone: "0400000000",
+        email: "mixed@example.test",
+        arrival_date: "2034-01-01",
+        departure_date: "2034-03-01",
+      };
+      const request = await rpc("create_staff_reservation", [
+        data,
+        crypto.randomUUID(),
+      ]);
+      const reservation = (
+        await sql(
+          "select id,revision from reservations where reservation_code=$1",
+          [request.code],
+        )
+      ).rows[0];
+      await assertSingleAllocation([
+        {
+          sql: "select public.manage_reservation($1,$2,'hold',$3)",
+          args: [
+            reservation.id,
+            reservation.revision,
+            JSON.stringify({ expires_at: "2035-01-01T00:00:00Z" }),
+          ],
+        },
+        {
+          sql: "insert into people(name,property_id,room_id,start_date,end_date) values('Mixed Race Resident',$1,$2,'2034-01-01','2034-03-01')",
+          args: [PROP, ROOM],
+        },
+      ]);
     },
   );
   await t.test(
