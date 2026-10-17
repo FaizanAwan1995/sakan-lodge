@@ -270,7 +270,8 @@ export function useStore(session) {
 
 
 /** Records the electricity expense and all resident shares as one database transaction. */
-export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, amount, shares }) {
+export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, amount, shares = [] }) {
+  if (shares.length) throw new Error('Utilities are included; resident surcharges are disabled.');
   const expenseNote = `Quarter ${qStart} to ${qEnd}`;
   if (isLocalMode) {
     try {
