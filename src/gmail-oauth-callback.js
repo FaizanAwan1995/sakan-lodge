@@ -122,5 +122,5 @@ export async function gmailCallback(request, env) {
   try { await env.GMAIL_TOKEN_STORE.put('gmail:sender:encrypted-refresh-token', JSON.stringify({
     iv: Array.from(iv), data: Array.from(ciphertext), account: SENDER
   })); } catch { return reply('Unable to store encrypted Gmail authorisation', 503); }
-  return reply('SAKAN Lodge Gmail sender connected successfully. You may close this page.');
+  return new Response(null, { status: 303, headers: { Location: 'https://sakanlodge.com/ledger/communications?gmail=connected', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 }
