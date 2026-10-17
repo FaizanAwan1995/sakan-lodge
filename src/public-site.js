@@ -227,7 +227,7 @@ export function renderListing(route, cat, env = {}) {
           "</div>" +
           (properties.length
             ? ""
-            : '<p>Property and room listings are awaiting administrator approval. <a href="mailto:sakanlodges@gmail.com">Enquire about ' +
+            : '<p>No rooms are currently advertised here. <a href="mailto:sakanlodges@gmail.com">Enquire about availability in ' +
               h(location) +
               "</a>.</p>"),
       ),
@@ -292,7 +292,7 @@ export function renderListing(route, cat, env = {}) {
           "</div>" +
           (rooms.length
             ? ""
-            : "<p>Individual room listings are awaiting approval.</p>"),
+            : "<p>No rooms are currently advertised at this property.</p>"),
       ),
     );
   const room = rooms.find((r) => r.slug === route.room);
