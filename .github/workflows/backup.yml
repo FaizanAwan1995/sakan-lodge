@@ -2,33 +2,44 @@ name: Nightly database backup
 
 on:
   schedule:
-    - cron: '30 15 * * *' # approximately 01:00 Adelaide
+    - cron: '30 15 * * *' # 01:00/02:00 Adelaide, depending on daylight saving
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate secret
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+      - name: Validate backup secrets
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
         run: |
           set -euo pipefail
-          test -n "$DB_URL" || { echo 'SUPABASE_DB_URL repository secret is missing.' >&2; exit 1; }
-      - name: Dump database
+          test -n "$DB_URL" || { echo 'SUPABASE_DB_URL is missing.' >&2; exit 1; }
+          test "${#BACKUP_ENCRYPTION_PASSPHRASE}" -ge 32 || { echo 'Set a separate BACKUP_ENCRYPTION_PASSPHRASE of at least 32 characters.' >&2; exit 1; }
+      - name: Dump and encrypt database
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
         run: |
           set -euo pipefail
-          docker run --rm -e DB_URL="$DB_URL" postgres:17 sh -eu -c 'pg_dump "$DB_URL" --schema=public --no-owner --no-privileges' > "sakan-$(date +%F).sql"
-          test -s "sakan-$(date +%F).sql"
+          backup_name="sakan-$(date +%F).sql"
+          trap 'rm -f -- sakan-*.sql' EXIT
+          docker run --rm -e DB_URL postgres:17 sh -eu -c 'pg_dump "$DB_URL" --schema=public --no-owner --no-privileges' > "$backup_name"
+          node scripts/backup-crypto.mjs encrypt "$backup_name" "$backup_name.enc"
+          rm -- "$backup_name"
       - uses: actions/upload-artifact@v4
         with:
-          name: sakan-backup-${{ github.run_id }}
-          path: sakan-*.sql
+          name: sakan-encrypted-backup-${{ github.run_id }}
+          path: |
+            sakan-*.sql.enc
+            sakan-*.sql.enc.sha256
           if-no-files-found: error
           retention-days: 30
