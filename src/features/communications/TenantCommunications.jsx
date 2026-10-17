@@ -5,6 +5,7 @@ import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isV
 export default function TenantCommunications({ db, today }) {
   const [gmailBusy, setGmailBusy] = useState(false);
   const [gmailError, setGmailError] = useState('');
+  const gmailConnected = new URLSearchParams(window.location.search).get('gmail') === 'connected';
   const connectGmail = async () => {
     if (!supabase || isLocalMode) return;
     setGmailBusy(true);
@@ -80,6 +81,7 @@ export default function TenantCommunications({ db, today }) {
       <h2 style={{ marginTop: 0 }}>Connect business Gmail</h2>
       <p>Authorise <strong>sakanlodges@gmail.com</strong> for future direct sending. The composer below currently opens your email app; connecting Gmail does not send messages automatically.</p>
       <button type="button" disabled={gmailBusy} aria-busy={gmailBusy} onClick={connectGmail}>{gmailBusy ? 'Opening Google…' : 'Connect Sakan Lodge Gmail'}</button>
+      {gmailConnected && <p role="status" style={{ color: 'var(--success, #246a47)', fontWeight: 700 }}>Sakan Lodge Gmail connected successfully. You can now return to tenant emails.</p>}
       {gmailError && <p role="alert" className="err">{gmailError}</p>}
     </div>}
     <h2 style={{ marginTop: '1.5rem' }}>1. Select recipients</h2>
