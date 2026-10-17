@@ -36,7 +36,7 @@ export default function TenantCommunications({ db, today }) {
       setGmailBusy(false);
     }
   };
-  const [propertyId, setPropertyId] = useState('');
+  const [expandedProperties, setExpandedProperties] = useState([]);
   const [search, setSearch] = useState('');
   const [customRecipients, setCustomRecipients] = useState('');
   const [cc, setCc] = useState('faizanasif117@gmail.com, danish.mihm@gmail.com');
@@ -60,14 +60,22 @@ export default function TenantCommunications({ db, today }) {
     setMessage(templates[value].body);
     setPreview(false);
   };
-  const tenants = useMemo(() => db.people.filter((p) => (!p.end_date || p.end_date > today) && (!propertyId || String(p.property_id) === String(propertyId))), [db.people, today, propertyId]);
-  const recipients = useMemo(() => eligibleRecipients(db.people, today, propertyId), [db.people, today, propertyId]);
-  const visibleTenants = tenants.filter((p) => [p.name, p.email, db.rooms.find((r) => String(r.id) === String(p.room_id))?.label].some((v) => String(v || '').toLowerCase().includes(search.trim().toLowerCase())));
-  const propertyName = (id) => db.properties.find((p) => String(p.id) === String(id))?.name || 'Unknown property';
-  const missingEmails = tenants.filter((p) => !isValidTenantEmail(p.email));
+  const tenants = useMemo(() => db.people.filter((p) => !p.end_date || p.end_date > today), [db.people, today]);
+  const recipients = useMemo(() => eligibleRecipients(db.people, today, ''), [db.people, today]);
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
-  const allSelected = recipients.length > 0 && chosen.length === recipients.length;
-  const customEmails = customRecipients.split(/[;,\\s]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
+  const propertyGroups = db.properties.map((property) => {
+    const residents = tenants.filter((person) => String(person.property_id) === String(property.id));
+    const eligible = residents.filter((person) => isValidTenantEmail(person.email));
+    const selectedCount = eligible.filter((person) => selected.includes(String(person.id))).length;
+    return { property, residents, eligible, selectedCount };
+  });
+  const missingEmails = tenants.filter((p) => !isValidTenantEmail(p.email));
+  const toggleProperty = (group, checked) => {
+    const ids = group.eligible.map((p) => String(p.id));
+    setSelected((old) => checked ? [...new Set([...old, ...ids])] : old.filter((id) => !ids.includes(id)));
+    setPreview(false);
+  };
+  const customEmails = customRecipients.split(/[;,\s]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
   const invalidCustomEmails = customEmails.filter((email) => !isValidTenantEmail(email));
   const emailList = [...new Set([...uniqueRecipientEmails(chosen), ...customEmails])];
   const ccEmails = [...new Set(cc.split(/[;,\n]+/).map((email) => email.trim().toLowerCase()).filter(Boolean))];
@@ -103,25 +111,31 @@ export default function TenantCommunications({ db, today }) {
     </div>}
     <h2 style={{ marginTop: '1.25rem' }}>1. Recipients</h2>
     <p style={{ opacity: .75 }}>Select tenants, enter other email addresses, or use both.</p>
-    <label>Property
-      <select value={propertyId} onChange={(e) => { setPropertyId(e.target.value); setSelected([]); setPreview(false); }}>
-        <option value="">All properties (review carefully)</option>
-        {db.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-    </label>
-    <p aria-live="polite" style={{ fontWeight: 600 }}>{tenants.length} active tenants · {recipients.length} valid email addresses · {chosen.length} selected</p>
-    {missingEmails.length > 0 && <p role="status">{missingEmails.length} tenant(s) cannot receive emails until their address is added or corrected in Rooms → resident record.</p>}
-    <h3 style={{ marginBottom: '.5rem' }}>Choose individual tenants</h3>
-    <label>Search by name, email or room<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="e.g. Chauhan Zaman or MZ Avinash" /></label>
-    <label><input type="checkbox" checked={allSelected} onChange={(e) => { setSelected(e.target.checked ? recipients.map((p) => String(p.id)) : []); setPreview(false); }} /> Select all eligible tenants at this property (including search-hidden tenants)</label>
-    <div style={{ maxHeight: 300, overflowY: 'auto', margin: '1rem 0', padding: '.5rem', border: '1px solid var(--border, #d8dfd8)', borderRadius: 12 }}>
-      {visibleTenants.length === 0 && <p style={{ padding: '.75rem' }}>No matching tenants. Try a different search or property.</p>}
-      {visibleTenants.map((p) => <label key={p.id} style={{ display: 'block', padding: '.65rem .5rem', borderBottom: '1px solid var(--border, #edf0ed)', cursor: 'pointer' }}>
-        <input type="checkbox" disabled={!isValidTenantEmail(p.email)} checked={selected.includes(String(p.id))} onChange={(e) => { setSelected((old) => e.target.checked ? [...old, String(p.id)] : old.filter((id) => id !== String(p.id))); setPreview(false); }} />
-        {' '}{p.name} · {propertyName(p.property_id)} · {db.rooms.find((r) => String(r.id) === String(p.room_id))?.label || 'Room not assigned'} — {isValidTenantEmail(p.email) ? p.email.trim() : 'No valid email saved (edit resident record)'}
-      </label>)}
+    <p aria-live="polite" style={{ fontWeight: 600, margin: '.75rem 0' }}>{chosen.length} tenant(s) selected · {recipients.length} eligible across {db.properties.length} properties</p>
+    <label>Find a tenant<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email or room" /></label>
+    <div style={{ display: 'grid', gap: '.65rem', marginTop: '1rem', marginBottom: '1.25rem' }}>
+      {propertyGroups.map((group) => {
+        const id = String(group.property.id);
+        const matching = group.residents.filter((person) => [person.name, person.email, db.rooms.find((room) => String(room.id) === String(person.room_id))?.label].some((value) => String(value || '').toLowerCase().includes(search.trim().toLowerCase())));
+        const expanded = expandedProperties.includes(id) || (search.trim().length > 0 && matching.length > 0);
+        return <div key={id} style={{ border: '1px solid var(--border, #d8dfd8)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.65rem', padding: '.7rem .85rem', background: 'var(--surface, #f4f7f4)' }}>
+            <input type="checkbox" aria-label={`Select all eligible tenants at ${group.property.name}`} checked={group.eligible.length > 0 && group.selectedCount === group.eligible.length} ref={(node) => { if (node) node.indeterminate = group.selectedCount > 0 && group.selectedCount < group.eligible.length; }} disabled={group.eligible.length === 0} onChange={(e) => toggleProperty(group, e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
+            <button type="button" aria-expanded={expanded} onClick={() => setExpandedProperties((old) => old.includes(id) ? old.filter((value) => value !== id) : [...old, id])} style={{ flex: 1, width: 'auto', minWidth: 0, textAlign: 'left', background: 'transparent', border: 0, padding: '.2rem', fontWeight: 700 }}>
+              {group.property.name} <span style={{ fontWeight: 400, opacity: .75 }}>({group.selectedCount}/{group.eligible.length})</span> <span aria-hidden="true" style={{ float: 'right' }}>{expanded ? '▴' : '▾'}</span>
+            </button>
+          </div>
+          {expanded && <div style={{ padding: '.4rem .85rem .7rem' }}>
+            {matching.length === 0 && <p style={{ opacity: .7 }}>No matching tenants.</p>}
+            {matching.map((person) => <label key={person.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '.7rem', padding: '.65rem 0', borderBottom: '1px solid var(--border, #edf0ed)' }}>
+              <input type="checkbox" disabled={!isValidTenantEmail(person.email)} checked={selected.includes(String(person.id))} onChange={(e) => { setSelected((old) => e.target.checked ? [...new Set([...old, String(person.id)])] : old.filter((value) => value !== String(person.id))); setPreview(false); }} style={{ width: 20, height: 20, flexShrink: 0, marginTop: 3 }} />
+              <span style={{ minWidth: 0 }}><strong>{person.name}</strong><span style={{ display: 'block', opacity: .7, fontSize: '.85rem' }}>{db.rooms.find((room) => String(room.id) === String(person.room_id))?.label || 'Room not assigned'} · {isValidTenantEmail(person.email) ? person.email : 'Email missing or invalid'}</span></span>
+            </label>)}
+          </div>}
+        </div>;
+      })}
     </div>
-    <p aria-live="polite">{chosen.length} tenant(s) selected across {new Set(chosen.map((p) => String(p.property_id))).size} property/properties.</p>
+    {missingEmails.length > 0 && <p style={{ opacity: .7, fontSize: '.85rem' }}>{missingEmails.length} active tenants have no valid email saved and cannot be selected.</p>}
     <label>Additional recipients (optional)
       <textarea rows={2} value={customRecipients} onChange={(e) => { setCustomRecipients(e.target.value); setPreview(false); }} placeholder="name@example.com, another@example.com" />
     </label>
