@@ -292,7 +292,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
         {tab === 'communications' && <TenantCommunications db={db} today={today} />}
-        {tab === 'reservations' && <Reservations db={db} />}
+        {tab === 'reservations' && <Reservations db={db} reload={reload} />}
         {tab === 'activity' && <Activity {...ctx} />}
       </main>
     </>
@@ -585,7 +585,7 @@ function HouseForm({ p, done }) {
       <label>{p.id ? 'Lease start (blank = before 1 Jul 2026)' : 'Lease start'}</label><input type="date" value={f.lease_start} onChange={set('lease_start')} required={!p.id} />
       <label>Lease end date (optional, for renewal reminders)</label><input type="date" value={f.lease_end} onChange={set('lease_end')} />
       <label>First landlord payment override (blank = automatic)</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.lease_first_amount} onChange={set('lease_first_amount')} />
-      <label>Quarterly electricity cap</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.electricity_cap} onChange={set('electricity_cap')} required />
+      <p className="muted">Utilities are included. Electricity caps are retained for historical records only.</p>
       <label>Bills amount</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bills_amount} onChange={set('bills_amount')} placeholder="0.00" />
       <label>Bills cycle</label>
       <select value={f.bills_frequency} onChange={set('bills_frequency')}>
@@ -639,7 +639,7 @@ function CheckoutForm({ person, today, done }) {
   }}>
     <h1>Check out {person.name}</h1>
     <p className="muted">Checked in {nice(person.start_date)}. The checkout date is stored on the resident record and rent is charged up to the day before checkout.</p>
-    <label>Checkout date</label><input type="date" min={person.start_date} value={date} onChange={(e) => setDate(e.target.value)} required />
+    <label>Checkout date</label><input type="date" min={dayAfter(person.start_date)} value={date} onChange={(e) => setDate(e.target.value)} required />
     <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Confirm checkout'}</button>
     <button type="button" className="small" onClick={done}>Cancel</button>
   </form>;
@@ -928,18 +928,17 @@ function ElecBill({ db, d, today, done }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const prop = db.properties.find((p) => p.id === f.property_id);
   const ready = prop && f.q_start && f.q_end && f.q_start <= f.q_end && f.bill_date && +f.amount > 0;
-  const split = ready ? L.electricitySplit({ amount: +f.amount, cap: prop.electricity_cap, qStart: f.q_start, qEnd: f.q_end, billDate: f.bill_date, people: d.people.filter((p) => p.property_id === prop.id) }) : null;
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
-      if (!split || f.q_start > f.q_end) return;
+      if (!ready || f.q_start > f.q_end) return;
       const posted = await postElectricityBill({
         propertyId: prop.id,
         billDate: f.bill_date,
         qStart: f.q_start,
         qEnd: f.q_end,
         amount: +f.amount,
-        shares: split.shares.map((s) => ({ personId: s.person.id, amount: s.amount, nights: s.nights, totalNights: split.totalNights })),
+        shares: [],
       });
       if (posted) done();
     }}>
@@ -950,16 +949,8 @@ function ElecBill({ db, d, today, done }) {
       {f.q_start && f.q_end && f.q_start > f.q_end && <p className="err">Quarter end must be on or after quarter start.</p>}
       <label>Bill date</label><input type="date" value={f.bill_date} onChange={set('bill_date')} required />
       <label>Bill total</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={set('amount')} required />
-      {split && (
-        <div className="card">
-          <p>Cap {fmt(prop.electricity_cap)} · excess <b>{fmt(split.excess)}</b>. Full bill is recorded as an expense.</p>
-          {split.excess > 0 ? (
-            <table><thead><tr><th>Resident</th><th>Nights</th><th>Share</th></tr></thead>
-              <tbody>{split.shares.map((s) => <tr key={s.person.id}><td>{s.person.name}</td><td>{s.nights}</td><td>{fmt(s.amount)}</td></tr>)}</tbody></table>
-          ) : <p className="muted">Under the cap — nothing charged to residents.</p>}
-        </div>
-      )}
-      <button className="primary" disabled={!split}>Post bill{split?.shares.length ? ` and ${split.shares.length} charge(s)` : ''}</button>
+      <p>Full bill is recorded as a business expense. Utilities are included; no resident surcharges are created.</p>
+      <button className="primary" disabled={!ready}>Record bill expense</button>
       <button type="button" className="small" onClick={done}>Cancel</button>
     </form>
   );
