@@ -1,3 +1,6 @@
+export { GmailOAuthState } from './gmail-oauth-state.js';
+import { gmailCallback, gmailStart } from './gmail-oauth-callback.js';
+
 function normalizeLedgerPath(pathname) {
   if (pathname === '/ledger' || pathname === '/ledger/') return '/';
   if (pathname.startsWith('/ledger/')) return pathname.slice('/ledger'.length) || '/';
@@ -16,6 +19,9 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    if (pathname === '/api/gmail/start') return gmailStart(request, env);
+    if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
+
     if (pathname === '/' || pathname === '/landing.html') {
       const response = await fetchFromAssets(env, request, '/landing.html');
       if (response && response.status !== 404) {
@@ -32,6 +38,18 @@ async function handleRequest(request, env) {
         status: 200,
         headers: { 'content-type': 'text/html; charset=utf-8' },
       });
+    }
+
+    if (pathname === '/privacy' || pathname === '/privacy/' || pathname === '/terms' || pathname === '/terms/') {
+      const page = pathname.startsWith('/privacy') ? '/privacy.html' : '/terms.html';
+      const response = await fetchFromAssets(env, request, page);
+      if (response && response.status === 200) {
+        return new Response(response.body, {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' },
+        });
+      }
+      return new Response('Page unavailable', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
     }
 
     if (pathname === '/landing.css') {

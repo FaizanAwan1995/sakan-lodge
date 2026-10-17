@@ -221,8 +221,8 @@ function Login({ selectedUser, onBack }) {
       <input type="email" placeholder="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" placeholder="Password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} />
       <button className="primary" disabled={loading}>{loading ? 'Signing in…' : `Sign in as ${selectedUser}`}</button>
-      <div className="login-divider" role="separator" aria-label="Alternative sign-in">or</div>
-      <button type="button" disabled={loading || googleLoading || isLocalMode} onClick={async () => {
+      <div className="login-divider" role="separator" aria-label="Alternative sign-in"><span>or continue with</span></div>
+      <button className="google-signin" type="button" disabled={loading || googleLoading || isLocalMode} onClick={async () => {
         setErr('');
         setGoogleLoading(true);
         try {
@@ -236,7 +236,7 @@ function Login({ selectedUser, onBack }) {
           setErr(errorMessage(error));
           setGoogleLoading(false);
         }
-      }}>{googleLoading ? 'Connecting to Google…' : 'Continue with Google'}</button>
+      }}><svg className="google-g" aria-hidden="true" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.28 5.48-4.81 7.18l7.73 6C44.37 38.03 46.98 31.88 46.98 24.55z"/><path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.86 23.86 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.8l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>{googleLoading ? 'Connecting to Google…' : 'Continue with Google'}</span></button>
       <p className="muted">Google sign-in must first be linked to your existing Sakan Lodge account. Sign in with your current password before connecting Google in account settings.</p>
       {err && <p className="err">{err}</p>}
       <button type="button" className="chooser-back" onClick={onBack}>Choose a different user</button>
@@ -272,15 +272,15 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
           <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
           <time>{nice(today)}</time>
         </header>
-        {!isLocalMode && <section aria-label="Google account connection" className="card" style={{marginBottom:'1rem'}}>
-          <div className="between"><div><strong>Google account</strong><p className="muted">Connect your Google account to this existing Sakan Lodge login. This preserves your user ID and records.</p></div>
-          <button type="button" disabled={linkingGoogle || session.user.identities?.some(identity => identity.provider === 'google')} onClick={async () => {
+        {!isLocalMode && !session.user.identities?.some(identity => identity.provider === 'google') && <section aria-label="Google account connection" className="card google-link-card">
+          <div className="google-link-info"><strong>Connect your Google account</strong><p className="muted">Link Google once to sign in faster next time. Your existing Sakan Lodge account and records stay the same.</p></div>
+          <button className="google-link-action" type="button" disabled={linkingGoogle} onClick={async () => {
             setLinkingGoogle(true); setLinkMessage('');
             try {
               const { error } = await supabase.auth.linkIdentity({provider:'google',options:{redirectTo:window.location.origin+'/ledger/home'}});
               if (error) throw error;
             } catch(error) { setLinkMessage(errorMessage(error)); setLinkingGoogle(false); }
-          }}>{session.user.identities?.some(identity => identity.provider === 'google') ? 'Google connected' : linkingGoogle ? 'Connecting…' : 'Link Google account'}</button></div>
+          }}>{linkingGoogle ? 'Connecting…' : 'Link Google account'}</button>
           {linkMessage && <p role="alert" className="err">{linkMessage}</p>}
         </section>}
         {isLocalMode && <div className="local-banner"><strong>Local preview</strong><span>Saved only in this browser · not synced or backed up</span></div>}
