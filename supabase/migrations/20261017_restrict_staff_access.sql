@@ -15,6 +15,12 @@ where lower(email) in ('faizanasif117@gmail.com', 'danish.mihm@gmail.com')
   and email_confirmed_at is not null
 on conflict (user_id) do nothing;
 
+do $ begin
+  if (select count(*) from public.staff_access) <> 2 then
+    raise exception 'Expected exactly two verified staff accounts. Review staff_access before changing RLS.';
+  end if;
+end $;
+
 create or replace function public.is_sakan_staff() returns boolean
 language sql stable security definer
 set search_path = ''
