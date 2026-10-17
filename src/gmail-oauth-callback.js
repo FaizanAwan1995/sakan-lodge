@@ -36,7 +36,7 @@ export async function gmailStart(request, env) {
   if (!userResponse.ok) return reply('Session expired', 401);
   let user;
   try { user = await userResponse.json(); } catch { return reply('Invalid authentication response', 502); }
-  if (!user.email_confirmed_at || !ADMINS.has((user.email || '').toLowerCase())) return reply('Administrator access required', 403);
+  if (!user || !user.email_confirmed_at || !ADMINS.has((user.email || '').toLowerCase())) return reply('Administrator access required', 403);
   const nonce = toHex(crypto.getRandomValues(new Uint8Array(16)));
   const expiryText = String(Date.now() + 300000);
   const mac = await signature(env.GMAIL_OAUTH_STATE_SECRET, nonce + '.' + expiryText);
@@ -99,7 +99,7 @@ export async function gmailCallback(request, env) {
   if (!tokenResponse.ok) return reply('Google could not complete authorisation.', 502);
   let tokens;
   try { tokens = await tokenResponse.json(); } catch { return reply('Invalid Google token response', 502); }
-  if (!tokens.access_token || !tokens.refresh_token) return reply('No offline authorisation granted. Reconnect with consent.', 400);
+  if (!tokens || !tokens.access_token || !tokens.refresh_token) return reply('No offline authorisation granted. Reconnect with consent.', 400);
   let identityResponse;
   try { identityResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
     headers: { Authorization: 'Bearer ' + tokens.access_token }
@@ -107,7 +107,7 @@ export async function gmailCallback(request, env) {
   if (!identityResponse.ok) return reply('Could not verify the Gmail sender.', 502);
   let profile;
   try { profile = await identityResponse.json(); } catch { return reply('Invalid Gmail identity response', 502); }
-  if ((profile.email || '').toLowerCase() !== SENDER || profile.email_verified !== true) return reply('Please authorise only sakanlodges@gmail.com.', 403);
+  if (!profile || (profile.email || '').toLowerCase() !== SENDER || profile.email_verified !== true) return reply('Please authorise only sakanlodges@gmail.com.', 403);
   // The refresh token is encrypted at rest using the Web Crypto API, with a key
   // stored separately as a Cloudflare secret; never persist plaintext in KV.
   if (!env.GMAIL_TOKEN_ENCRYPTION_KEY) return reply('Secure token storage is not configured.', 503);
