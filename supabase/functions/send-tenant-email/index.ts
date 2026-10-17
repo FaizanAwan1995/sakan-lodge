@@ -16,17 +16,17 @@ function json(status: number, data: unknown) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' } });
 }
 function validEmail(v: unknown): v is string {
-  return typeof v === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(v.trim());
+  return typeof v === 'string' && /^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(v.trim());
 }
 function encodeBase64Url(value: string) {
   const bytes = new TextEncoder().encode(value);
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function header(value: string) {
   // Prevent header injection; MIME encode UTF-8 subject safely.
-  if (/[\\r\\n]/.test(value)) throw new Error('Invalid header');
+  if (/[\r\n]/.test(value)) throw new Error('Invalid header');
   return '=?UTF-8?B?' + btoa(String.fromCharCode(...new TextEncoder().encode(value))) + '?=';
 }
 Deno.serve(async (req) => {
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       !tenantIds.every((id) => typeof id === 'string' && id.length < 150) ||
       typeof propertyId !== 'string' || !propertyId || typeof subject !== 'string' || !subject.trim() || subject.length > 180 ||
       typeof message !== 'string' || !message.trim() || message.length > 20000 ||
-      /[\\r\\n]/.test(subject) || /\\[(?:ENTER|VERIFY|ADD|CONFIRM|FORM TEMPLATE)[^\\]]*\\]/i.test(message)) {
+      /[\r\n]/.test(subject) || /\[(?:ENTER|VERIFY|ADD|CONFIRM|FORM TEMPLATE)[^\]]*\]/i.test(message)) {
     return json(400, { error: 'Invalid message or recipients' });
   }
   const ccEmails = Array.isArray(cc) ? cc : [];
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
   const sent = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + token.access_token, 'content-type': 'application/json' },
-    body: JSON.stringify({ raw: encodeBase64Url(lines.join('\\r\\n')) }),
+    body: JSON.stringify({ raw: encodeBase64Url(lines.join('\r\n')) }),
   });
   if (!sent.ok) return json(502, { error: 'Gmail rejected the message. Check the official sender connection.' });
   const result = await sent.json();
