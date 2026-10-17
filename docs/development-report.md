@@ -12,6 +12,10 @@ Additional work includes listing approval, versioned contracts, private signed-d
 
 Application, API and isolated database tests are provided. A PostgreSQL service in CI runs the competing-reservation test using separate database sessions. Local checks do not replace authenticated browser acceptance or real-service delivery testing.
 
+Verified in GitHub CI: **77 application/backup tests and 21 PostgreSQL workflow checks passed, with no failures or skips**. Separate sessions verified competing holds, competing ledger check-ins and a hold racing a check-in. Ledger checkout/extension and concurrent listing approval checks also passed. Syntax checks and the production build passed.
+
+The implementation is available in [draft PR #5](https://github.com/FaizanAwan1995/sakan-lodge/pull/5). These results verify the code and isolated database behavior; they do not assert production activation or browser acceptance.
+
 ## Release requirements
 
 - Pass application/database CI and authenticated mobile/desktop acceptance.
