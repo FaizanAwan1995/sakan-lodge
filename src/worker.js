@@ -1,6 +1,8 @@
 export { GmailOAuthState } from './gmail-oauth-state.js';
 import { gmailCallback, gmailStart } from './gmail-oauth-callback.js';
 import { gmailSend } from './gmail-send.js';
+import {reservationEmail} from './reservation-email.js';
+import {handlePublicSite} from './public-site.js';
 
 function normalizeLedgerPath(pathname) {
   if (pathname === '/ledger' || pathname === '/ledger/') return '/';
@@ -19,6 +21,10 @@ async function fetchFromAssets(env, request, assetPath) {
 async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    if(pathname==='/api/reservations/email')return reservationEmail(request,env);
+    const publicResponse=await handlePublicSite(request,env);
+    if(publicResponse)return publicResponse;
 
     if (pathname === '/api/gmail/start') return gmailStart(request, env);
     if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
@@ -110,8 +116,10 @@ async function handleRequest(request, env) {
 
 export default {
   async fetch(request, env) {
-    const response = await handleRequest(request, env);
+    let response;
+    try { response = await handleRequest(request, env); } catch { response = new Response('Service temporarily unavailable', {status:503,headers:{'cache-control':'no-store'}}); }
     const headers = new Headers(response.headers);
+    if (new URL(request.url).pathname.startsWith('/ledger') || new URL(request.url).pathname.startsWith('/api/')) headers.set('X-Robots-Tag','noindex, nofollow');
     headers.set('X-Content-Type-Options', 'nosniff');
     headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     headers.set('X-Frame-Options', 'DENY');
