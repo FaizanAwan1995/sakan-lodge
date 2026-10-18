@@ -28,7 +28,7 @@ async function handleRequest(request, env) {
 
     if (pathname === '/api/gmail/start') return gmailStart(request, env);
     if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
-    if (pathname === '/api/gmail/send') return gmailSend(request, env);
+    if (pathname === '/api/gmail/preview' || pathname === '/api/gmail/send') return gmailSend(request, env);
 
     if (pathname === '/' || pathname === '/landing.html') {
       const response = await fetchFromAssets(env, request, '/landing.html');
