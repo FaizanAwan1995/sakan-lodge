@@ -26,15 +26,17 @@
   let checkedDates = "";
   form.addEventListener("input", () => {
     if (dates() !== checkedDates) {
-      if (submit) submit.disabled = true;
-      result.textContent = "Check availability for the updated dates.";
+      checkedDates = "";
+      result.textContent = "Availability will be checked when you submit, or you can check it now.";
     }
     if (verified && verified !== fingerprint()) {
       requestKey = crypto.randomUUID();
       verified = "";
     }
   });
-  check.addEventListener("click", async () => {
+  // A customer can submit directly: this same validation runs automatically
+  // before any personal information is sent. The server rechecks inventory.
+  async function verifyAvailability() {
     const arrival = form.elements.arrival_date,
       departure = form.elements.departure_date,
       spaces = form.elements.spaces_requested;
@@ -42,12 +44,11 @@
       !arrival.reportValidity() ||
       !departure.reportValidity() ||
       !spaces.reportValidity()
-    )
-      return;
-    check.disabled = true;
-    if (submit) submit.disabled = true;
-    result.textContent = "Checking your full stay…";
+    ) return false;
     const selected = dates();
+    checkedDates = "";
+    check.disabled = true;
+    result.textContent = "Checking your full stay…";
     try {
       const res = await fetch(
         "/api/availability?" +
@@ -58,27 +59,35 @@
           }),
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (selected !== dates()) return;
+      if (!res.ok) throw new Error(data.error || "Availability could not be verified.");
+      if (selected !== dates()) {
+        result.textContent = "Your dates changed. Please try again.";
+        return false;
+      }
       checkedDates = selected;
+      const hasSpaces = Number.isFinite(Number(data.spaces)) &&
+        Number(data.spaces) >= Number(spaces.value);
       result.textContent =
         data.spaces +
         " space(s) available for these dates. AUD $" +
         data.weekly_rate +
         "/week" +
         (data.offer_type === "shared" ? " per person" : "") +
-        (data.requests_enabled
-          ? ". Requests require administrator confirmation."
-          : ". Online requests are currently unavailable. Please email or call our team to enquire.");
-      if (submit) submit.disabled =
-        !data.requests_enabled || data.spaces < Number(spaces.value);
+        (!hasSpaces
+          ? ". Not enough spaces for your request."
+          : data.requests_enabled
+            ? ". Requests require administrator confirmation."
+            : ". Online requests are currently unavailable. Please email or call our team to enquire.");
+      return hasSpaces && data.requests_enabled === true;
     } catch (e) {
       result.textContent =
         e.message || "Unable to verify availability. Please contact our team.";
+      return false;
     } finally {
       check.disabled = false;
     }
-  });
+  }
+  check.addEventListener("click", () => { void verifyAvailability(); });
   // Availability-only pages must never submit or collect applicant details.
   if (!submit) {
     form.addEventListener("submit", (event) => event.preventDefault());
@@ -88,17 +97,25 @@
     event.preventDefault();
     if (
       sending ||
-      submit.disabled ||
-      checkedDates !== dates() ||
       !form.reportValidity()
     )
       return;
     sending = true;
-    if (submit) submit.disabled = true;
-    message.textContent = "Submitting request…";
-    verified = fingerprint();
+    submit.disabled = true;
+    message.textContent = "Checking availability before submitting…";
+    let completed = false;
     try {
+      if (!await verifyAvailability()) {
+        message.textContent = "Your request has not been sent. Review the availability message above, or contact our team.";
+        return;
+      }
       const data = Object.fromEntries(new FormData(form));
+      if (!data["cf-turnstile-response"]) {
+        message.textContent = "Please complete the verification challenge and try again.";
+        return;
+      }
+      verified = fingerprint();
+      message.textContent = "Submitting request…";
       data.room_id = form.dataset.room;
       data.spaces_requested = Number(data.spaces_requested);
       data.turnstile_token = data["cf-turnstile-response"];
@@ -117,6 +134,7 @@
         "Request received. Reference: " +
         output.code +
         ". This is not a confirmed booking. Our team will review your request.";
+      completed = true;
       form
         .querySelectorAll("input,textarea,button")
         .forEach((el) => (el.disabled = true));
@@ -124,10 +142,13 @@
       message.textContent =
         e.message ||
         "Unable to confirm receipt. Please retry with the same details.";
-      submit.disabled = false;
       window.turnstile?.reset();
     } finally {
+      if (!completed) submit.disabled = false;
       sending = false;
     }
   });
+  // Enable only after the submission handler has been attached. A missing
+  // script must never fall back to a native GET form that leaks applicant data.
+  submit.disabled = false;
 })();
