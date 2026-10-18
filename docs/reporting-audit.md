@@ -33,7 +33,7 @@ This describes management-report calculations and verification, not production a
 
 Focused checks cover zero/future receipts, imported balances, first/final part periods, historical rates, property moves, opening arrears, resident credits, bond movements across years, legacy declarations, reimbursements, overhead, expense matching, monthly/leap-year budgets, date boundaries, CSV reconciliation and formula protection. Database checks cover missing budget columns, record preservation, more than one thousand transactions, read-only/staff-only access and a concurrent writer during a report snapshot.
 
-The latest local run passed 122 application/backup checks and 35 isolated database checks. Six separate-session checks require the PostgreSQL CI service; exact-head CI verification is pending publication of this review.
+GitHub CI passed 122 application/backup checks and all 41 PostgreSQL checks, including six separate-session checks, with no failures or skips. The concurrent snapshot test verifies one consistent view while another staff transaction commits a payment and expense together.
 
 ## Remaining acceptance
 
