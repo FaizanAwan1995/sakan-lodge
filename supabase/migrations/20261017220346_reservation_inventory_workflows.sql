@@ -204,7 +204,7 @@ revoke all on function sakan_private.staff_request(jsonb,uuid),public.create_sta
 grant execute on function sakan_private.staff_request(jsonb,uuid),public.create_staff_reservation(jsonb,uuid) to authenticated;
 
 create function sakan_private.manage_reservation(p_id uuid,p_revision integer,p_action text,p_data jsonb default '{}') returns jsonb language plpgsql security definer set search_path='' as $$
-declare r public.reservations; previous text; person uuid; first_person uuid; member jsonb; members jsonb; person_ids jsonb:='[]'; cap integer;
+declare r public.reservations; previous text; person uuid; first_person uuid; member jsonb; members jsonb; person_ids jsonb:='[]'; cap integer; signed_fields jsonb; nightly numeric;
 begin
  perform sakan_private.require_staff();
  select * into r from public.reservations where id=p_id for update;
@@ -237,6 +237,7 @@ begin
   if not exists(select 1 from public.room_profiles where room_id=r.room_id and ready) then raise exception 'Room must be marked ready'; end if;
   if not exists(select 1 from public.contracts c where c.reservation_id=r.id and c.status='signed' and c.signed_at is not null and c.approved_at is not null and c.reservation_revision is not null
     and c.fields->>'room_id'=r.room_id::text and c.fields->>'arrival_date'=r.arrival_date::text and c.fields->>'departure_date'=r.departure_date::text and (c.fields->>'spaces_requested')::integer=r.spaces_requested and (c.fields->>'weekly_rate')::numeric=r.weekly_rate and c.fields->>'offer_type'=r.offer_type) then raise exception 'An approved, signed current agreement is required'; end if;
+  if r.departure_date-r.arrival_date<7 and not exists(select 1 from public.contracts c where c.reservation_id=r.id and c.status='signed' and c.fields->>'billing_type'='nightly' and (c.fields->>'nightly_rate')::numeric>0 and (c.fields->>'nightly_rate')::numeric::text not in ('NaN','Infinity','-Infinity')) then raise exception 'An explicitly approved nightly rate is required before confirmation'; end if;
   r.status:='confirmed'; r.confirmed_at:=now(); r.hold_expires_at:=null;
  elsif p_action='cancel' then
   if r.status not in ('pending','review','held','confirmed') then raise exception 'This reservation cannot be cancelled'; end if;
@@ -249,15 +250,21 @@ begin
   if p_data->>'bond' is null or (p_data->>'bond')::numeric<0 then raise exception 'Specify the agreed bond amount per resident'; end if;
   -- Reservation short/long is a pricing tier; the ledger uses long for fortnightly billing.
   -- Never derive an unapproved nightly rate by dividing the public weekly quote.
-  if r.departure_date-r.arrival_date<7 then raise exception 'An explicitly approved nightly rate is required before nightly check-in'; end if;
+  select fields into signed_fields from public.contracts where reservation_id=r.id and status='signed' and approved_at is not null and signed_at is not null order by version desc limit 1;
+  if signed_fields ? 'bond' and (p_data->>'bond')::numeric is distinct from (signed_fields->>'bond')::numeric then raise exception 'Bond must match the signed agreement'; end if;
+  if r.departure_date-r.arrival_date<7 then
+   nightly:=(signed_fields->>'nightly_rate')::numeric;
+   if signed_fields->>'billing_type' is distinct from 'nightly' or nightly is null or nightly<=0 or nightly::text in ('NaN','Infinity','-Infinity') then raise exception 'An explicitly approved nightly rate is required before nightly check-in'; end if;
+  end if;
   members:=coalesce(p_data->'residents',jsonb_build_array(jsonb_build_object('name',r.full_name,'email',r.email,'phone',r.phone)));
   if jsonb_typeof(members)<>'array' or jsonb_array_length(members)<>r.spaces_requested then raise exception 'Provide details for every resident'; end if;
+  if signed_fields ? 'resident_names' and (select jsonb_agg(trim(value->>'name')) from jsonb_array_elements(members)) is distinct from signed_fields->'resident_names' then raise exception 'Resident names must match the signed agreement'; end if;
   -- Remove reservation allocation in this same transaction before inserting the resident.
   update public.reservations set status='checked_in' where id=r.id;
   for member in select value from jsonb_array_elements(members) loop
    if length(trim(coalesce(member->>'name','')))<2 then raise exception 'Every resident needs a name'; end if;
    insert into public.people(name,email,phone,property_id,room_id,stay_type,weekly_rate,nightly_rate,start_date,end_date,bond)
-   values(trim(member->>'name'),member->>'email',member->>'phone',r.property_id,r.room_id,'long',r.weekly_rate,null,r.arrival_date,r.departure_date,(p_data->>'bond')::numeric) returning id into person;
+   values(trim(member->>'name'),member->>'email',member->>'phone',r.property_id,r.room_id,case when nightly is null then 'long' else 'short' end,r.weekly_rate,nightly,r.arrival_date,r.departure_date,(p_data->>'bond')::numeric) returning id into person;
    first_person:=coalesce(first_person,person);
    person_ids:=person_ids||jsonb_build_array(person);
   end loop;
