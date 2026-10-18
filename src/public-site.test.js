@@ -156,3 +156,61 @@ test('configured request page retains protected form while unavailable pages omi
  assert.ok(!text.includes('synthetic-secret'));
  assert.ok(!text.includes('synthetic-turnstile'));
 });
+
+test('database request gate off hides applicant fields even when Worker settings are on', async () => {
+  const original = globalThis.fetch;
+  const names = [];
+  globalThis.fetch = async (url) => {
+    const name = String(url).split('/').pop();
+    names.push(name);
+    if (name === 'public_catalog') return new Response(JSON.stringify(cat));
+    if (name === 'customer_requests_enabled') return new Response(JSON.stringify(false));
+    throw new Error('unexpected RPC: ' + name);
+  };
+  try {
+    const response = await handlePublicSite(
+      new Request('https://sakanlodge.com/locations/fulham/properties/house-1/rooms/room-1/'),
+      {
+        SUPABASE_URL: 'https://example.test', SUPABASE_PUBLIC_KEY: 'synthetic-anon',
+        RESERVATION_REQUESTS_ENABLED: 'true', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-server-only',
+        TURNSTILE_SECRET_KEY: 'synthetic-secret', TURNSTILE_SITE_KEY: 'synthetic-public',
+      },
+    );
+    const body = await response.text();
+    assert.equal(response.status, 200);
+    assert.ok(names.includes('customer_requests_enabled'));
+    assert.ok(!body.includes('name="full_name"'));
+    assert.ok(!body.includes('id="submit-request"'));
+    assert.ok(body.includes('Online reservation requests are currently unavailable'));
+    assert.ok(body.includes('mailto:sakanlodges@gmail.com'));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('approved database gate renders actionable request flow without leaking server keys', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async url => {
+    const name = String(url).split('/').pop();
+    if (name === 'public_catalog') return new Response(JSON.stringify(cat));
+    if (name === 'customer_requests_enabled') return new Response(JSON.stringify(true));
+    throw new Error('unexpected RPC');
+  };
+  try {
+    const response = await handlePublicSite(
+      new Request('https://sakanlodge.com/locations/fulham/properties/house-1/rooms/room-1/'),
+      {
+        SUPABASE_URL: 'https://example.test', SUPABASE_PUBLIC_KEY: 'synthetic-anon',
+        RESERVATION_REQUESTS_ENABLED: 'true', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-server-only',
+        TURNSTILE_SECRET_KEY: 'synthetic-secret', TURNSTILE_SITE_KEY: 'synthetic-public',
+      },
+    );
+    const body = await response.text();
+    assert.ok(body.includes('id="submit-request"'));
+    assert.ok(body.includes('name="full_name"'));
+    assert.ok(!body.includes('synthetic-server-only'));
+    assert.ok(!body.includes('synthetic-secret'));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
