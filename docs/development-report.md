@@ -14,6 +14,8 @@ The reporting review removes inferred cash receipts, separates earned/received/f
 
 The email review adds server-stored previews and one-attempt delivery claims, checks the real configured sender/CC, blocks stale or unfinished drafts and preserves successful delivery when audit logging fails. See [email-workflow-audit.md](email-workflow-audit.md) for verification and real-service limits.
 
+Private reusable agreement import/approval, structured snapshots, explicit approved nightly rates and resident/bond matching are implemented. A synthetic A4 agreement was rendered for visual QA. Actual workerd SQLite tests now verify email-claim concurrency, restart persistence and alarm cleanup. See [agreement-workflow.md](agreement-workflow.md).
+
 ## Validation
 
 Application, API and isolated database tests are provided. A PostgreSQL service in CI runs the competing-reservation test using separate database sessions. Local checks do not replace authenticated browser acceptance or real-service delivery testing.
@@ -28,7 +30,7 @@ The implementation is available in [draft PR #5](https://github.com/FaizanAwan19
 
 - Pass application/database CI and authenticated mobile/desktop acceptance.
 - Review and apply the additive database migration in the correct release order.
-- Use the supplied private agreement source, reconciling the later all-inclusive utilities decision and filling fresh applicant-specific fields/signatures. The source agreement is already supplied.
+- Review, import and approve the prepared private source template; it includes current utilities wording and fresh applicant/signature fields. Existing signed source documents remain unchanged.
 - Verify room content and readiness when staff release each checked-out space; no separate blanket list of properties to publish is required.
 - Configure deployment secrets privately and verify backup recovery and email delivery.
 - Verify the exact deployed code before enabling customer requests.
