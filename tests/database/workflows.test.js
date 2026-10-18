@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { verifyListingReleases } from "./listing-release-checks.js";
+import { verifyAgreements } from "./agreement-checks.js";
 import { verifyReportingSnapshot } from "./reporting-checks.js";
 const read = (p) => fs.readFile(new URL(p, import.meta.url), "utf8");
 const STAFF = "00000000-0000-4000-8000-000000000001";
@@ -783,5 +784,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyReportingSnapshot({ t, sql, rpc, STAFF, OTHER,
     applyMigration: async () => db.exec(await read("../../supabase/migrations/20261017232242_reporting_property_budgets.sql")),
   });
+  await verifyAgreements({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018035042_private_agreement_templates.sql"))});
   await db.close();
 });
