@@ -584,86 +584,6 @@ export default function Reservations({ db, reload }) {
                         Legacy HTML copy
                       </button>
                     )}
-                    {c.status === "draft" && (
-                      <button
-                        disabled={busy}
-                        onClick={() => {
-                          if (
-                            confirm(
-                              "Approve this complete agreement version for signature?",
-                            )
-                          )
-                            contract("approve", { id: c.id });
-                        }}
-                      >
-                        Approve reviewed agreement
-                      </button>
-                    )}
-                    {c.status === "approved" && (
-                      <>
-                        <label>
-                          Signer names
-                          <input
-                            value={draft.signed_by || ""}
-                            onChange={(e) =>
-                              change("signed_by", e.target.value)
-                            }
-                          />
-                        </label>
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={!!draft.signatures_verified}
-                            onChange={(e) =>
-                              change("signatures_verified", e.target.checked)
-                            }
-                          />{" "}
-                          I verified all required resident and proprietor
-                          signatures on this agreement version.
-                        </label>
-                        <label>
-                          Signed PDF (stored privately)
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            disabled={busy || !draft.signatures_verified}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              run(async () => {
-                                if (file.size > 10 * 1024 * 1024)
-                                  throw new Error("PDF must be under 10 MB");
-                                const path =
-                                  "contracts/" +
-                                  selected.id +
-                                  "/" +
-                                  c.id +
-                                  "-" +
-                                  crypto.randomUUID() +
-                                  ".pdf";
-                                const { error } = await supabase.storage
-                                  .from("reservation-contracts")
-                                  .upload(path, file, {
-                                    contentType: "application/pdf",
-                                    upsert: false,
-                                  });
-                                if (error) throw error;
-                                await rpc("manage_contract", {
-                                  p_res: selected.id,
-                                  p_action: "signed",
-                                  p_data: {
-                                    id: c.id,
-                                    signed_by: draft.signed_by,
-                                    signed_document_path: path,
-                                    signature_verified: true,
-                                  },
-                                });
-                              });
-                            }}
-                          />
-                        </label>
-                      </>
-                    )}
                     {c.status === "signed" && (
                       <p>
                         Signed by {c.signed_by} · received{" "}
@@ -703,7 +623,7 @@ export default function Reservations({ db, reload }) {
               <div className="card">
                 <h3>Notification drafts</h3>
                 <p>
-                  The provisional notice is sent when you review the PDF and
+                  The booking email is sent when you review the PDF and
                   click its send button. Other notifications require review and
                   send. “Uncertain” means review Gmail Sent Mail; automatic
                   retry is blocked.
