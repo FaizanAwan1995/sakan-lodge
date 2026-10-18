@@ -265,10 +265,11 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['activity', 'Activity']];
   return (
     <>
+      <a className="ledger-skip-link" href="#main-content">Skip to content</a>
       <header className={`topbar ${headerVisible ? 'visible' : 'hidden'}`}>
         <div className="topbar-inner">
           <div className="topbar-brand"><img className="brand-logo" src={LOGO} alt="SAKAN Lodge" /><span>SAKAN Lodge</span></div>
-          <nav className="top-nav">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => ctx.go(k)}>{l}</button>)}</nav>
+          <nav className="top-nav" aria-label="Ledger navigation">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} aria-current={tab === k ? 'page' : undefined} onClick={() => ctx.go(k)}>{l}</button>)}</nav>
         </div>
       </header>
       <main className="pad" id="main-content" tabIndex="-1">
