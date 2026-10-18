@@ -22,3 +22,9 @@ test('rejects impossible transaction dates', () => {
  for (const date of ['2026-02-30', '2026-13-01', '2026-00-01']) assert.ok(validateFinancialRow('payments', { person_id: 'p', amount: 100, date }));
  assert.equal(validateFinancialRow('payments', { person_id: 'p', amount: 100, date: '2028-02-29' }), null);
 });
+
+test('audited negative adjustment charges can round-trip without permitting negative payments',()=>{
+ assert.equal(validateFinancialRow('charges',{person_id:'p',kind:'adjustment',amount:-35,due_date:'2026-10-18',note:'Admin balance credit: dummy account'}),null);
+ assert.ok(validateFinancialRow('payments',{person_id:'p',kind:'rent',amount:-35,date:'2026-10-18'}));
+ assert.ok(validateFinancialRow('charges',{person_id:'p',kind:'adjustment',amount:-35,due_date:'2026-10-18',note:''}));
+});

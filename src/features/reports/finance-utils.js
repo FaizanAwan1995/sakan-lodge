@@ -9,7 +9,7 @@ export function tenantStatement(db, personId, asOf) {
   const charges = person.charges.filter(c => c.due_date && c.due_date <= asOf);
   const payments = person.payments.filter(p => p.date && p.date <= asOf);
   const rows = [
-    ...charges.map(c => ({ date: c.due_date, description: c.kind || 'Charge', debit: +c.amount || 0, credit: 0 })),
+    ...charges.map(c => ({ date: c.due_date, description: c.kind === 'adjustment' && +c.amount < 0 ? 'Admin balance credit: '+(c.note || '') : c.kind || 'Charge', debit: Math.max(0,+c.amount || 0), credit: Math.max(0,-c.amount || 0) })),
     ...payments.filter(p => !p.kind || p.kind === 'rent').map(p => ({ date: p.date, description: 'Rent received', debit: 0, credit: +p.amount || 0 })),
   ].filter(r => r.date && r.date <= asOf).sort((a,b) => a.date.localeCompare(b.date) || b.debit - a.debit);
   let balance = 0;

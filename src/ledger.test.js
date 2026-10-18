@@ -249,3 +249,12 @@ test('one-night scheduled checkout remains active only until checkout date and r
  assert.equal(charges.reduce((sum,c)=>sum+c.amount,0),35);
  assert.equal(charges[0].period_end,'2026-10-18');
 });
+
+test('actual same-day checkout frees occupancy while retaining the minimum-night charge and unpaid balance',()=>{
+ const p={id:'dummy',stay_type:'long',start_date:'2026-10-18',end_date:'2026-10-19',checked_out_at:'2026-10-18T12:00:00Z',weekly_rate:255};
+ assert.equal(L.isActive(p,'2026-10-18'),false);
+ const charges=L.rentCharges(p,{lease_anchor:'2026-10-13'},'2026-10-18');
+ assert.equal(L.balance(charges,[],'2026-10-18').owed,35);
+ const b=L.balance([...charges,{kind:'adjustment',amount:-35,due_date:'2026-10-18'}],[],'2026-10-18');
+ assert.equal(b.owed,0);assert.equal(b.paid,0);assert.equal(b.daysLate,0);
+});

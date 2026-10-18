@@ -1,3 +1,4 @@
+import {verifyAdminActions} from './admin-actions-checks.js';
 import {verifyManualBooking} from './manual-booking-checks.js';
 import {verifyBookingContracts} from './booking-contract-checks.js';
 import test from "node:test";
@@ -804,5 +805,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyAutomaticAvailability({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018045755_automatic_ledger_availability.sql"))});
   await verifyBookingContracts({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018095439_booking_contract_workflow.sql"))});
   await verifyManualBooking({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261018104703_simplify_manual_booking.sql'))});
+  await verifyAdminActions({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261018124518_admin_checkout_adjustments.sql'))});
   await db.close();
 });
