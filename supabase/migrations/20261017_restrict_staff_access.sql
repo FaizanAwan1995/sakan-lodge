@@ -7,19 +7,15 @@ create table if not exists public.staff_access (
 );
 alter table public.staff_access enable row level security;
 revoke all on public.staff_access from anon, authenticated;
--- Seed from the intended existing staff identities. If either account is missing, verify
--- both user IDs in Supabase Auth before applying this migration.
-insert into public.staff_access(user_id)
-select id from auth.users
-where lower(email) in ('faizanasif117@gmail.com', 'danish.mihm@gmail.com')
-  and email_confirmed_at is not null
-on conflict (user_id) do nothing;
+-- Provision the two verified staff Auth user IDs through a trusted administrative
+-- operation before applying this migration. Personal email addresses are not
+-- authorization constants in application source.
 
-do $ begin
+do $$ begin
   if (select count(*) from public.staff_access) <> 2 then
     raise exception 'Expected exactly two verified staff accounts. Review staff_access before changing RLS.';
   end if;
-end $;
+end $$;
 
 create or replace function public.is_sakan_staff() returns boolean
 language sql stable security definer

@@ -2,7 +2,7 @@ name: Test and build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
   pull_request:
 
 permissions:
@@ -11,6 +11,19 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: sakan_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,4 +32,29 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run check
       - run: npm test
+      - run: npm run test:database
+        env:
+          SAKAN_TEST_DATABASE_URL: postgresql://postgres:test-only-password@localhost:5432/sakan_test
+      - name: Restore encrypted synthetic database and verify private functions and grants
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+          SAKAN_TEST_DATABASE_URL: postgresql://postgres:test-only-password@localhost:5432/sakan_test
+          BACKUP_ENCRYPTION_PASSPHRASE: synthetic-ci-only-recovery-key-never-production
+        run: |
+          set -euo pipefail
+          dump_dir="$(mktemp -d)"
+          trap 'rm -rf -- "$dump_dir"' EXIT
+          docker exec "$PG_CONTAINER" pg_dump -U postgres -d sakan_test --clean --if-exists --schema=public --schema=sakan_private --schema=auth --schema=storage --no-owner > "$dump_dir/source.sql"
+          node scripts/backup-crypto.mjs encrypt "$dump_dir/source.sql" "$dump_dir/source.sql.enc"
+          rm -- "$dump_dir/source.sql"
+          node scripts/backup-crypto.mjs decrypt "$dump_dir/source.sql.enc" "$dump_dir/restored.sql"
+          docker exec "$PG_CONTAINER" createdb -U postgres sakan_restore_test
+          docker exec -i "$PG_CONTAINER" psql -U postgres -d sakan_restore_test -v ON_ERROR_STOP=1 < "$dump_dir/restored.sql" > /dev/null
+          node tests/database/restore-check.mjs
+      - run: npm run test:runtime
       - run: npm run build
+      - name: Build configured staff client with synthetic configuration
+        run: npm run build && node scripts/check-staff-build.mjs
+        env:
+          VITE_SUPABASE_URL: https://database.example.test
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_synthetic_test_key

@@ -10,18 +10,29 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test src/*.test.js src/features/communications/*.test.js src/features/reports/*.test.js",
-    "check": "node --check src/financial-safety.js && node --check src/error-handling.js && node --check src/ledger.js && node --check src/store.js && node --check src/app-helpers.js && node --check src/features/communications/email-utils.js",
-    "build:staging": "SAKAN_ENV=staging vite build"
+    "test": "node --test src/*.test.js src/features/communications/*.test.js src/features/reports/*.test.js tests/*.test.js",
+    "check": "node --check src/financial-safety.js && node --check src/error-handling.js && node --check src/ledger.js && node --check src/store.js && node --check src/app-helpers.js && node --check src/features/communications/email-utils.js && node --check src/worker.js && node --check src/public-site.js && node --check src/reservation-email.js && node --check public/booking.js",
+    "build:staging": "SAKAN_ENV=staging vite build",
+    "test:database": "node --test tests/database/workflows.test.js",
+    "test:all": "npm test && npm run test:database && npm run test:runtime",
+    "test:runtime": "node --test tests/runtime/*.test.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "2.117.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
     "@vitejs/plugin-react": "^6.1.2",
+    "miniflare": "4.20260730.0",
+    "pg": "8.23.1",
     "vite": "^8.3.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "workerd": "1.20261018.1"
+    }
   }
 }

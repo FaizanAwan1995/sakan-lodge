@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { errorMessage } from './error-handling.js';
 import { findPossibleDuplicatePayment } from './financial-safety.js';
-import TenantStatements from './features/reports/TenantStatements.jsx';
-import { propertyProfitability } from './features/reports/finance-utils.js';
+import FinancialReports from './features/reports/FinancialReports.jsx';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup } from './store.js';
 import * as L from './ledger.js';
@@ -11,6 +10,7 @@ import { accountChoices, bondStatusLabel, reorderList, sortPeopleByRentUrgency, 
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
 import TenantCommunications from './features/communications/TenantCommunications.jsx';
 import Reservations from './features/reservations/Reservations.jsx';
+import ReleaseListingButton from './features/reservations/ReleaseListingButton.jsx';
 
 const TEAM = accountChoices();
 const LOGO = '/ledger/sakan-logo.jpg';
@@ -271,7 +271,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
       </header>
       <main className="pad" id="main-content" tabIndex="-1">
         <header className="app-header">
-          <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">Four houses · {db.people.filter((p) => L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
+          <div className="app-brand"><div><strong>SAKAN Lodge</strong><small>Hospitality in its true sense</small><small className="brand-meta">{db.properties.length} properties · {db.people.filter((p) => p.start_date <= today && L.isActive(p, today)).length} residents</small><div className="account-switch"><span>Signed in as {accountName}</span>{isLocalMode ? <button type="button" onClick={onSwitchLocal}>Switch user</button> : <button type="button" onClick={signOut}>Switch user</button>}</div></div></div>
           <time>{nice(today)}</time>
         </header>
         {!isLocalMode && !session.user.identities?.some(identity => identity.provider === 'google') && <section aria-label="Google account connection" className="card google-link-card">
@@ -292,7 +292,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
         {tab === 'communications' && <TenantCommunications db={db} today={today} />}
-        {tab === 'reservations' && <Reservations db={db} />}
+        {tab === 'reservations' && <Reservations db={db} reload={reload} />}
         {tab === 'activity' && <Activity {...ctx} />}
       </main>
     </>
@@ -303,6 +303,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
 function Today({ db, d, today, go }) {
   const behind = d.people.filter((p) => p.owed > 0.005).sort((a, b) => b.daysLate - a.daysLate || b.owed - a.owed);
   const bonds = sum(d.people, (p) => p.bond_held);
+  const legacyBonds = sum(d.people, (p) => p.legacy_bond_declared);
   const props = [...db.properties].sort((a, b) => a.name.localeCompare(b.name));
 
   const SECTION_DEFAULT_ORDER = ['balanceHero', 'attention', 'propertyPulse', 'shortcuts', 'repairFollowUps', 'leaseReviews', 'schedule', 'bonds'];
@@ -448,7 +449,8 @@ function Today({ db, d, today, go }) {
         return (
           <>
             <h2>Bonds held</h2>
-            <div className="card between"><span>On residents’ behalf (not income)</span><b>{fmt(bonds)}</b></div>
+            <div className="card between"><span>Bond balance from recorded transactions (not income)</span><b>{fmt(bonds)}</b></div>
+            {legacyBonds > 0 && <p role="status">Legacy resident records also mark {fmt(legacyBonds)} of bonds as paid without matching receipt history. Reconcile that opening liability before treating the recorded balance as complete.</p>}
           </>
         );
       default:
@@ -558,10 +560,10 @@ function Rooms({ db, d, today, reload, residentId }) {
         </section>
       ))}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
-        <button className="row" key={x.id} onClick={() => setEdit({ type: 'person', data: x })}>
+        <div className="card" key={x.id}><button className="row" onClick={() => setEdit({ type: 'person', data: x })}>
           <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
           {x.owed > 0 && <b className="err">{fmt(x.owed)}</b>}
-        </button>))}</>}
+        </button><ReleaseListingButton person={x} /></div>))}</>}
     </>
   );
 }
@@ -585,9 +587,9 @@ function HouseForm({ p, done }) {
       <label>{p.id ? 'Lease start (blank = before 1 Jul 2026)' : 'Lease start'}</label><input type="date" value={f.lease_start} onChange={set('lease_start')} required={!p.id} />
       <label>Lease end date (optional, for renewal reminders)</label><input type="date" value={f.lease_end} onChange={set('lease_end')} />
       <label>First landlord payment override (blank = automatic)</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.lease_first_amount} onChange={set('lease_first_amount')} />
-      <label>Quarterly electricity cap</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.electricity_cap} onChange={set('electricity_cap')} required />
-      <label>Bills amount</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bills_amount} onChange={set('bills_amount')} placeholder="0.00" />
-      <label>Bills cycle</label>
+      <p className="muted">Utilities are included. Electricity caps are retained for historical records only.</p>
+      <label>Utilities budget (forecast only)</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bills_amount} onChange={set('bills_amount')} placeholder="0.00" />
+      <label>Budget cycle</label>
       <select value={f.bills_frequency} onChange={set('bills_frequency')}>
         <option value="monthly">Monthly</option>
         <option value="yearly">Yearly</option>
@@ -639,7 +641,8 @@ function CheckoutForm({ person, today, done }) {
   }}>
     <h1>Check out {person.name}</h1>
     <p className="muted">Checked in {nice(person.start_date)}. The checkout date is stored on the resident record and rent is charged up to the day before checkout.</p>
-    <label>Checkout date</label><input type="date" min={person.start_date} value={date} onChange={(e) => setDate(e.target.value)} required />
+    <p className="muted">Checkout alone does not publish a listing. After checkout, release the space from Past residents, then verify readiness and approve its listing.</p>
+    <label>Checkout date</label><input type="date" min={dayAfter(person.start_date)} value={date} onChange={(e) => setDate(e.target.value)} required />
     <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Confirm checkout'}</button>
     <button type="button" className="small" onClick={done}>Cancel</button>
   </form>;
@@ -928,18 +931,17 @@ function ElecBill({ db, d, today, done }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const prop = db.properties.find((p) => p.id === f.property_id);
   const ready = prop && f.q_start && f.q_end && f.q_start <= f.q_end && f.bill_date && +f.amount > 0;
-  const split = ready ? L.electricitySplit({ amount: +f.amount, cap: prop.electricity_cap, qStart: f.q_start, qEnd: f.q_end, billDate: f.bill_date, people: d.people.filter((p) => p.property_id === prop.id) }) : null;
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
-      if (!split || f.q_start > f.q_end) return;
+      if (!ready || f.q_start > f.q_end) return;
       const posted = await postElectricityBill({
         propertyId: prop.id,
         billDate: f.bill_date,
         qStart: f.q_start,
         qEnd: f.q_end,
         amount: +f.amount,
-        shares: split.shares.map((s) => ({ personId: s.person.id, amount: s.amount, nights: s.nights, totalNights: split.totalNights })),
+        shares: [],
       });
       if (posted) done();
     }}>
@@ -950,198 +952,16 @@ function ElecBill({ db, d, today, done }) {
       {f.q_start && f.q_end && f.q_start > f.q_end && <p className="err">Quarter end must be on or after quarter start.</p>}
       <label>Bill date</label><input type="date" value={f.bill_date} onChange={set('bill_date')} required />
       <label>Bill total</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={set('amount')} required />
-      {split && (
-        <div className="card">
-          <p>Cap {fmt(prop.electricity_cap)} · excess <b>{fmt(split.excess)}</b>. Full bill is recorded as an expense.</p>
-          {split.excess > 0 ? (
-            <table><thead><tr><th>Resident</th><th>Nights</th><th>Share</th></tr></thead>
-              <tbody>{split.shares.map((s) => <tr key={s.person.id}><td>{s.person.name}</td><td>{s.nights}</td><td>{fmt(s.amount)}</td></tr>)}</tbody></table>
-          ) : <p className="muted">Under the cap — nothing charged to residents.</p>}
-        </div>
-      )}
-      <button className="primary" disabled={!split}>Post bill{split?.shares.length ? ` and ${split.shares.length} charge(s)` : ''}</button>
+      <p>Full bill is recorded as a business expense. Utilities are included; no resident surcharges are created.</p>
+      <button className="primary" disabled={!ready}>Record bill expense</button>
       <button type="button" className="small" onClick={done}>Cancel</button>
     </form>
   );
 }
 
 /* ---------------- Reports ---------------- */
-function Reports({ db, d, today }) {
-  const cur = L.fyEndYear(today);
-  const years = []; for (let y = cur; y >= 2027; y--) years.push(y);
-  const [fy, setFy] = useState(cur);
-  const [rangeMode, setRangeMode] = useState('upcomingFortnight');
-  const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
-  const [customStart, setCustomStart] = useState(() => L.lastFortnightRange(today).start);
-  const [customEnd, setCustomEnd] = useState(() => L.lastFortnightRange(today).end);
-  const fyRange = L.fyRange(fy);
-  const thisFortnight = L.thisFortnightRange(today);
-  const lastFortnight = L.lastFortnightRange(today);
-  const monthOptions = (() => {
-    const start = new Date(2026, 6, 1);
-    const end = new Date(`${today.slice(0, 4)}-${today.slice(5, 7)}-01`);
-    const options = [];
-    for (let cursor = new Date(end); cursor >= start; cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
-      options.push({ key, label: new Date(cursor.getFullYear(), cursor.getMonth(), 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }) });
-    }
-    return options;
-  })();
-  const rangeForProperty = (property, mode) => {
-    if (mode === 'thisFortnight') return L.thisFortnightRangeForProperty(property);
-    if (mode === 'lastFortnight') return L.lastFortnightRangeForProperty(property);
-    if (mode === 'upcomingFortnight') return L.upcomingFortnightRangeForProperty(property, today);
-    return { start: fyRange.start, end: fyRange.end };
-  };
-  const propertyRangeSummary = (mode) => {
-    if (!db.properties.length) return { start: mode === 'lastFortnight' ? lastFortnight.start : mode === 'upcomingFortnight' ? L.upcomingFortnightRangeForProperty({ lease_anchor: today }, today).start : fyRange.start, end: mode === 'lastFortnight' ? lastFortnight.end : mode === 'upcomingFortnight' ? L.upcomingFortnightRangeForProperty({ lease_anchor: today }, today).end : fyRange.end };
-    const ranges = db.properties.map((property) => rangeForProperty(property, mode));
-    const starts = ranges.map((range) => range.start).filter(Boolean); 
-    const ends = ranges.map((range) => range.end).filter(Boolean);
-    return {
-      start: starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : fyRange.start,
-      end: ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : fyRange.end,
-    };
-  };
-  const summaryRange = propertyRangeSummary(rangeMode);
-  const monthStart = `${selectedMonth}-01`;
-  const monthEndRaw = new Date(`${selectedMonth}-01T00:00:00Z`);
-  const monthEnd = new Date(Date.UTC(monthEndRaw.getUTCFullYear(), monthEndRaw.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
-  const start = rangeMode === 'custom' ? customStart : rangeMode === 'month' ? monthStart : rangeMode === 'lastFortnight' || rangeMode === 'upcomingFortnight' ? summaryRange.start : fyRange.start;
-  const end = rangeMode === 'custom' ? customEnd : rangeMode === 'month' ? monthEnd : rangeMode === 'lastFortnight' || rangeMode === 'upcomingFortnight' ? summaryRange.end : fyRange.end;
-  const label = rangeMode === 'custom' ? `${nice(start)} – ${nice(end)}` : rangeMode === 'month' ? `Monthly · ${new Date(`${selectedMonth}-01T00:00:00`).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}` : rangeMode === 'lastFortnight' ? `Last fortnight · ${nice(start)} – ${nice(end)}` : rangeMode === 'upcomingFortnight' ? `Upcoming fortnight · ${nice(start)} – ${nice(end)}` : fyRange.label;
-  const rangeError = !start || !end || start > end;
-  const inR = (s) => s >= start && s <= end;
-  const allPays = db.payments.filter((p) => inR(p.date) && p.date <= today);
-  const pays = allPays.filter((p) => !p.kind || p.kind === 'rent');
-  const bondReceipts = sum(allPays.filter((p) => p.kind === 'bond'), (p) => p.amount);
-  const bondRefunds = sum(allPays.filter((p) => p.kind === 'bond_refund'), (p) => p.amount);
-  const bondRetained = sum(allPays.filter((p) => p.kind === 'bond_deducted'), (p) => p.amount);
-  const bondsHeld = sum(d.people, (p) => p.bond_held);
-  const exps = d.expenses.filter((e) => inR(e.date) && e.date <= today);
-  const charges = d.people.flatMap((person) => person.charges.map((charge) => ({ ...charge, property_id: person.property_id, name: person.name })));
-  const earnedC = charges.filter((charge) => inR(charge.due_date) && charge.due_date <= today);
-
-  const reportRows = [...db.properties].sort((a, b) => a.name.localeCompare(b.name)).map((property) => {
-    const cycleRange = rangeMode === 'lastFortnight' ? L.lastFortnightRangeForProperty(property) : rangeMode === 'upcomingFortnight' ? L.upcomingFortnightRangeForProperty(property, today) : { start, end };
-    const propertyStart = cycleRange.start;
-    const propertyEnd = cycleRange.end;
-    const residents = d.people.filter((person) => person.property_id === property.id);
-    const expectedRent = sum(residents, (person) => L.defaultRentForPeriod(person, property, propertyStart, propertyEnd));
-    const propertyPayments = db.payments.filter((payment) => {
-      const person = d.people.find((candidate) => candidate.id === payment.person_id);
-      const propertyMatches = payment.property_id === property.id || (person && person.property_id === property.id);
-      const isRent = !payment.kind || payment.kind === 'rent';
-      return propertyMatches && isRent && payment.date >= propertyStart && payment.date <= propertyEnd;
-    });
-    const propertyPaymentTotal = L.propertyCycleRentCollected(property, d.people, db.payments, propertyStart, propertyEnd);
-    const actualRentCollected = propertyPayments.length > 0 ? propertyPaymentTotal : expectedRent;
-    const landlordExpensesForCycle = L.landlordExpenses(property, propertyEnd).filter((expense) => expense.date >= propertyStart && expense.date <= propertyEnd);
-    const landlordRent = landlordExpensesForCycle.length ? sum(landlordExpensesForCycle, (expense) => expense.amount) : (+property.lease_rent || 0);
-    const otherCosts = sum(exps.filter((expense) => expense.property_id === property.id && expense.category !== 'Landlord rent' && expense.date >= propertyStart && expense.date <= propertyEnd), (expense) => expense.amount);
-    const bills = L.propertyBillsForPeriod(property, propertyStart, propertyEnd);
-    const net = L.money(actualRentCollected - landlordRent - bills - otherCosts);
-    return {
-      property,
-      cycleRange,
-      residents,
-      expectedRent,
-      actualRentCollected,
-      landlordRent,
-      bills,
-      otherCosts,
-      net,
-    };
-  });
-
-  const totals = reportRows.reduce((acc, row) => {
-    acc.expectedRent += row.expectedRent;
-    acc.actualRentCollected += row.actualRentCollected;
-    acc.landlordRent += row.landlordRent;
-    acc.bills += row.bills;
-    acc.otherCosts += row.otherCosts;
-    acc.net += row.net;
-    return acc;
-  }, { expectedRent: 0, actualRentCollected: 0, landlordRent: 0, bills: 0, otherCosts: 0, net: 0 });
-
-  const overhead = sum(exps.filter((e) => !e.property_id), (e) => e.amount);
-  const byCat = Object.values(CATS).flat().map((c) => [c, sum(exps.filter((e) => e.category === c), (e) => e.amount)]).filter(([, v]) => v);
-
-  const exportCsv = () => {
-    const name = (id) => d.people.find((p) => p.id === id)?.name || '';
-    const house = (id) => db.properties.find((p) => p.id === id)?.name || 'Whole business';
-    const rows = [['type', 'date', 'house', 'resident', 'category', 'amount', 'method', 'received_by', 'note'],
-      ...earnedC.map((c) => ['charge', c.due_date, house(c.property_id), c.name, c.kind, c.amount, '', '', c.note || '']),
-      ...allPays.map((p) => ['payment', p.date, house(p.property_id), name(p.person_id), p.kind || 'rent', p.amount, p.method, p.received_by, p.note || '']),
-      ...exps.map((e) => ['expense', e.date, house(e.property_id), '', e.category, e.amount, e.paid_from, '', e.note || ''])]
-      .sort((a, b) => (a[1] < b[1] ? -1 : 1));
-    const csvCell = (value) => {
-      let text = String(value ?? '');
-      if (typeof value === 'string' && /^[\s]*[=+@\-\t\r]/.test(text)) text = `'${text}`;
-      return `"${text.replace(/"/g, '""')}"`;
-    };
-    const csv = rows.map((r) => r.map(csvCell).join(',')).join('\n');
-    const a = document.createElement('a');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.href = url;
-    a.download = `sakan-${label.replace(/[^A-Za-z0-9-]/g, '-').replace(/-+/g, '-')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-
-  return (
-    <>
-      <TenantStatements db={db} today={today} />
-      <section className="card">
-        <h2>Property cash flow · {nice(start)} – {nice(end)}</h2>
-        <p className="muted">Rent received less recorded expenses and scheduled landlord rent. Bond transactions are excluded. This is cash-flow reporting, not tax accounting.</p>
-        {!rangeError && <div style={{overflowX:'auto'}}><table><thead><tr><th>Property</th><th>Rent received</th><th>Expenses</th><th>Net</th></tr></thead><tbody>
-          {propertyProfitability(db, start, end).map(x => <tr key={x.property.id}><td>{x.property.name}</td><td>{fmt(x.rent)}</td><td>{fmt(x.expenses)}</td><td className={x.net < 0 ? 'err' : 'ok'}>{fmt(x.net)}</td></tr>)}
-        </tbody></table></div>}
-      </section>
-      <h1 className="screen-title">Property reports</h1>
-      <div className="report-controls">
-        <div className="seg">{[['fy', 'Financial year'], ['month', 'Monthly'], ['lastFortnight', 'Last fortnight'], ['upcomingFortnight', 'Upcoming fortnight'], ['custom', 'Date range']].map(([key, title]) => <button type="button" key={key} className={rangeMode === key ? 'on' : ''} onClick={() => setRangeMode(key)}>{title}</button>)}</div>
-        {rangeMode === 'fy' && <label>Financial year<select value={fy} onChange={(e) => setFy(+e.target.value)}>{years.map((year) => <option key={year} value={year}>{L.fyRange(year).label}</option>)}</select></label>}
-        {rangeMode === 'month' && <label>Month<select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>{monthOptions.map((month) => <option key={month.key} value={month.key}>{month.label}</option>)}</select></label>}
-        {rangeMode === 'custom' && <div className="custom-range"><label>From<input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} /></label><label>To<input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} /></label></div>}
-      </div>
-      {rangeError && <p className="err">Choose a valid report range. The start date must be on or before the end date.</p>}
-
-      <div className="hero" style={{ marginTop: 12 }}>
-        <small>Actual rent collected {label}</small>
-        <b>{fmt(totals.actualRentCollected)}</b>
-        <small>Expected rent {fmt(totals.expectedRent)} · landlord rent {fmt(totals.landlordRent)} · bills {fmt(totals.bills)} · other costs {fmt(totals.otherCosts)} · net {fmt(totals.net)}</small>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Property</th>
-            <th>Cycle</th>
-            {rangeMode !== 'upcomingFortnight' && <th>Rent collected</th>}
-            <th>Landlord rent</th>
-            {rangeMode !== 'upcomingFortnight' && <th>Profit / loss</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {reportRows.map(({ property, cycleRange, actualRentCollected, landlordRent, net }) => (
-            <tr key={property.id}>
-              <td>{property.name}</td>
-              <td>{nice(cycleRange.start)} – {nice(cycleRange.end)}</td>
-              {rangeMode !== 'upcomingFortnight' && <td>{fmt(actualRentCollected)}</td>}
-              <td>{fmt(landlordRent)}</td>
-              {rangeMode !== 'upcomingFortnight' && <td className={net < 0 ? 'err' : 'ok'}><b>{fmt(net)}</b></td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <button className="primary" disabled={rangeError} onClick={exportCsv}>Export {label} transactions (CSV)</button>
-    </>
-  );
+function Reports({ db, today }) {
+  return <FinancialReports db={db} today={today} />;
 }
 
 /* ---------------- Activity ---------------- */

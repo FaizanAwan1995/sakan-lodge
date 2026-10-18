@@ -173,8 +173,8 @@ test('this fortnight and last fortnight ranges are calculated correctly', () => 
 test('property fortnight ranges are anchored per property instead of sharing one global window', () => {
   const clapham = { lease_anchor: '2026-10-23' };
   const woodville = { lease_anchor: '2026-10-11' };
-  assert.deepEqual(L.lastFortnightRangeForProperty(clapham), { start: '2026-10-10', end: '2026-10-22', label: 'Last fortnight' });
-  assert.deepEqual(L.thisFortnightRangeForProperty(woodville), { start: '2026-10-11', end: '2026-10-24', label: 'This fortnight' });
+  assert.deepEqual(L.lastFortnightRangeForProperty(clapham, '2026-10-12'), { start: '2026-10-09', end: '2026-10-22', label: 'Previous rent cycle' });
+  assert.deepEqual(L.thisFortnightRangeForProperty(woodville, '2026-10-12'), { start: '2026-10-11', end: '2026-10-24', label: 'This fortnight' });
 });
 
 test('upcoming fortnight uses the next property cycle on or after today', () => {
@@ -196,7 +196,7 @@ test('last-fortnight rent collected uses the property fortnight rent schedule wh
     { person_id: 'p2', property_id: 'prop-1', kind: 'bond', date: '2026-10-20', amount: 1000 },
     { person_id: 'p3', property_id: 'prop-2', kind: 'rent', date: '2026-10-20', amount: 250 },
   ];
-  assert.equal(L.propertyCycleRentCollected(property, people, payments, '2026-10-10', '2026-10-22'), 900);
+  assert.equal(L.propertyCycleRentCollected(property, people, payments, '2026-10-10', '2026-10-22', '2026-10-22'), 900);
   assert.equal(L.money(350 + 450), 800);
 });
 

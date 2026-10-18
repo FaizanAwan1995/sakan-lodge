@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isLocalMode } from '../../store.js';
 import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isValidTenantEmail } from './email-utils.js';
 
@@ -39,12 +39,14 @@ export default function TenantCommunications({ db, today }) {
   const [expandedProperties, setExpandedProperties] = useState([]);
   const [search, setSearch] = useState('');
   const [customRecipients, setCustomRecipients] = useState('');
-  const [cc, setCc] = useState('faizanasif117@gmail.com, danish.mihm@gmail.com');
-  const sender = 'sakanlodges@gmail.com';
+  const sendLock = useRef(false);
+  const [needsReconciliation, setNeedsReconciliation] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [selected, setSelected] = useState([]);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState(false);
+  const sender = preview?.sender || 'Connected business Gmail account';
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [sentConfirmation, setSentConfirmation] = useState('');
@@ -63,7 +65,7 @@ export default function TenantCommunications({ db, today }) {
     setMessage(templates[value].body);
     setPreview(false);
   };
-  const tenants = useMemo(() => db.people.filter((p) => !p.end_date || p.end_date > today), [db.people, today]);
+  const tenants = useMemo(() => db.people.filter((p) => p.start_date <= today && (!p.end_date || p.end_date > today)), [db.people, today]);
   const recipients = useMemo(() => eligibleRecipients(db.people, today, ''), [db.people, today]);
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
   const propertyGroups = db.properties.map((property) => {
@@ -81,12 +83,30 @@ export default function TenantCommunications({ db, today }) {
   const customEmails = customRecipients.split(/[;,\s]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
   const invalidCustomEmails = customEmails.filter((email) => !isValidTenantEmail(email));
   const emailList = [...new Set([...uniqueRecipientEmails(chosen), ...customEmails])];
-  const ccEmails = [...new Set(cc.split(/[;,\n]+/).map((email) => email.trim().toLowerCase()).filter(Boolean))];
-  const ccValid = ccEmails.every(isValidTenantEmail);
-  const canCompose = emailList.length > 0 && subject.trim() && message.trim() && !hasUnfilledPlaceholders(message) && ccValid && invalidCustomEmails.length === 0;
+  const draft = { recipients: emailList, subject: subject.trim(), body: message.trim() };
+  const draftKey = JSON.stringify(draft);
+  const reviewed = preview && preview.draftKey === draftKey;
+  const canCompose = emailList.length > 0 && emailList.length <= 100 && subject.trim() && subject.length <= 250 && message.trim() && message.length <= 60000 && !/[\r\n]/.test(subject) && !hasUnfilledPlaceholders(subject) && !hasUnfilledPlaceholders(message) && invalidCustomEmails.length === 0;
+  const preparePreview = async () => {
+    if (!canCompose || preparing || needsReconciliation || isLocalMode || !supabase) return;
+    setPreparing(true); setSendError(''); setPreview(false);
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session?.access_token) throw new Error('Please sign in again.');
+      const response = await fetch('/api/gmail/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify(draft),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.reviewId) throw new Error(result.error || 'Unable to prepare email preview.');
+      setPreview({ ...result, draftKey });
+    } catch (error) { setSendError(error.message || 'Unable to prepare email preview.'); }
+    finally { setPreparing(false); }
+  };
   const send = async () => {
-    if (!preview || !canCompose || sending || isLocalMode || !supabase) return;
+    if (!reviewed || !canCompose || sendLock.current || needsReconciliation || isLocalMode || !supabase) return;
     if (!window.confirm(`Send this email to ${emailList.length} recipient(s) from ${sender}? This action cannot be undone.`)) return;
+    sendLock.current = true;
     setSending(true);
     setSendError('');
     setSentConfirmation('');
@@ -96,7 +116,7 @@ export default function TenantCommunications({ db, today }) {
       const response = await fetch('/api/gmail/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ recipients: emailList, subject: subject.trim(), body: message.trim(), confirmation: 'SEND_REVIEWED_EMAIL' })
+        body: JSON.stringify({ reviewId: preview.reviewId, confirmation: 'SEND_REVIEWED_EMAIL' })
       });
       const result = await response.json();
       if (!response.ok || !result.sent) throw new Error(result.error || 'Gmail could not confirm sending.');
@@ -108,8 +128,11 @@ export default function TenantCommunications({ db, today }) {
       setMessage('');
       setTemplate('general');
     } catch (error) {
-      setSendError(error.message || 'Unable to confirm sending. Check Gmail Sent Mail before retrying.');
+      setNeedsReconciliation(true);
+      setPreview(false);
+      setSendError((error.message || 'Unable to confirm sending.') + ' Check Gmail Sent Mail before preparing another email.');
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   };
@@ -121,7 +144,7 @@ export default function TenantCommunications({ db, today }) {
       <p style={{ marginTop: '.5rem', opacity: .8 }}>Select recipients, compose your message and review before sending.</p>
     </header>
     {gmailConnected && <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '.75rem 1rem', marginBottom: '1rem', borderRadius: 12, background: '#e8f3ea', color: '#235c3e' }}>
-      <span><strong>Gmail connected.</strong> Your sender account is authorised.</span>
+      <span><strong>Gmail connected.</strong> Connection completed. Prepare a preview to check the stored sender.</span>
       <button type="button" aria-label="Dismiss Gmail confirmation" onClick={() => setGmailConnected(false)} style={{ width: 'auto', minHeight: 36, flexShrink: 0 }}>Dismiss</button>
     </div>}
     {!isLocalMode && <div style={{ marginBottom: '1.25rem' }}>
@@ -167,7 +190,7 @@ export default function TenantCommunications({ db, today }) {
     {invalidCustomEmails.length > 0 && <p role="alert" className="err">Please correct the additional recipient email addresses before continuing.</p>}
     <p aria-live="polite"><strong>{emailList.length} unique recipient(s)</strong> ready for review.</p>
     <h2 style={{ marginTop: '1.75rem' }}>2. Compose message</h2>
-    <p><strong>CC (automatic):</strong> faizanasif117@gmail.com, danish.mihm@gmail.com</p>
+    <p><strong>CC (automatic):</strong> {reviewed ? preview.cc.join(', ') : 'Approved staff addresses are resolved when preparing the preview.'}</p>
     <label>Email purpose
       <select value={template} onChange={(e) => chooseTemplate(e.target.value)}>
         <option value="general">General notice</option>
@@ -181,21 +204,22 @@ export default function TenantCommunications({ db, today }) {
     {template !== 'general' && <p>Review and replace all bracketed placeholders before sending. Receipts must be checked against the recorded payment. Inspection notices must meet applicable notice requirements.</p>}
     <label>Subject<input value={subject} onChange={(e) => { setSubject(e.target.value); setPreview(false); }} placeholder="e.g. Property notice" /></label>
     <label>Message<textarea rows={7} value={message} onChange={(e) => { setMessage(e.target.value); setPreview(false); }} placeholder="Write your message to tenants" /></label>
-    {hasUnfilledPlaceholders(message) && <p role="alert">Replace all bracketed template placeholders before preparing this email.</p>}
+    {(hasUnfilledPlaceholders(subject) || hasUnfilledPlaceholders(message)) && <p role="alert">Replace all bracketed template placeholders before preparing this email.</p>}
     <h2 style={{ marginTop: '1.75rem' }}>3. Review and send</h2>
     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-      <button type="button" disabled={!canCompose} onClick={() => setPreview(true)}>Preview email</button>
-      {preview && !isLocalMode && <button type="button" disabled={!canCompose || sending} onClick={send}>{sending ? 'Sending…' : `Confirm & Send (${emailList.length})`}</button>}
+      <button type="button" disabled={!canCompose || preparing || sending || needsReconciliation || isLocalMode} onClick={preparePreview}>{preparing ? 'Preparing…' : 'Preview email'}</button>
+      {reviewed && !isLocalMode && <button type="button" disabled={!canCompose || sending} onClick={send}>{sending ? 'Sending…' : `Confirm & Send (${emailList.length})`}</button>}
     </div>
+    {needsReconciliation && <button type="button" onClick={() => { if (window.confirm('Have you checked Gmail Sent Mail and confirmed that another send is necessary?')) { setNeedsReconciliation(false); setSendError(''); } }}>I checked Sent Mail — allow another preview</button>}
     {sendError && <p role="alert" className="err">{sendError}</p>}
     {sentConfirmation && <p role="status" style={{ color: '#235c3e', fontWeight: 700 }}>{sentConfirmation}</p>}
-    {preview && <div className="card" style={{ marginTop: '1rem', overflowWrap: 'anywhere', border: '1px solid var(--border, #d8dfd8)', borderRadius: 12, padding: '1.25rem' }}>
+    {reviewed && <div className="card" style={{ marginTop: '1rem', overflowWrap: 'anywhere', border: '1px solid var(--border, #d8dfd8)', borderRadius: 12, padding: '1.25rem' }}>
       <h2>Review before sending</h2>
       <p><strong>From:</strong> {sender}</p>
-      <p><strong>Recipients (BCC):</strong> {emailList.join(', ')}</p>
-      <p><strong>CC (automatic):</strong> faizanasif117@gmail.com, danish.mihm@gmail.com</p>
-      <p><strong>Subject:</strong> {subject}</p>
-      <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
+      <p><strong>Recipients (BCC):</strong> {preview.recipients.join(', ')}</p>
+      <p><strong>CC (automatic):</strong> {reviewed ? preview.cc.join(', ') : 'Approved staff addresses are resolved when preparing the preview.'}</p>
+      <p><strong>Subject:</strong> {preview.subject}</p>
+      <p style={{ whiteSpace: 'pre-wrap' }}>{preview.body}</p>
       <p>No email is sent until you press Confirm & Send and approve the final confirmation.</p>
     </div>}
   </section>;

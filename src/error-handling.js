@@ -8,6 +8,8 @@ export function classifyError(error) {
   if (status === 403 || code === '42501') return { kind:'permission', message:'You do not have permission to perform this action.' };
   if (status === 429) return { kind:'rate-limit', message:'Too many requests. Please wait a moment and try again.' };
   if (status >= 500 || /failed to fetch|networkerror|network request failed/i.test(message)) return { kind:'network', message:'The service is temporarily unavailable. Check your connection and retry.' };
+  if (code === '23P01') return { kind:'availability', message:'This room is occupied, held or blocked during these dates. Refresh availability and choose another room or date.' };
+  if (code === '40001') return { kind:'conflict', message:'Another session changed this record. Refresh and review the latest details before saving.' };
   if (code === '23505') return { kind:'conflict', message:'This record already exists. Refresh and check before trying again.' };
   if (code === '23503') return { kind:'related-records', message:'This record is linked to other data and cannot be removed safely.' };
   if (code === '23514' || code === '23502') return { kind:'validation', message:'Some required information is missing or invalid. Check the form and retry.' };
