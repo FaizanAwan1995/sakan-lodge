@@ -95,6 +95,7 @@ export async function verifyReportingSnapshot({ t, sql, rpc, STAFF, OTHER, apply
     const path='contracts/synthetic-billing/'+suffix+'.pdf';
     await sql("insert into storage.objects(bucket_id,name) values('reservation-contracts',$1)",[path]);
     await rpc('manage_contract',[r.id,'signed',{id:c.id,signature_verified:true,signed_by:r.full_name,signed_document_path:path}]);
+    if(nights<7)return r;
     return rpc('manage_reservation',[r.id,r.revision,'confirm',{}]);
   }
   await t.test('short-term private pricing uses fortnightly ledger billing for stays of a week or more',async()=>{
@@ -109,9 +110,9 @@ export async function verifyReportingSnapshot({ t, sql, rpc, STAFF, OTHER, apply
   });
   await t.test('unapproved weekly-to-nightly conversion cannot create a ledger resident',async()=>{
     const r=await signedPrivateBooking(3,'nightly');
-    await assert.rejects(()=>rpc('manage_reservation',[r.id,r.revision,'check_in',{bond:600}]),/approved nightly rate/);
+    await assert.rejects(()=>rpc('manage_reservation',[r.id,r.revision,'confirm',{}]),/approved nightly rate/);
     const after=(await sql('select status,checked_in_person_id from reservations where id=$1',[r.id])).rows[0];
-    assert.equal(after.status,'confirmed');
+    assert.equal(after.status,'pending');
     assert.equal(after.checked_in_person_id,null);
   });
 }
