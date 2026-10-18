@@ -5,6 +5,7 @@ import {
   renderListing,
   limitedJson,
   bookingEnabled,
+  databaseRpc,
 } from "./public-site.js";
 import worker from "./worker.js";
 const cat = {
@@ -216,4 +217,49 @@ test('approved database gate renders actionable request flow without leaking ser
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test('modern Supabase secret key is used as an API key, never a bearer JWT', async () => {
+  const original = globalThis.fetch;
+  const records = [];
+  globalThis.fetch = async (url, options) => {
+    records.push({ url, headers: options.headers });
+    return new Response(JSON.stringify({ ok: true }));
+  };
+  try {
+    const env = {
+      SUPABASE_URL: 'https://example.supabase.co',
+      SUPABASE_PUBLIC_KEY: 'sb_publishable_synthetic',
+      SUPABASE_SECRET_KEY: 'sb_secret_synthetic_server_only',
+    };
+    await databaseRpc(env, 'public_catalog');
+    await databaseRpc(env, 'submit_reservation', { p_data: {} }, { admin: true });
+    assert.equal(records.length, 2);
+    assert.equal(records[0].headers.apikey, 'sb_publishable_synthetic');
+    assert.equal(records[0].headers.Authorization, undefined);
+    assert.equal(records[1].headers.apikey, 'sb_secret_synthetic_server_only');
+    assert.equal(records[1].headers.Authorization, undefined);
+    assert.equal(bookingEnabled({...env,RESERVATION_REQUESTS_ENABLED:'true',TURNSTILE_SITE_KEY:'synthetic-site',TURNSTILE_SECRET_KEY:'synthetic-secret'}),true);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('legacy JWT service-role keys are retained only for compatibility',async()=>{
+ const original=globalThis.fetch;
+ let headers;
+ globalThis.fetch=async(_url,options)=>{headers=options.headers;return new Response('{}');};
+ try {
+   const token='eyJlegacy-token-test';
+   await databaseRpc(
+      {SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLIC_KEY:'sb_publishable_synthetic',SUPABASE_SERVICE_ROLE_KEY:token},
+      'submit_reservation', {}, {admin:true}
+   );
+   assert.equal(headers.apikey,token);
+   assert.equal(headers.Authorization,'Bearer '+token);
+   await assert.rejects(
+     ()=>databaseRpc({SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLIC_KEY:'sb_publishable_synthetic'},'submit_reservation',{}, {admin:true}),
+     /credential unavailable/
+   );
+ }finally{globalThis.fetch=original;}
 });
