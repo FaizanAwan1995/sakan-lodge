@@ -1,6 +1,5 @@
 import FinalBooking from "./FinalBooking.jsx";
 import AgreementBuilder from "./AgreementBuilder.jsx";
-import { agreementDocument } from "../../agreement-document.js";
 import { useEffect, useRef, useState } from "react";
 import { supabase, isLocalMode } from "../../store.js";
 import ListingManagement from "./ListingManagement.jsx";
@@ -59,30 +58,14 @@ export default function Reservations({ db, reload }) {
   }
   async function loadDetail(id) {
     const requestVersion = ++detailVersion.current;
-    const results = await Promise.all([
-      supabase
-        .from("reservation_events")
-        .select("*")
-        .eq("reservation_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("contracts")
-        .select("*")
-        .eq("reservation_id", id)
-        .order("version", { ascending: false }),
-      supabase
-        .from("notification_outbox")
-        .select("*")
-        .eq("reservation_id", id)
-        .order("created_at", { ascending: false }),
-    ]);
-    for (const r of results) if (r.error) throw r.error;
+    const { data, error } = await supabase
+      .from("contracts")
+      .select("*")
+      .eq("reservation_id", id)
+      .order("version", { ascending: false });
+    if (error) throw error;
     if (requestVersion !== detailVersion.current) return;
-    setDetail({
-      events: results[0].data,
-      contracts: results[1].data,
-      messages: results[2].data,
-    });
+    setDetail({ contracts: data || [] });
   }
   useEffect(() => {
     refresh();
@@ -174,60 +157,6 @@ export default function Reservations({ db, reload }) {
       setSelected(r);
       if (name === "check_in") reload?.();
     });
-  const contract = (name, data) =>
-    run(() =>
-      rpc("manage_contract", {
-        p_res: selected.id,
-        p_action: name,
-        p_data: data,
-      }),
-    );
-  async function send(n) {
-    if (
-      !confirm(
-        "Send this reviewed message to " +
-          n.recipient +
-          "?\n\n" +
-          n.payload.subject +
-          "\n\n" +
-          n.payload.body,
-      )
-    )
-      return;
-    await run(async () => {
-      const { data } = await supabase.auth.getSession();
-      const response = await fetch("/api/reservations/email", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + data.session.access_token,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id: n.id, confirmation: "SEND_REVIEWED_EMAIL" }),
-      });
-      const output = await response.json();
-      if (!response.ok)
-        throw new Error(
-          output.error || "Sending not confirmed. Check Sent Mail.",
-        );
-    });
-  }
-  function printContract(c) {
-    const win = window.open("", "_blank");
-    if (!win) {
-      setError("Allow popups to print the contract");
-      return;
-    }
-    win.opener = null;
-    try {
-      win.document.write(agreementDocument(c, selected.reservation_code));
-    } catch (error) {
-      win.close();
-      setError(error.message);
-      return;
-    }
-    win.document.close();
-    win.print();
-  }
   const approvedNightly = detail.contracts.some(
     (c) =>
       c.status === "signed" &&
@@ -252,7 +181,10 @@ export default function Reservations({ db, reload }) {
       </section>
     );
   return (
-    <section aria-label="Reservation management">
+    <section
+      className="reservation-workspace"
+      aria-label="Reservation management"
+    >
       <button
         disabled={busy}
         onClick={() => {
@@ -337,17 +269,19 @@ export default function Reservations({ db, reload }) {
               >
                 Reload this reservation
               </button>
-              <h2>
-                {selected.full_name} · {selected.reservation_code}
-              </h2>
+              <h2>{selected.full_name}</h2>
               <p>
-                Status: <strong>{selected.status}</strong> · revision{" "}
-                {selected.revision}
+                Status: <strong>{selected.status}</strong>
               </p>
               <p>
                 {selected.email} · {selected.phone}
               </p>
-              {selected.introduction && <p>{selected.introduction}</p>}
+              {selected.introduction && (
+                <details>
+                  <summary>Applicant message</summary>
+                  <p>{selected.introduction}</p>
+                </details>
+              )}
               <p>
                 Quote: ${selected.weekly_rate}/week
                 {selected.offer_type === "shared" ? " per person" : ""}. No
@@ -362,89 +296,92 @@ export default function Reservations({ db, reload }) {
                   (Adelaide). Expired holds release availability automatically.
                 </p>
               )}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  action("edit", draft);
-                }}
-              >
-                <h3>Modify request</h3>
-                <p>
-                  Saving changes returns the request to review and supersedes
-                  earlier contracts and notification drafts.
-                </p>
-                <label>
-                  Room
-                  <select
-                    value={draft.room_id}
-                    onChange={(e) => change("room_id", e.target.value)}
-                  >
-                    {db.rooms.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {
-                          db.properties.find((p) => p.id === r.property_id)
-                            ?.name
-                        }{" "}
-                        · {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Arrival
-                  <input
-                    type="date"
-                    required
-                    value={draft.arrival_date || ""}
-                    onChange={(e) => change("arrival_date", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Departure
-                  <input
-                    type="date"
-                    required
-                    value={draft.departure_date || ""}
-                    onChange={(e) => change("departure_date", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Spaces
-                  <input
-                    type="number"
-                    min="1"
-                    max="20"
-                    required
-                    value={draft.spaces_requested}
-                    onChange={(e) =>
-                      change("spaces_requested", Number(e.target.value))
-                    }
-                  />
-                </label>
-                <label>
-                  Private admin notes
-                  <textarea
-                    maxLength={4000}
-                    value={draft.admin_notes || ""}
-                    onChange={(e) => change("admin_notes", e.target.value)}
-                  />
-                </label>
-                <button
-                  disabled={
-                    busy ||
-                    [
-                      "cancelled",
-                      "archived",
-                      "checked_in",
-                      "assigned",
-                    ].includes(selected.status)
-                  }
+              <details className="reservation-secondary">
+                <summary>Edit dates, room or notes</summary>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    action("edit", draft);
+                  }}
                 >
-                  Save changes for review
-                </button>
-              </form>
-              <div className="card">
-                <h3>Manage reservation</h3>
+                  <h3>Modify request</h3>
+                  <p>
+                    Saving changes returns the request to review and supersedes
+                    earlier contracts and notification drafts.
+                  </p>
+                  <label>
+                    Room
+                    <select
+                      value={draft.room_id}
+                      onChange={(e) => change("room_id", e.target.value)}
+                    >
+                      {db.rooms.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {
+                            db.properties.find((p) => p.id === r.property_id)
+                              ?.name
+                          }{" "}
+                          · {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Arrival
+                    <input
+                      type="date"
+                      required
+                      value={draft.arrival_date || ""}
+                      onChange={(e) => change("arrival_date", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Departure
+                    <input
+                      type="date"
+                      required
+                      value={draft.departure_date || ""}
+                      onChange={(e) => change("departure_date", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Spaces
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      required
+                      value={draft.spaces_requested}
+                      onChange={(e) =>
+                        change("spaces_requested", Number(e.target.value))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Private admin notes
+                    <textarea
+                      maxLength={4000}
+                      value={draft.admin_notes || ""}
+                      onChange={(e) => change("admin_notes", e.target.value)}
+                    />
+                  </label>
+                  <button
+                    disabled={
+                      busy ||
+                      [
+                        "cancelled",
+                        "archived",
+                        "checked_in",
+                        "assigned",
+                      ].includes(selected.status)
+                    }
+                  >
+                    Save changes for review
+                  </button>
+                </form>
+              </details>
+              <details className="reservation-secondary">
+                <summary>Hold, cancel or record arrival</summary>
                 <button
                   disabled={busy || selected.status !== "pending"}
                   onClick={() => action("review")}
@@ -560,9 +497,8 @@ export default function Reservations({ db, reload }) {
                     )}
                   </>
                 )}
-              </div>
-              <div className="card">
-                <h3>Contracts</h3>
+              </details>
+              <div className="reservation-contract">
                 <AgreementBuilder
                   key={selected.id}
                   reservation={selected}
@@ -574,43 +510,6 @@ export default function Reservations({ db, reload }) {
                   }
                   onReservation={acceptReservation}
                 />
-                {detail.contracts.map((c) => (
-                  <article key={c.id}>
-                    <h4>
-                      Version {c.version} · {c.status}
-                    </h4>
-                    {!c.document_path && (
-                      <button onClick={() => printContract(c)}>
-                        Legacy HTML copy
-                      </button>
-                    )}
-                    {c.status === "signed" && (
-                      <p>
-                        Signed by {c.signed_by} · received{" "}
-                        {new Date(c.signed_at).toLocaleString("en-AU")}{" "}
-                        <button
-                          onClick={() =>
-                            run(async () => {
-                              const { data, error } = await supabase.storage
-                                .from("reservation-contracts")
-                                .download(c.signed_document_path);
-                              if (error) throw error;
-                              const url = URL.createObjectURL(data);
-                              const link = document.createElement("a");
-                              link.href = url;
-                              link.download =
-                                "signed-agreement-v" + c.version + ".pdf";
-                              link.click();
-                              setTimeout(() => URL.revokeObjectURL(url), 1000);
-                            })
-                          }
-                        >
-                          Download signed agreement
-                        </button>
-                      </p>
-                    )}
-                  </article>
-                ))}
               </div>
               <FinalBooking
                 reservation={selected}
@@ -620,88 +519,10 @@ export default function Reservations({ db, reload }) {
                 onReservation={acceptReservation}
                 reload={reload}
               />
-              <div className="card">
-                <h3>Notification drafts</h3>
-                <p>
-                  The booking email is sent when you review the PDF and
-                  click its send button. Other notifications require review and
-                  send. “Uncertain” means review Gmail Sent Mail; automatic
-                  retry is blocked.
-                </p>
-                {detail.messages.map((n) => (
-                  <details key={n.id}>
-                    <summary>
-                      {n.recipient} · {n.kind} · {n.status}
-                    </summary>
-                    <p>{n.payload.subject}</p>
-                    <pre style={{ whiteSpace: "pre-wrap" }}>
-                      {n.payload.body}
-                    </pre>
-                    <button
-                      disabled={busy || n.status !== "pending"}
-                      onClick={() => send(n)}
-                    >
-                      Review and send this email
-                    </button>
-                    {["sending", "uncertain"].includes(n.status) && (
-                      <>
-                        <p>
-                          Reconcile against Gmail Sent Mail before retrying.
-                        </p>
-                        <button
-                          disabled={busy}
-                          onClick={() => {
-                            const message = prompt(
-                              "Enter the Gmail message ID after verifying this exact message was sent:",
-                            );
-                            if (message)
-                              run(() =>
-                                rpc("notification_action", {
-                                  p_id: n.id,
-                                  p_action: "reconcile_sent",
-                                  p_message: message,
-                                }),
-                              );
-                          }}
-                        >
-                          Record verified sent message
-                        </button>
-                        <button
-                          disabled={busy}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "I checked Gmail Sent Mail and verified this exact message was NOT sent. Return it to the manual draft queue?",
-                              )
-                            )
-                              run(() =>
-                                rpc("notification_action", {
-                                  p_id: n.id,
-                                  p_action: "requeue",
-                                  p_message: "CHECKED_SENT_MAIL_NOT_SENT",
-                                }),
-                              );
-                          }}
-                        >
-                          Verified not sent — requeue
-                        </button>
-                      </>
-                    )}
-                    {n.message_id && <p>Gmail ID: {n.message_id}</p>}
-                  </details>
-                ))}
-              </div>
-              <div className="card">
-                <h3>History</h3>
-                <ul>
-                  {detail.events.map((e) => (
-                    <li key={e.id}>
-                      {new Date(e.created_at).toLocaleString("en-AU")} ·{" "}
-                      {e.action} · {e.actor} · {JSON.stringify(e.details)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <p className="muted">
+                Contract versions, email records and reservation history are in{" "}
+                <a href="/ledger/activity">Activity</a>.
+              </p>
             </article>
           ) : (
             <>

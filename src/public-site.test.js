@@ -50,11 +50,13 @@ test("server renders nested room with escaped content, accurate rate and disable
   );
   assert.ok(!text.includes('id="submit-request"'));
   assert.ok(!text.includes('name="full_name"'));
-  assert.ok(text.includes("Online reservation requests are currently unavailable"));
+  assert.ok(
+    text.includes("Online reservation requests are currently unavailable"),
+  );
   assert.ok(text.includes("Check availability"));
   assert.ok(text.includes('id="enquiry-next-step" hidden'));
   assert.ok(text.includes('id="email-reservation"'));
-  assert.ok(text.includes('continue with a prefilled email request'));
+  assert.ok(text.includes("continue with a prefilled email request"));
 });
 test("unapproved or mismatched property/room yields real 404", () => {
   assert.equal(
@@ -151,75 +153,98 @@ test("availability response requires both database and Worker activation gates",
   }
 });
 
-test('configured request page retains protected form while unavailable pages omit applicant fields',async()=>{
- const env={RESERVATION_REQUESTS_ENABLED:'true',SUPABASE_SERVICE_ROLE_KEY:'synthetic-secret',TURNSTILE_SECRET_KEY:'synthetic-turnstile',TURNSTILE_SITE_KEY:'synthetic-public-site-key'};
- const text=await renderListing({kind:'room',suburb:'fulham',property:'house-1',room:'room-1'},cat,env).text();
- assert.ok(text.includes('name="full_name"'));
- assert.ok(text.includes('id="submit-request" type="submit" disabled'));
- assert.ok(text.includes('data-sitekey="synthetic-public-site-key"'));
- assert.ok(!text.includes('synthetic-secret'));
- assert.ok(!text.includes('synthetic-turnstile'));
+test("configured request page retains protected form while unavailable pages omit applicant fields", async () => {
+  const env = {
+    RESERVATION_REQUESTS_ENABLED: "true",
+    SUPABASE_SERVICE_ROLE_KEY: "synthetic-secret",
+    TURNSTILE_SECRET_KEY: "synthetic-turnstile",
+    TURNSTILE_SITE_KEY: "synthetic-public-site-key",
+  };
+  const text = await renderListing(
+    { kind: "room", suburb: "fulham", property: "house-1", room: "room-1" },
+    cat,
+    env,
+  ).text();
+  assert.ok(text.includes('name="full_name"'));
+  assert.ok(text.includes('id="submit-request" type="submit" disabled'));
+  assert.ok(text.includes('data-sitekey="synthetic-public-site-key"'));
+  assert.ok(!text.includes("synthetic-secret"));
+  assert.ok(!text.includes("synthetic-turnstile"));
 });
 
-test('database request gate off hides applicant fields even when Worker settings are on', async () => {
+test("database request gate off hides applicant fields even when Worker settings are on", async () => {
   const original = globalThis.fetch;
   const names = [];
   globalThis.fetch = async (url) => {
-    const name = String(url).split('/').pop();
+    const name = String(url).split("/").pop();
     names.push(name);
-    if (name === 'public_catalog') return new Response(JSON.stringify(cat));
-    if (name === 'customer_requests_enabled') return new Response(JSON.stringify(false));
-    throw new Error('unexpected RPC: ' + name);
+    if (name === "public_catalog") return new Response(JSON.stringify(cat));
+    if (name === "customer_requests_enabled")
+      return new Response(JSON.stringify(false));
+    throw new Error("unexpected RPC: " + name);
   };
   try {
     const response = await handlePublicSite(
-      new Request('https://sakanlodge.com/locations/fulham/properties/house-1/rooms/room-1/'),
+      new Request(
+        "https://sakanlodge.com/locations/fulham/properties/house-1/rooms/room-1/",
+      ),
       {
-        SUPABASE_URL: 'https://example.test', SUPABASE_PUBLIC_KEY: 'synthetic-anon',
-        RESERVATION_REQUESTS_ENABLED: 'true', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-server-only',
-        TURNSTILE_SECRET_KEY: 'synthetic-secret', TURNSTILE_SITE_KEY: 'synthetic-public',
+        SUPABASE_URL: "https://example.test",
+        SUPABASE_PUBLIC_KEY: "synthetic-anon",
+        RESERVATION_REQUESTS_ENABLED: "true",
+        SUPABASE_SERVICE_ROLE_KEY: "synthetic-server-only",
+        TURNSTILE_SECRET_KEY: "synthetic-secret",
+        TURNSTILE_SITE_KEY: "synthetic-public",
       },
     );
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.ok(names.includes('customer_requests_enabled'));
+    assert.ok(names.includes("customer_requests_enabled"));
     assert.ok(!body.includes('name="full_name"'));
     assert.ok(!body.includes('id="submit-request"'));
-    assert.ok(body.includes('Online reservation requests are currently unavailable'));
-    assert.ok(body.includes('mailto:sakanlodges@gmail.com'));
+    assert.ok(
+      body.includes("Online reservation requests are currently unavailable"),
+    );
+    assert.ok(body.includes("mailto:sakanlodges@gmail.com"));
   } finally {
     globalThis.fetch = original;
   }
 });
 
-test('approved database gate renders actionable request flow without leaking server keys', async () => {
+test("approved database gate renders actionable request flow without leaking server keys", async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async url => {
-    const name = String(url).split('/').pop();
-    if (name === 'public_catalog') return new Response(JSON.stringify(cat));
-    if (name === 'customer_requests_enabled') return new Response(JSON.stringify(true));
-    throw new Error('unexpected RPC');
+  globalThis.fetch = async (url) => {
+    const name = String(url).split("/").pop();
+    if (name === "public_catalog") return new Response(JSON.stringify(cat));
+    if (name === "customer_requests_enabled")
+      return new Response(JSON.stringify(true));
+    throw new Error("unexpected RPC");
   };
   try {
     const response = await handlePublicSite(
-      new Request('https://sakanlodge.com/locations/fulham/properties/house-1/rooms/room-1/'),
+      new Request(
+        "https://sakanlodge.com/locations/fulham/properties/house-1/rooms/room-1/",
+      ),
       {
-        SUPABASE_URL: 'https://example.test', SUPABASE_PUBLIC_KEY: 'synthetic-anon',
-        RESERVATION_REQUESTS_ENABLED: 'true', SUPABASE_SERVICE_ROLE_KEY: 'synthetic-server-only',
-        TURNSTILE_SECRET_KEY: 'synthetic-secret', TURNSTILE_SITE_KEY: 'synthetic-public',
+        SUPABASE_URL: "https://example.test",
+        SUPABASE_PUBLIC_KEY: "synthetic-anon",
+        RESERVATION_REQUESTS_ENABLED: "true",
+        SUPABASE_SERVICE_ROLE_KEY: "synthetic-server-only",
+        TURNSTILE_SECRET_KEY: "synthetic-secret",
+        TURNSTILE_SITE_KEY: "synthetic-public",
       },
     );
     const body = await response.text();
     assert.ok(body.includes('id="submit-request"'));
     assert.ok(body.includes('name="full_name"'));
-    assert.ok(!body.includes('synthetic-server-only'));
-    assert.ok(!body.includes('synthetic-secret'));
+    assert.ok(!body.includes("synthetic-server-only"));
+    assert.ok(!body.includes("synthetic-secret"));
   } finally {
     globalThis.fetch = original;
   }
 });
 
-test('modern Supabase secret key is used as an API key, never a bearer JWT', async () => {
+test("modern Supabase secret key is used as an API key, never a bearer JWT", async () => {
   const original = globalThis.fetch;
   const records = [];
   globalThis.fetch = async (url, options) => {
@@ -228,38 +253,95 @@ test('modern Supabase secret key is used as an API key, never a bearer JWT', asy
   };
   try {
     const env = {
-      SUPABASE_URL: 'https://example.supabase.co',
-      SUPABASE_PUBLIC_KEY: 'sb_publishable_synthetic',
-      SUPABASE_SECRET_KEY: 'sb_secret_synthetic_server_only',
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_PUBLIC_KEY: "sb_publishable_synthetic",
+      SUPABASE_SECRET_KEY: "sb_secret_synthetic_server_only",
     };
-    await databaseRpc(env, 'public_catalog');
-    await databaseRpc(env, 'submit_reservation', { p_data: {} }, { admin: true });
+    await databaseRpc(env, "public_catalog");
+    await databaseRpc(
+      env,
+      "submit_reservation",
+      { p_data: {} },
+      { admin: true },
+    );
     assert.equal(records.length, 2);
-    assert.equal(records[0].headers.apikey, 'sb_publishable_synthetic');
+    assert.equal(records[0].headers.apikey, "sb_publishable_synthetic");
     assert.equal(records[0].headers.Authorization, undefined);
-    assert.equal(records[1].headers.apikey, 'sb_secret_synthetic_server_only');
+    assert.equal(records[1].headers.apikey, "sb_secret_synthetic_server_only");
     assert.equal(records[1].headers.Authorization, undefined);
-    assert.equal(bookingEnabled({...env,RESERVATION_REQUESTS_ENABLED:'true',TURNSTILE_SITE_KEY:'synthetic-site',TURNSTILE_SECRET_KEY:'synthetic-secret'}),true);
+    assert.equal(
+      bookingEnabled({
+        ...env,
+        RESERVATION_REQUESTS_ENABLED: "true",
+        TURNSTILE_SITE_KEY: "synthetic-site",
+        TURNSTILE_SECRET_KEY: "synthetic-secret",
+      }),
+      true,
+    );
   } finally {
     globalThis.fetch = original;
   }
 });
 
-test('legacy JWT service-role keys are retained only for compatibility',async()=>{
- const original=globalThis.fetch;
- let headers;
- globalThis.fetch=async(_url,options)=>{headers=options.headers;return new Response('{}');};
- try {
-   const token='eyJlegacy-token-test';
-   await databaseRpc(
-      {SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLIC_KEY:'sb_publishable_synthetic',SUPABASE_SERVICE_ROLE_KEY:token},
-      'submit_reservation', {}, {admin:true}
-   );
-   assert.equal(headers.apikey,token);
-   assert.equal(headers.Authorization,'Bearer '+token);
-   await assert.rejects(
-     ()=>databaseRpc({SUPABASE_URL:'https://example.supabase.co',SUPABASE_PUBLIC_KEY:'sb_publishable_synthetic'},'submit_reservation',{}, {admin:true}),
-     /credential unavailable/
-   );
- }finally{globalThis.fetch=original;}
+test("legacy JWT service-role keys are retained only for compatibility", async () => {
+  const original = globalThis.fetch;
+  let headers;
+  globalThis.fetch = async (_url, options) => {
+    headers = options.headers;
+    return new Response("{}");
+  };
+  try {
+    const token = "eyJlegacy-token-test";
+    await databaseRpc(
+      {
+        SUPABASE_URL: "https://example.supabase.co",
+        SUPABASE_PUBLIC_KEY: "sb_publishable_synthetic",
+        SUPABASE_SERVICE_ROLE_KEY: token,
+      },
+      "submit_reservation",
+      {},
+      { admin: true },
+    );
+    assert.equal(headers.apikey, token);
+    assert.equal(headers.Authorization, "Bearer " + token);
+    await assert.rejects(
+      () =>
+        databaseRpc(
+          {
+            SUPABASE_URL: "https://example.supabase.co",
+            SUPABASE_PUBLIC_KEY: "sb_publishable_synthetic",
+          },
+          "submit_reservation",
+          {},
+          { admin: true },
+        ),
+      /credential unavailable/,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("private RPC forwards the exact staff JWT with a modern publishable API key", async () => {
+  const original = fetch;
+  let headers;
+  globalThis.fetch = async (url, options) => {
+    headers = options.headers;
+    return new Response("{}");
+  };
+  try {
+    await databaseRpc(
+      {
+        SUPABASE_URL: "https://test.example",
+        SUPABASE_PUBLIC_KEY: "sb_publishable_test",
+      },
+      "booking_contract_document",
+      { p_id: "test" },
+      "Bearer staff-session-jwt",
+    );
+    assert.equal(headers.Authorization, "Bearer staff-session-jwt");
+    assert.equal(headers.apikey, "sb_publishable_test");
+  } finally {
+    globalThis.fetch = original;
+  }
 });

@@ -1,3 +1,4 @@
+import ReservationActivity from './features/reservations/ReservationActivity.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { errorMessage } from './error-handling.js';
@@ -997,6 +998,7 @@ function Activity({ db, session, reload }) {
     <>
       <div className="between"><h1>Activity</h1>{!isLocalMode && <button className="small" onClick={() => signOut()}>Sign out {session.user.email}</button>}</div>
       {isLocalMode && <div className="card"><h2>Local data backup</h2><p className="muted">Keep a copy of this browser ledger somewhere safe. A backup contains resident contact details and financial records. Restoring replaces the current browser data.</p><div className="backup-actions"><button type="button" className="small" onClick={backup}>Download backup</button><label className="small">Restore backup<input type="file" accept="application/json,.json" onChange={restore} /></label></div></div>}
+      <ReservationActivity />
       {db.audit.map((a) => (
         <div className="card" key={a.id}><small className="muted">{new Date(a.at).toLocaleString('en-AU')} · {a.by}</small><div style={{ fontSize: 13, wordBreak: 'break-word' }}>{a.action}</div></div>
       ))}
