@@ -1,5 +1,13 @@
 # SAKAN Lodge development report
 
+## Production release — 18 October 2026
+
+The owner explicitly requested production deployment with staging deferred. The reviewed inventory, ledger-release, reporting and private-template migrations are applied; the application is deployed and PR #5 is merged. Customer booking requests remain disabled. No room listing was published or agreement template approved by this deployment. Existing resident and financial records were verified unchanged.
+
+Browser checks verified the public homepage, all three location pages and the configured ledger sign-in screen. Anonymous database checks verified no resident/payment/settings rows and denied the financial snapshot. Cloudflare's connected main-branch build successfully deployed the merged source. Full authenticated workflow acceptance, staging and authorised real-email delivery remain deferred.
+
+A private encrypted pre-release application-data snapshot was saved and its decryption verified. This is not a complete Auth/Storage recovery backup. The scheduled encrypted-backup configuration and its first production run have not been verified by this release; the workflow requires its separately configured encryption secret. Detailed operational evidence, recovery references and remaining security findings are kept in the private report.
+
 ## Prepared implementation
 
 The public website and private ledger share one database. Public pages expose only ledger-released, ready and approved listing profiles and aggregate availability. Resident identities, contact details and financial records remain staff-only.
@@ -24,12 +32,12 @@ Verified in GitHub CI: **125 application/backup tests, 45 PostgreSQL workflow ch
 
 The explicit-ledger-release checks cover actual checkout eligibility, released-bed limits, readiness/approval, check-in consumption, withdrawal, corrections, reconfiguration and access control. Reporting tests cover earned/received/forecast reconciliation and complete staff-only snapshots. Email tests use mocked Gmail and transactional storage; real-service and browser acceptance remain outstanding.
 
-The implementation is available in [draft PR #5](https://github.com/FaizanAwan1995/sakan-lodge/pull/5). These results verify the code and isolated database behavior; they do not assert production activation or browser acceptance.
+The implementation was merged through [PR #5](https://github.com/FaizanAwan1995/sakan-lodge/pull/5). CI verifies code and isolated database behavior; the production checks and remaining acceptance limits are recorded above.
 
 ## Release requirements
 
 - Pass application/database CI and authenticated mobile/desktop acceptance.
-- Review and apply the additive database migration in the correct release order.
+- Complete deferred staging and authenticated workflow acceptance for the deployed migrations.
 - Review, import and approve the prepared private source template; it includes current utilities wording and fresh applicant/signature fields. Existing signed source documents remain unchanged.
 - Verify room content and readiness when staff release each checked-out space; no separate blanket list of properties to publish is required.
 - Configure deployment secrets privately and verify backup recovery and email delivery.
