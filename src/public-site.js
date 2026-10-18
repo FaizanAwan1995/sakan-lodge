@@ -482,7 +482,21 @@ export async function handlePublicSite(request, env) {
         },
       );
     }
-    return renderListing(route, cat, env);
+    // The database is the final authority for whether customer requests are
+    // open. A Worker flag alone must not render a misleading applicant form.
+    let requestsOpen = false;
+    if (route?.kind === "room" && bookingEnabled(env)) {
+      try {
+        requestsOpen = (await databaseRpc(env, "customer_requests_enabled")) === true;
+      } catch {
+        // Fail closed: room pages stay useful for availability and enquiries.
+        requestsOpen = false;
+      }
+    }
+    return renderListing(route, cat, {
+      ...env,
+      RESERVATION_REQUESTS_ENABLED: requestsOpen ? "true" : "false",
+    });
   } catch {
     return html(
       shell(
