@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           backup_name="sakan-$(date +%F).sql"
           trap 'rm -f -- sakan-*.sql' EXIT
-          docker run --rm -e DB_URL postgres:17 sh -eu -c 'pg_dump "$DB_URL" --schema=public --no-owner --no-privileges' > "$backup_name"
+          docker run --rm -e DB_URL postgres:17 sh -eu -c 'pg_dump "$DB_URL" --schema=public --schema=sakan_private --no-owner' > "$backup_name"
           node scripts/backup-crypto.mjs encrypt "$backup_name" "$backup_name.enc"
           rm -- "$backup_name"
       - uses: actions/upload-artifact@v4
