@@ -247,6 +247,9 @@ begin
   if r.status<>'confirmed' or r.checked_in_person_id is not null then raise exception 'Only confirmed reservations can check in once'; end if;
   if r.arrival_date>(now() at time zone 'Australia/Adelaide')::date or r.departure_date<=(now() at time zone 'Australia/Adelaide')::date then raise exception 'Check-in date must be within the agreed stay'; end if;
   if p_data->>'bond' is null or (p_data->>'bond')::numeric<0 then raise exception 'Specify the agreed bond amount per resident'; end if;
+  -- Reservation short/long is a pricing tier; the ledger uses long for fortnightly billing.
+  -- Never derive an unapproved nightly rate by dividing the public weekly quote.
+  if r.departure_date-r.arrival_date<7 then raise exception 'An explicitly approved nightly rate is required before nightly check-in'; end if;
   members:=coalesce(p_data->'residents',jsonb_build_array(jsonb_build_object('name',r.full_name,'email',r.email,'phone',r.phone)));
   if jsonb_typeof(members)<>'array' or jsonb_array_length(members)<>r.spaces_requested then raise exception 'Provide details for every resident'; end if;
   -- Remove reservation allocation in this same transaction before inserting the resident.
@@ -254,7 +257,7 @@ begin
   for member in select value from jsonb_array_elements(members) loop
    if length(trim(coalesce(member->>'name','')))<2 then raise exception 'Every resident needs a name'; end if;
    insert into public.people(name,email,phone,property_id,room_id,stay_type,weekly_rate,nightly_rate,start_date,end_date,bond)
-   values(trim(member->>'name'),member->>'email',member->>'phone',r.property_id,r.room_id,r.stay_type,r.weekly_rate,case when r.stay_type='short' then r.weekly_rate/7 end,r.arrival_date,r.departure_date,(p_data->>'bond')::numeric) returning id into person;
+   values(trim(member->>'name'),member->>'email',member->>'phone',r.property_id,r.room_id,'long',r.weekly_rate,null,r.arrival_date,r.departure_date,(p_data->>'bond')::numeric) returning id into person;
    first_person:=coalesce(first_person,person);
    person_ids:=person_ids||jsonb_build_array(person);
   end loop;
