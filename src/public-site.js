@@ -1,3 +1,4 @@
+import { renderSuburbGuide } from "./suburb-guides.js";
 import {
   escapeHtml as h,
   parsePublicRoute,
@@ -214,22 +215,16 @@ export function renderListing(route, cat, env = {}) {
           h(title) +
           "</h1><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays.</p>" +
           included +
-          '<div class="catalog-grid">' +
-          properties
-            .map((p) =>
-              linkCard(
-                p.name,
-                publicPath({ suburb: route.suburb, property: p.slug }),
-                p.description,
-              ),
-            )
-            .join("") +
-          "</div>" +
-          (properties.length
-            ? ""
-            : '<p>No rooms are currently advertised here. <a href="mailto:sakanlodges@gmail.com">Enquire about availability in ' +
-              h(location) +
-              "</a>.</p>"),
+          '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' + h(location) + '</h2>' +
+          (properties.length === 1
+            ? '<p class="property-label">' + h(properties[0].name) + '</p><div class="catalog-grid">' +
+              cat.rooms.filter(r => r.property_id === properties[0].id).map(r => linkCard(r.title,
+                publicPath({suburb: route.suburb, property: properties[0].slug, room: r.slug}),
+                r.capacity > 1 ? "Shared accommodation · $185/person/week · long-term only" : "Private room · $255/week long-term · $300/week short-term")).join('') + '</div>'
+            : '<div class="catalog-grid">' + properties.map(p => linkCard(p.name,
+                publicPath({suburb: route.suburb, property: p.slug}), p.description)).join('') + '</div>') +
+          (properties.length ? '' : '<p>No rooms are currently advertised here. <a href="mailto:sakanlodges@gmail.com">Enquire about availability in ' + h(location) + '</a>.</p>') +
+          '</section>' + renderSuburbGuide(route.suburb),
       ),
     );
   }
