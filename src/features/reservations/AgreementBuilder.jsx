@@ -16,6 +16,7 @@ export default function AgreementBuilder({
   const [templates, setTemplates] = useState([]),
     [error, setError] = useState(""),
     [pdf, setPdf] = useState(""),
+    [pdfContractId, setPdfContractId] = useState(null),
     [generated, setGenerated] = useState(null),
     [reviewed, setReviewed] = useState(false);
   const [template, setTemplate] = useState({
@@ -109,6 +110,7 @@ export default function AgreementBuilder({
     if (error) throw error;
     setPdf(URL.createObjectURL(data));
     setGenerated(c);
+    setPdfContractId(c.id);
   }
   return (
     <div className="card">
@@ -348,6 +350,7 @@ export default function AgreementBuilder({
               busy ||
               !current.document_path ||
               !pdf ||
+              pdfContractId !== current.id ||
               !["draft", "approved", "signed"].includes(current.status)
             }
             onClick={() =>
