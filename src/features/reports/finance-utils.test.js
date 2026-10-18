@@ -14,11 +14,14 @@ test('tenant statement separates bond money from rent credits',()=>{
  assert.equal(x.transactions.filter(r=>r.credit).length,1);
  assert.equal(x.transactions.find(r=>r.credit).credit,200);
 });
-test('property cash flow excludes bond receipts from income',()=>{
+test('received result excludes bonds and keeps scheduled costs separate',()=>{
  const [p]=propertyProfitability(db,'2026-10-01','2026-10-05');
  assert.equal(p.rent,200);
- assert.equal(p.expenses,225);
- assert.equal(p.net,-25);
+ assert.equal(p.expenses,25);
+ assert.equal(p.net,175);
+ assert.equal(p.earned,200);
+ assert.equal(p.operatingExpenses,225);
+ assert.equal(p.operatingNet,-25);
 });
 test('CSV quotes embedded commas and formulas as text fields',()=>{
  const s=csvRows([['Name','Note'],['Tenant','a,b']]);
