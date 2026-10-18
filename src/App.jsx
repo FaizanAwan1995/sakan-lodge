@@ -527,7 +527,7 @@ function Rooms({ db, d, today, reload, residentId }) {
             const owed = sum(assigned.filter((x) => x.start_date <= today), (x) => x.owed);
             return (
               <div className="card" key={r.id}>
-                <div className="between">
+                <div className="between room-summary">
                   <button className="link" onClick={() => setEdit({ type: 'room', data: r })}>{r.label} · {occ.length}/{r.capacity}{future.length ? ` · ${future.length} booked` : ''}</button>
                   <span>{fmt(sum(occ.filter((x) => x.stay_type === 'long'), (x) => x.weekly_rate))}/wk{owed > 0 && <span className="err"> · {fmt(owed)} owed</span>}</span>
                 </div>
@@ -537,7 +537,12 @@ function Rooms({ db, d, today, reload, residentId }) {
                   return (
                     <div className="row resident-row" key={x.id}>
                       <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
-                        <span>{x.name}{x.end_date > today && <small className="muted">Checkout scheduled: {nice(x.end_date)}</small>}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
+                        <span className="resident-details"><strong className="resident-name">{x.name}</strong>
+                          {x.end_date > today && <small>Checkout scheduled: {nice(x.end_date)}</small>}
+                          <small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
+                          <small>Bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>
+                          {x.phone && <small>{x.phone}</small>}{x.email && <small>{x.email}</small>}
+                        </span>
                         {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
                       </button>
                       <button className="small" onClick={() => setEdit({ type: 'checkout', data: x })}>Schedule departure</button>
