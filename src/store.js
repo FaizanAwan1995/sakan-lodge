@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LEDGER_TABLES, loadLedgerSnapshot } from './ledger-data.js';
 import { errorMessage, reportError } from './error-handling.js';
 import { validateFinancialRow } from './financial-safety.js';
 
@@ -16,7 +17,7 @@ const configured = Boolean(
 export const isLocalMode = !configured;
 export const supabase = configured ? createClient(projectUrl, publicKey) : null;
 
-const TABLES = ['properties', 'rooms', 'people', 'charges', 'payments', 'expenses', 'maintenance'];
+const TABLES = LEDGER_TABLES;
 const LOCAL_KEY = 'sakan-lodge-local-db-v1';
 const LOCAL_CHANGE_EVENT = 'sakan-local-change';
 const LOCAL_ACTOR_KEY = 'sakan-lodge-local-actor-v1';
@@ -212,28 +213,24 @@ export async function signOut() {
 
 /** Loads all current rows; realtime keeps the two live sessions in sync. */
 export function useStore(session) {
+  const loadVersion = useRef(0);
   const [db, setDb] = useState(null);
   const [error, setError] = useState(null);
 
   const reload = useCallback(async () => {
+    const version = ++loadVersion.current;
     try {
       if (isLocalMode) {
         setDb(readLocalDb());
         setError(null);
         return;
       }
-      const res = await Promise.all(TABLES.map((t) => supabase.from(t).select('*')));
-      const audit = await supabase.from('audit').select('*').order('at', { ascending: false }).limit(300);
-      const o = {};
-      TABLES.forEach((t, i) => {
-        if (res[i].error) throw res[i].error;
-        o[t] = Array.isArray(res[i].data) ? res[i].data : [];
-      });
-      if (audit.error) throw audit.error;
-      o.audit = Array.isArray(audit.data) ? audit.data : [];
+      const o = await loadLedgerSnapshot(supabase);
+      if (version !== loadVersion.current) return;
       setDb(o);
       setError(null);
     } catch (e) {
+      if (version !== loadVersion.current) return;
       reportError('load records', e);
       setError(e);
     }
@@ -247,6 +244,7 @@ export function useStore(session) {
       window.addEventListener('storage', onChange);
       window.addEventListener(LOCAL_CHANGE_EVENT, onChange);
       return () => {
+        loadVersion.current++;
         window.removeEventListener('storage', onChange);
         window.removeEventListener(LOCAL_CHANGE_EVENT, onChange);
       };
@@ -260,6 +258,7 @@ export function useStore(session) {
       })
       .subscribe();
     return () => {
+      loadVersion.current++;
       clearTimeout(timer);
       supabase.removeChannel(ch);
     };
