@@ -149,3 +149,37 @@ textarea:focus-visible {
  .area-features { gap: 28px 16px; }
 }
 @media(max-width: 380px) { .area-features { grid-template-columns: minmax(0,1fr); } .area-features li { flex-direction: row; } .area-icon { flex-shrink: 0; } }
+
+/* Clear next step for visitors while automated reservations are disabled. */
+.enquiry-next-step {
+  margin-top: 20px;
+  border: 1px solid #c9b999;
+  border-radius: 12px;
+  background: #f8f4eb;
+  padding: 20px;
+}
+.enquiry-next-step[hidden] { display: none; }
+.catalog-main .enquiry-next-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 18px;
+  border-radius: 9px;
+  background: #78581f;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 700;
+}
+.catalog-main .enquiry-next-action:focus-visible {
+  outline: 3px solid #b48028;
+  outline-offset: 4px;
+}
+.enquiry-next-step p {
+  font-size: .92rem;
+  line-height: 1.55;
+  margin-bottom: 0;
+}

@@ -4,7 +4,9 @@
   const result = document.querySelector("#availability-result"),
     message = document.querySelector("#request-result"),
     check = document.querySelector("#check-availability"),
-    submit = document.querySelector("#submit-request");
+    submit = document.querySelector("#submit-request"),
+    enquiryNextStep = document.querySelector("#enquiry-next-step"),
+    emailReservation = document.querySelector("#email-reservation");
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Australia/Adelaide",
     year: "numeric",
@@ -27,7 +29,10 @@
   form.addEventListener("input", () => {
     if (dates() !== checkedDates) {
       checkedDates = "";
-      result.textContent = "Availability will be checked when you submit, or you can check it now.";
+      if (enquiryNextStep) enquiryNextStep.hidden = true;
+      result.textContent = submit
+        ? "Availability will be checked when you submit, or you can check it now."
+        : "Check availability to continue with your room enquiry.";
     }
     if (verified && verified !== fingerprint()) {
       requestKey = crypto.randomUUID();
@@ -47,6 +52,7 @@
     ) return false;
     const selected = dates();
     checkedDates = "";
+    if (enquiryNextStep) enquiryNextStep.hidden = true;
     check.disabled = true;
     result.textContent = "Checking your full stay…";
     try {
@@ -78,6 +84,36 @@
           : data.requests_enabled
             ? ". Requests require administrator confirmation."
             : ". Online requests are currently unavailable. Please email or call our team to enquire.");
+      // When online processing has not been activated, let customers progress
+      // with the checked room and dates rather than trapping them at this step.
+      // The external email client is responsible for sending; no booking is
+      // recorded or held until staff replies.
+      if (!submit && enquiryNextStep && emailReservation && hasSpaces) {
+        const subject = "Reservation request: " + (form.dataset.roomTitle || "SAKAN Lodge room");
+        const body = [
+          "Hello SAKAN Lodge,",
+          "",
+          "I would like to request the following accommodation:",
+          "Room: " + (form.dataset.roomTitle || "SAKAN Lodge room"),
+          "Room reference: " + form.dataset.room,
+          "Arrival: " + arrival.value,
+          "Departure (checkout day): " + departure.value,
+          "People / spaces: " + spaces.value,
+          "Advertised rate: AUD $" + data.weekly_rate +
+            "/week" + (data.offer_type === "shared" ? " per person" : ""),
+          "",
+          "My name:",
+          "My phone:",
+          "My occupation (optional):",
+          "A little about my stay (optional):",
+          "",
+          "Please let me know whether this room can be reserved.",
+        ].join("\n");
+        emailReservation.href = "mailto:sakanlodges@gmail.com?subject=" +
+          encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+        enquiryNextStep.hidden = false;
+        result.textContent += " Continue below to send your enquiry.";
+      }
       return hasSpaces && data.requests_enabled === true;
     } catch (e) {
       result.textContent =
