@@ -235,3 +235,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .admin-tenant-actions form { background:#fffdf8; border:1px solid #deded3; border-radius:12px; padding:14px; margin-top:8px; }
 .admin-tenant-actions label { display:block; margin:12px 0; }
 .admin-tenant-actions button { margin:4px 8px 4px 0; }
+
+/* Resident content must own its row; controls cannot squeeze it on phones. */
+.row.resident-row { display:grid; grid-template-columns:minmax(0,1fr); align-items:stretch; gap:12px; }
+.resident-row-main { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:14px; }
+.resident-row-main > span { min-width:0; overflow-wrap:break-word; word-break:normal; }
+.resident-name { display:block; font-size:1.05rem; line-height:1.4; margin-bottom:4px; }
+.resident-details small { margin-top:4px; }
+.resident-row-main > b, .resident-row-main > .ok { white-space:nowrap; }
+.resident-row > button.small { justify-self:start; max-width:100%; margin:0; white-space:normal; }
+.resident-row .admin-tenant-actions { display:flex; flex-wrap:wrap; gap:8px; min-width:0; }
+.resident-row .admin-tenant-actions > button { max-width:100%; margin:0; white-space:normal; }
+.resident-row .admin-tenant-actions form, .resident-row .admin-tenant-actions > p { flex-basis:100%; min-width:0; max-width:100%; }
+.room-summary { flex-wrap:wrap; align-items:baseline; margin-bottom:10px; }
+.room-summary > * { min-width:0; }
+@media(max-width:600px) {
+ .resident-row-main { grid-template-columns:minmax(0,1fr); gap:8px; }
+ .resident-row > button.small, .resident-row .admin-tenant-actions > button { width:100%; justify-self:stretch; }
+ .room-summary { align-items:flex-start; gap:5px; }
+ .room-summary > span { flex-basis:100%; font-size:.95rem; }
+ .property-group { padding:12px 8px; border-radius:18px; }
+ .property-group .card { padding:12px; }
+ .row.resident-row { padding:14px 12px; }
+}
