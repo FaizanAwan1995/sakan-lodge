@@ -27,3 +27,11 @@ test('CSV quotes embedded commas and formulas as text fields',()=>{
  const s=csvRows([['Name','Note'],['Tenant','a,b']]);
  assert.match(s,/"a,b"/);
 });
+
+test('admin balance credit appears as a noncash credit in statements and does not increase cash receipts',()=>{
+ const credited={...db,charges:[{id:'credit',person_id:'t',kind:'adjustment',due_date:'2026-10-05',amount:-25,note:'Admin authorised credit'}]};
+ const s=tenantStatement(credited,'t','2026-10-05');
+ assert.equal(s.transactions.find(r=>r.description.startsWith('Admin balance credit')).credit,25);
+ assert.equal(s.person.paid,200);
+ assert.equal(propertyProfitability(credited,'2026-10-01','2026-10-31','2026-10-05')[0].rent,200);
+});

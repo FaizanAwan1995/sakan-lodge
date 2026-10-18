@@ -5,6 +5,7 @@ export function validateFinancialRow(table, row) {
   for (const item of values) {
     if (!item || typeof item !== 'object') return 'Invalid transaction data.';
     const amount = Number(item.amount);
+    if (table === "charges" && item.kind === "adjustment" && amount < 0 && Number.isFinite(amount) && /^-\d+(?:\.\d{1,2})?$/.test(String(item.amount)) && String(item.note || "").trim().length >= 5 && /^\d{4}-\d{2}-\d{2}$/.test(item.due_date || "")) continue;
     if (!Number.isFinite(amount) || amount <= 0 || !/^\d+(?:\.\d{1,2})?$/.test(String(item.amount))) return 'Enter a positive amount with no more than two decimal places.';
     if (item.date && (!/^\d{4}-\d{2}-\d{2}$/.test(String(item.date)) || Number.isNaN(Date.parse(String(item.date) + 'T00:00:00Z')) || new Date(String(item.date) + 'T00:00:00Z').toISOString().slice(0, 10) !== String(item.date))) return 'Enter a valid transaction date.';
     if (table === 'payments' && !item.person_id) return 'Select a resident before saving the payment.';

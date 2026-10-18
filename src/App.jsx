@@ -1,3 +1,4 @@
+import AdminTenantActions from './features/reservations/AdminTenantActions.jsx';
 import ReservationActivity from './features/reservations/ReservationActivity.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -539,7 +540,8 @@ function Rooms({ db, d, today, reload, residentId }) {
                         <span>{x.name}{x.end_date > today && <small className="muted">Checkout scheduled: {nice(x.end_date)}</small>}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
                         {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
                       </button>
-                      <button className="small checkout-button" onClick={() => setEdit({ type: 'checkout', data: x })}>Check out</button>
+                      <button className="small" onClick={() => setEdit({ type: 'checkout', data: x })}>Schedule departure</button>
+                      <AdminTenantActions person={x} today={today} reload={reload} />
                     </div>
                   );
                 })}
@@ -562,9 +564,9 @@ function Rooms({ db, d, today, reload, residentId }) {
       ))}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
         <div className="card" key={x.id}><button className="row" onClick={() => setEdit({ type: 'person', data: x })}>
-          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
+          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.checked_out_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(x.checked_out_at)) : x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
           {x.owed > 0 && <b className="err">{fmt(x.owed)}</b>}
-        </button><ReleaseListingButton person={x} /></div>))}</>}
+        </button><AdminTenantActions person={x} today={today} reload={reload} allowCheckout={false} /><ReleaseListingButton person={x} /></div>))}</>}
     </>
   );
 }

@@ -27,13 +27,14 @@ export function proposeFirstCharge(weekly, arrival, anchor) {
 }
 
 export function isActive(p, today) {
-  return !p.end_date || p.end_date > today;
+  return !(p.checked_out_at && new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(p.checked_out_at)) <= today) && (!p.end_date || p.end_date > today);
 }
 
 /** Rent charges for one person, due on or before asOf. Derived, never stored (spec §4). */
 export function rentCharges(person, property, asOf) {
   const out = [];
   if (!property || !person.start_date) return out;
+  if (person.checked_out_at && new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(person.checked_out_at)) < person.start_date) return out;
   const lim = d2n(asOf);
   const base = { kind: 'rent', person_id: person.id, derived: true };
 
@@ -143,8 +144,8 @@ export function balance(charges, payments, asOf) {
   // entries must not hide today's arrears when someone is entering payments in advance.
   const received = payments.filter((p) => (!p.kind || p.kind === 'rent') && p.date && p.date <= asOf);
   const paid = money(received.reduce((s, p) => s + +p.amount, 0));
-  let rem = paid, oldest = null;
-  for (const c of due) {
+  let rem = paid - due.filter(c => +c.amount < 0).reduce((s,c)=>s + +c.amount,0), oldest = null;
+  for (const c of due.filter(c => +c.amount >= 0)) {
     if (rem + 0.005 >= +c.amount) rem -= +c.amount;
     else { oldest = c.due_date; break; }
   }
