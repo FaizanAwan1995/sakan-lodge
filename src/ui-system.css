@@ -1,0 +1,120 @@
+/* Shared ledger interface. Page-specific financial and reservation logic is unchanged. */
+:root {
+ --bg:#f5f7f4; --bg-strong:#e7eee7; --ink:#23352e; --muted:#607069;
+ --brand:#204e40; --brand-deep:#183f34; --brand-soft:#edf3ed;
+ --panel:#fff; --panel-alt:#f8faf7; --line:#dce4dd; --gold:#c6a267;
+ --bad:#b43f36; --bad-deep:#912e28; --ok:#28704f;
+ --shadow:0 8px 28px #23352e08; --shadow-soft:0 3px 14px #23352e05;
+ line-height:1.55;
+}
+body::before { display:none; }
+button,input,select,textarea { -webkit-tap-highlight-color:transparent; }
+button { border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--brand-deep); padding:10px 15px; min-height:44px; max-width:100%; line-height:1.4; white-space:normal; }
+button:hover { border-color:#a8bcae; }
+button:disabled { cursor:not-allowed; transform:none; }
+a,button,input,select,textarea,summary { scroll-margin-top:125px; }
+:where(a,button,input,select,textarea,summary):focus-visible { outline:3px solid #a77d37; outline-offset:3px; }
+input,select,textarea { min-width:0; max-width:100%; border:1px solid #cbd7cd; background:#fff; color:var(--ink); font-size:16px; border-radius:10px; box-shadow:none; padding:11px 12px; }
+input:focus,select:focus,textarea:focus { border-color:var(--brand); box-shadow:0 0 0 3px #204e4010; }
+input[type=checkbox],input[type=radio] { width:20px; height:20px; padding:0; flex:0 0 20px; vertical-align:middle; margin:0 8px 0 0; accent-color:var(--brand); box-shadow:none; }
+input[type=file] { padding:9px; font-size:14px; overflow:hidden; }
+textarea { min-height:100px; resize:vertical; line-height:1.6; }
+label { font-size:14px; font-weight:600; color:#465e51; margin:16px 0 6px; }
+fieldset { min-width:0; padding:18px; border:1px solid var(--line); border-radius:12px; margin:18px 0; }
+legend { padding:0 7px; color:var(--brand-deep); font-weight:650; }
+summary { cursor:pointer; color:var(--brand-deep); line-height:1.5; }
+form { min-width:0; }
+form > h1 { margin-top:4px; }
+h1,.screen-title,.screen-heading h1 { font-family:inherit; font-size:clamp(1.6rem,3vw,2.15rem); font-weight:700; letter-spacing:-.04em; line-height:1.2; margin-bottom:20px; }
+h2,.property-group h2 { font-family:inherit; text-transform:none; letter-spacing:-.015em; font-size:1.15rem; font-weight:650; line-height:1.4; }
+h3,h4 { line-height:1.4; }
+p { line-height:1.65; }
+.pad { max-width:1180px; padding:24px 28px 56px; }
+main.pad > * { animation:none; min-width:0; }
+.card,.today-segment,.maintenance-card { background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow-soft); padding:20px; margin-bottom:16px; }
+.card .card { box-shadow:none; background:var(--panel-alt); border-radius:12px; }
+.hero { background:var(--brand-deep); color:#fff; padding:24px; border:0; border-radius:16px; box-shadow:none; }
+.hero::before,.hero::after { display:none; }
+.hero b { color:#fff; font-size:clamp(1.8rem,5vw,2.5rem); font-variant-numeric:tabular-nums; }
+.hero small { opacity:1; color:#dce8df; line-height:1.6; }
+.property-group { border:1px solid var(--line); background:#edf2ed; border-radius:18px; padding:18px; box-shadow:none; }
+.row { background:#fff; border-color:var(--line); border-radius:12px; box-shadow:none; gap:14px; min-width:0; }
+.row:hover { background:#f7faf6; box-shadow:none; transform:none; }
+.row > span:first-child { min-width:0; flex:1 1 200px; overflow-wrap:break-word; }
+.row > b,.row > small { flex-shrink:0; font-variant-numeric:tabular-nums; }
+.row small,.muted { color:var(--muted); line-height:1.55; }
+.between,.screen-heading { gap:12px; flex-wrap:wrap; }
+.between > *,.screen-actions > * { min-width:0; }
+.screen-actions { gap:10px; justify-content:flex-start; }
+.screen-actions .primary { width:auto; flex:1 1 240px; margin-top:0; }
+.primary { border-radius:10px; padding:13px 18px; font-size:16px; font-weight:650; background:var(--brand-deep); color:#fff; min-height:48px; }
+.primary:hover { transform:none; filter:brightness(1.08); }
+.small { border-radius:10px; font-size:14px; font-weight:600; padding:10px 14px; }
+.link { min-height:32px; border:0; background:none; padding:2px 0; }
+.checkout-button,.danger-link { color:var(--bad-deep); background:#fff7f5; border-color:#e5bbb4; }
+.seg { flex-wrap:wrap; gap:7px; }
+.seg button { min-width:0; flex:1 1 auto; border-radius:9px; font-size:14px; padding:10px 12px; }
+.seg button:hover { transform:none; }
+.seg button.on { background:var(--brand-deep); color:#fff; }
+.report-controls { padding:18px; background:#fff; border:1px solid var(--line); border-radius:14px; margin-bottom:18px; }
+.report-controls .seg button { flex-basis:135px; }
+.custom-range,.form-grid { gap:14px; }
+table { width:100%; font-size:14px; font-variant-numeric:tabular-nums; }
+th { background:#f1f5ef; color:#385044; font-weight:650; }
+th,td { padding:12px 10px; vertical-align:top; border-bottom:1px solid var(--line); }
+tbody tr:hover { background:#f8faf7; }
+pre { max-width:100%; overflow:auto; font-size:13px; line-height:1.6; }
+[role=alert]:not(input) { background:#fff4f2; border:1px solid #ebc4be; border-left:3px solid var(--bad); border-radius:8px; padding:12px 14px; color:#8c3029; }
+.receipt { background:#edf5ef; border-color:#c5dccc; box-shadow:none; }
+.empty-state { padding:28px 20px; text-align:center; color:var(--muted); }
+.login { max-width:440px; margin:36px auto; padding:28px; border:1px solid var(--line); background:#fff; border-radius:18px; box-shadow:var(--shadow); }
+.login .primary { margin-top:12px; }
+.topbar { background:#fffffff5; border-bottom:1px solid var(--line); box-shadow:0 3px 14px #23352e05; }
+.topbar-inner { max-width:1180px; padding:12px 28px; gap:28px; }
+.topbar-brand { flex-shrink:0; gap:9px; }
+.topbar .brand-logo { width:40px; height:40px; flex-basis:40px; box-shadow:none; }
+.topbar-brand span { font-size:15px; }
+.top-nav { gap:5px; flex-wrap:nowrap; min-width:0; overflow-x:auto; scrollbar-width:thin; padding:2px; }
+.top-nav button { border:0; border-radius:8px; min-height:40px; padding:9px 12px; font-size:13px; white-space:nowrap; background:transparent; }
+.top-nav button.on { background:var(--brand-deep); color:#fff; box-shadow:none; }
+.top-nav button:hover { transform:none; background:#edf3ed; }
+.top-nav button.on:hover { background:var(--brand-deep); }
+.app-header { padding:0 0 20px; margin-bottom:8px; border-bottom:1px solid var(--line); }
+.app-brand strong { font-size:16px; }
+.app-brand small { line-height:1.5; }
+.account-switch button { min-height:32px; padding:5px 10px; }
+.ledger-skip-link { position:fixed; top:-100px; left:12px; z-index:100; background:#fff; padding:12px 16px; border:2px solid var(--brand); border-radius:8px; }
+.ledger-skip-link:focus { top:10px; }
+.reservation-workspace article.card,.reservation-activity,.contract-editor,.reservation-secondary,.admin-tenant-actions form { background:#fff; border-color:var(--line); }
+.reservation-activity details { border-color:var(--line); }
+.tenant-communications [role=status] { flex-wrap:wrap; }
+@media(max-width:760px) {
+ .topbar-inner { flex-direction:column; align-items:stretch; gap:6px; padding:9px 16px 7px; }
+ .topbar-brand { align-self:flex-start; }
+ .topbar .brand-logo { width:30px; height:30px; flex-basis:30px; }
+ .topbar-brand span { font-size:14px; }
+ .top-nav { justify-content:flex-start; width:100%; padding-bottom:5px; }
+ .top-nav button { min-height:40px; padding:8px 13px; }
+ .pad { padding:20px 16px 44px; }
+ .card,.today-segment,.maintenance-card { padding:16px; border-radius:14px; }
+ .property-group { padding:12px 10px; border-radius:15px; }
+ .row:not(.resident-row) { flex-wrap:wrap; align-items:flex-start; }
+ .row > span:first-child { flex-basis:100%; }
+ .screen-heading { align-items:flex-start; }
+ .screen-actions { width:100%; }
+ .screen-actions button { flex:1 1 auto; }
+ .screen-actions .primary { flex-basis:100%; }
+ .between > h1 { flex-basis:100%; }
+ .seg button { padding:10px; }
+ .report-controls { padding:13px; }
+ table { display:block; overflow-x:auto; white-space:nowrap; overscroll-behavior-x:contain; }
+ .app-header { align-items:flex-start; gap:8px; }
+ .app-header time { font-size:11px; }
+ .login { margin:20px 14px; padding:22px; }
+ .tenant-communications button { min-height:44px; }
+ .tenant-communications [role=status] button { width:auto; }
+}
+@media(prefers-reduced-motion:reduce) {
+ html { scroll-behavior:auto; }
+ *,*::before,*::after { animation:none!important; transition:none!important; }
+}
