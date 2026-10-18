@@ -1,0 +1,15 @@
+# Private reusable agreements
+
+Staff can import a private JSON template, inspect its proprietor details and terms, then explicitly approve a new immutable template version. Templates have staff-only RLS and cannot be edited or deleted through the staff Data API. No source agreement, resident details or signatures are seeded into the public repository or production database.
+
+The agreement builder freezes the approved template, every resident name, the applicant's current contact details, verified premises and room, explicit agreement term, first rent due date, bond, utilities and billing into a fresh contract version. Printing uses this snapshot rather than mutable reservation data. It escapes content, labels drafts, supplies fresh signature spaces for every resident and the proprietor, and supports page-aware A4 output. A synthetic multi-resident document was rendered and visually reviewed; this does not establish browser print behavior.
+
+Stays of at least seven nights retain fortnightly ledger billing at their agreed weekly rate. Under-seven-night reservations require an explicit nightly amount in the approved signed contract before confirmation. No weekly-to-nightly conversion is inferred. Check-in must match signed resident names and bond, uses the signed nightly amount where applicable, and creates no receipt. Existing resident records and historical agreements remain unchanged.
+
+The source agreement has already been supplied privately. A private import JSON was prepared with its former resident's details, historical rates/dates and signature artwork removed. The agreed utilities policy supersedes the source's electricity cap. The source's immediate-eviction sentence is excluded from the proposed template and explicitly identified for owner review; the source document is unchanged. Template approval is an owner action and is not a claim of legal validation.
+
+New database tests cover immutable/private templates, unresolved and obsolete wording, complete structured fields, stale revisions, invalid amounts, snapshot preservation, signed nightly billing, resident/bond matching and no fabricated payments. Renderer tests cover escaping, multiple signatures, amounts and draft labels. Cloudflare workerd tests exercise real SQLite claims, concurrent attempts, restart persistence and expiry cleanup at the production compatibility date. Dependencies and the current workerd binary are pinned.
+
+Source validation is complete locally: 125 application/backup tests, 39 isolated database checks and two runtime tests pass. Six separate-session database checks require PostgreSQL CI. CI results are recorded in the development report after verification.
+
+Release order: verify private recovery first; apply the staff/inventory, ledger-release, reporting and private-template migrations in their reviewed dependency order; deploy the matching Worker/client; import and approve the reviewed private template; verify authenticated desktop/mobile workflows and authorised real email delivery. Customer booking gates stay off until acceptance. A browser-local demo is not a substitute for an isolated authenticated staging backend.
