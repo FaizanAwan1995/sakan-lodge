@@ -1,3 +1,4 @@
+import { hasUnfilledPlaceholders, isValidTenantEmail } from './features/communications/email-utils.js';
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -6,10 +7,7 @@ const reply = (body, status = 200) =>
       "cache-control": "no-store",
     },
   });
-const validEmail = (value) =>
-  typeof value === "string" &&
-  value.length < 255 &&
-  /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
+const validEmail = value => typeof value === 'string' && value.length < 255 && isValidTenantEmail(value);
 function encode64(text) {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
@@ -17,7 +15,16 @@ function encode64(text) {
     binary += String.fromCharCode(...bytes.slice(i, i + 8192));
   return btoa(binary);
 }
-export async function gmailSend(request, env) {
+function encodedSubject(value) {
+  const parts = []; let part = '';
+  for (const char of value) {
+    if (new TextEncoder().encode(part + char).length > 42) { parts.push(part); part = ''; }
+    part += char;
+  }
+  if (part) parts.push(part);
+  return parts.map(text => '=?UTF-8?B?' + encode64(text) + '?=').join('\r\n ');
+}
+export async function gmailSend(request, env, trustedNotification = false) {
   if (request.method !== "POST")
     return reply({ error: "Method not allowed" }, 405);
   if (request.headers.get("Origin") !== "https://sakanlodge.com")
@@ -64,10 +71,22 @@ export async function gmailSend(request, env) {
         { error: "Staff notification configuration unavailable" },
         503,
       );
-    const data = await request.json();
-    const { recipients, subject, body, confirmation } = data || {};
+    let data = await request.json();
+    const previewing = new URL(request.url).pathname === '/api/gmail/preview';
+    let reviewStub;
+    if (!trustedNotification && !previewing) {
+      if (data.confirmation !== 'SEND_REVIEWED_EMAIL' || !/^[a-f0-9]{32}$/.test(data.reviewId || ''))
+        return reply({ error: 'Preview this email before sending' }, 400);
+      if (!env.GMAIL_OAUTH_STATE) return reply({ error: 'Email review storage unavailable' }, 503);
+      reviewStub = env.GMAIL_OAUTH_STATE.get(env.GMAIL_OAUTH_STATE.idFromName('email-review:' + data.reviewId));
+      const claimed = await reviewStub.fetch(new Request('https://state/email-review', {
+        method: 'POST', body: JSON.stringify({ owner: user.id }),
+      }));
+      if (!claimed.ok) return reply({ error: 'Review expired or already attempted. Check Sent Mail before creating another review.' }, 409);
+      data = (await claimed.json()).message;
+    }
+    const { recipients, subject, body } = data || {};
     if (
-      confirmation !== "SEND_REVIEWED_EMAIL" ||
       !Array.isArray(recipients) ||
       recipients.length < 1 ||
       recipients.length > 100 ||
@@ -77,7 +96,8 @@ export async function gmailSend(request, env) {
       typeof body !== "string" ||
       !body.trim() ||
       body.length > 60000 ||
-      /\[[^\]\r\n]{2,100}\]/.test(body)
+      /[\r\n]/.test(subject) ||
+      hasUnfilledPlaceholders(subject) || hasUnfilledPlaceholders(body)
     )
       return reply({ error: "Review all recipients and message details" }, 400);
     const addresses = [
@@ -92,6 +112,21 @@ export async function gmailSend(request, env) {
     if (!stored || !validEmail(stored.account))
       return reply({ error: "Reconnect Gmail in settings" }, 409);
     const sender = stored.account;
+    if (addresses.includes(sender.toLowerCase())) return reply({ error: "Invalid recipient" }, 400);
+    const cc = trustedNotification ? [] : [...new Set(administrators.map(x => x.toLowerCase()))].sort();
+    if (!trustedNotification && !previewing && (data.sender !== sender || JSON.stringify(data.cc) !== JSON.stringify(cc)))
+      return reply({ error: 'Sender or staff recipients changed. Create a new preview.' }, 409);
+    if (previewing) {
+      if (!env.GMAIL_OAUTH_STATE || !user.id) return reply({ error: 'Email review storage unavailable' }, 503);
+      const reviewId = crypto.randomUUID().replaceAll('-', '');
+      const message = { recipients: addresses, subject: subject.trim(), body: body.trim(), sender, cc };
+      const stub = env.GMAIL_OAUTH_STATE.get(env.GMAIL_OAUTH_STATE.idFromName('email-review:' + reviewId));
+      const storedReview = await stub.fetch(new Request('https://state/email-review', {
+        method: 'PUT', body: JSON.stringify({ owner: user.id, expires: Date.now() + 15 * 60_000, message }),
+      }));
+      if (!storedReview.ok) return reply({ error: 'Unable to prepare review' }, 503);
+      return reply({ reviewId, ...message });
+    }
     if (addresses.includes(sender.toLowerCase()))
       return reply({ error: "Invalid recipient" }, 400);
     const keyBytes = Uint8Array.from(
@@ -135,18 +170,14 @@ export async function gmailSend(request, env) {
     const lines = [
       "From: Sakan Lodge <" + sender + ">",
       "To: " + sender,
-      ...(data.copyAdministrators === false
-        ? []
-        : ["Cc: " + administrators.join(", ")]),
-      "Bcc: " + addresses.join(", "),
-      "Subject: =?UTF-8?B?" +
-        encode64(subject.replace(/[\r\n]/g, " ").trim()) +
-        "?=",
+      ...(cc.length ? ["Cc: " + cc.join(",\r\n ")] : []),
+      "Bcc: " + addresses.join(",\r\n "),
+      "Subject: " + encodedSubject(subject.trim()),
       "MIME-Version: 1.0",
       "Content-Type: text/plain; charset=UTF-8",
       "Content-Transfer-Encoding: base64",
       "",
-      encode64(body),
+      encode64(body).match(/.{1,76}/g).join("\r\n"),
     ];
     const encoded = encode64(lines.join("\r\n"))
       .replace(/\+/g, "-")
@@ -177,6 +208,8 @@ export async function gmailSend(request, env) {
         { error: "Sending confirmation missing. Check Sent Mail." },
         502,
       );
+    let logged = false;
+    try {
     const auditResponse = await fetch(base + "/rest/v1/rpc/log_sent_email", {
       method: "POST",
       headers: dbHeaders,
@@ -186,11 +219,13 @@ export async function gmailSend(request, env) {
         p_message_id: sent.id,
       }),
     });
+    logged = auditResponse.ok;
+    } catch { /* Delivery is already confirmed; audit failure must not invite another send. */ }
     return reply({
       sent: true,
       recipientCount: addresses.length,
       messageId: sent.id,
-      logged: auditResponse.ok,
+      logged,
     });
   } catch {
     return reply(
