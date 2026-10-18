@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
+import { verifyAutomaticAvailability } from "./automatic-availability-checks.js";
 import { verifyListingReleases } from "./listing-release-checks.js";
 import { verifyAgreements } from "./agreement-checks.js";
 import { verifyReportingSnapshot } from "./reporting-checks.js";
@@ -785,5 +786,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
     applyMigration: async () => db.exec(await read("../../supabase/migrations/20261017232242_reporting_property_budgets.sql")),
   });
   await verifyAgreements({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018035042_private_agreement_templates.sql"))});
+  await verifyAutomaticAvailability({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018045755_automatic_ledger_availability.sql"))});
   await db.close();
 });
