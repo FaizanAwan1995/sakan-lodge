@@ -31,7 +31,7 @@ Checked implementation items describe source code, not production activation.
 - [x] Reporting separates earned rent, actual receipts and forecasts; overhead, bonds, imported balances and CSV scopes reconcile.
 - [x] Consistent staff-only ledger snapshot, large transaction-history checks and missing budget-column migration.
 - [x] Multi-week reservation check-in preserves fortnightly billing at the agreed weekly rate.
-- [ ] Complete structured nightly-rate approval in contracts before enabling under-seven-night reservation check-in.
+- [x] Structured approved/signed nightly rates, bond and resident matching before confirmation/check-in.
 
 ## Verification and release gates
 
@@ -42,7 +42,8 @@ Checked implementation items describe source code, not production activation.
 - [ ] Complete authenticated desktop/mobile, accessibility, offline and error-path acceptance.
 - [ ] Verify deployment configuration, migration order and recovery rehearsal.
 - [x] Recover the supplied agreement, fortnightly-in-advance payment terms and general two-week bond rule.
-- [ ] Prepare the reusable private agreement from that source with current utilities wording, fresh applicant fields and fresh signatures; verify generated output.
+- [x] Private reusable template import/approval, immutable structured agreement snapshots and rendered A4 output with fresh signatures.
+- [ ] Owner review and production import/approval of the proposed private source template.
 - [ ] Verify and approve room content/readiness as each checked-out space is released from the ledger.
 - [ ] Reconcile historical receipts/costs and opening bond liabilities against source records; paid-through/paid-status fields do not replace transaction history.
 - [ ] Verify authorized test email delivery.
@@ -58,5 +59,6 @@ The agreed decisions are recorded in [requirements-decisions.md](requirements-de
 - [x] Atomic single-attempt claim; no automatic retry after uncertain delivery.
 - [x] Subject/body placeholder checks, current-resident eligibility, MIME encoding and audit-failure regression coverage.
 - [x] Application and PostgreSQL CI: 122 + 41 checks, no failures or skips.
-- [ ] Cloudflare runtime expiry/concurrency and authenticated browser acceptance.
+- [x] Cloudflare workerd SQLite expiry/concurrency and persistence checks at the production compatibility date.
+- [ ] Authenticated browser acceptance.
 - [ ] Authorised real delivery and Gmail Sent Mail/audit reconciliation.
