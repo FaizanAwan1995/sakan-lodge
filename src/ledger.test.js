@@ -240,3 +240,12 @@ test('landlord payment status does not count an older rent expense as the next p
   assert.equal(L.landlordPaymentStatus(property, '2026-10-15', expenses).status, 'Unpaid');
   assert.equal(L.landlordPaymentStatus(property, '2026-10-15', [...expenses, { ...expenses[0], date: '2026-10-15' }]).status, 'Paid');
 });
+
+test('one-night scheduled checkout remains active only until checkout date and retains the rounded rent balance',()=>{
+ const p={id:'dummy',stay_type:'long',start_date:'2026-10-18',end_date:'2026-10-19',weekly_rate:255};
+ assert.equal(L.isActive(p,'2026-10-18'),true);
+ assert.equal(L.isActive(p,'2026-10-19'),false);
+ const charges=L.rentCharges(p,{lease_anchor:'2026-10-13'},'2026-10-19');
+ assert.equal(charges.reduce((sum,c)=>sum+c.amount,0),35);
+ assert.equal(charges[0].period_end,'2026-10-18');
+});
