@@ -103,6 +103,9 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
       "../../supabase/migrations/20261017220346_reservation_inventory_workflows.sql",
     ),
   );
+  await db.exec(
+    await read("../../supabase/migrations/20261018174500_public_booking_gate_status.sql"),
+  );
   await sql(
     `insert into staff_access values($1),('00000000-0000-4000-8000-000000000006');`,
     [STAFF],
@@ -120,6 +123,16 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
     [ROOM, SHARED, PROP],
   );
   await sql(`select set_config('request.jwt.claim.sub',$1,false)`, [STAFF]);
+  await t.test(
+    "public request status is read-only and reflects database gate",
+    async () => {
+      assert.equal(await rpc("customer_requests_enabled", []), false);
+      await sql("update public.booking_settings set requests_enabled=true where id=true");
+      assert.equal(await rpc("customer_requests_enabled", []), true);
+      await sql("update public.booking_settings set requests_enabled=false where id=true");
+      assert.equal(await rpc("customer_requests_enabled", []), false);
+    },
+  );
   await t.test(
     "default public catalogue empty and request gate off",
     async () => {
