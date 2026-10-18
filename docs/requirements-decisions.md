@@ -31,6 +31,15 @@ This is a source requirement record, not permission to activate untested custome
 - Notification drafts go through manual review and sending. Uncertain sends require reconciliation before retrying.
 - Database validation must prevent double bookings across ledger residents, reservations and blocks, including concurrent writers.
 
+## Reporting and billing
+
+- Earned means agreed charges falling due in the period; received means dated recorded rent payments. Operating profit uses earned income, and the two measures remain separate.
+- Imported paid-through dates establish resident balances; they do not create cash receipts or erase historical earned rent. Opening arrears are not new income.
+- Bonds are liabilities outside operating income. Preserve existing paid-status declarations and agreed amounts; missing opening receipts/liabilities require reconciliation rather than invented cash entries.
+- Count whole-business costs once. Reimbursement status does not create a second expense.
+- Utilities budgets and future rent belong to forecasts. Forecast rent follows the same due-date basis as earned rent; expected rent never becomes recorded income.
+- Reservation short/long is the public pricing category. Ledger billing for stays of a week or more remains fortnightly at the agreed weekly rate. Under-seven-night billing requires its separately approved nightly rate; do not derive it automatically from the public weekly quote.
+
 ## Release acceptance
 
 - Preserve historical resident and financial records through every migration and test.
