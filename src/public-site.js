@@ -175,27 +175,22 @@ function linkCard(title, path, desc) {
   );
 }
 function roomForm(room, env) {
-  return (
-    '<section class="catalog-card"><h2>Check dates and request a stay</h2><p>A request is not a confirmed booking and does not reserve a space.</p>' +
-    (!bookingEnabled(env)
-      ? '<p>Online requests are being tested. Please <a href="mailto:sakanlodges@gmail.com">email our team</a> to enquire.</p>'
-      : "") +
-    '<form id="reservation-form" data-room="' +
-    h(room.id) +
-    '" data-capacity="' +
-    room.capacity +
+  const enabled = bookingEnabled(env);
+  const enquiry = '<p>Online reservation requests are currently unavailable. <a href="mailto:sakanlodges@gmail.com?subject=' +
+    h(encodeURIComponent('Room enquiry: ' + room.title)) + '">Email our team about this room</a> or <a href="tel:+61426721787">call 0426 721 787</a>.</p>';
+  const contactFields = enabled
+    ? '<fieldset><legend>Contact details for your request</legend><label for="full-name">Full name</label><input id="full-name" name="full_name" autocomplete="name" minlength="2" maxlength="120" required><label for="email">Email</label><input id="email" name="email" autocomplete="email" type="email" maxlength="254" required><label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required><label for="occupation">Occupation (optional)</label><input id="occupation" name="occupation_type" maxlength="80"><label for="introduction">Tell us a little about your stay (optional)</label><textarea id="introduction" name="introduction" maxlength="2000"></textarea></fieldset><div class="cf-turnstile" data-sitekey="' +
+      h(env.TURNSTILE_SITE_KEY) + '"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script><p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p><button id="submit-request" type="submit" disabled>Submit reservation request</button><p id="request-result" role="status" aria-live="polite"></p>'
+    : '';
+  return '<section class="catalog-card"><h2>' +
+    (enabled ? 'Check dates and request a stay' : 'Check room availability') + '</h2>' +
+    (enabled ? '<p>A request is not a confirmed booking and does not reserve a space. Check availability for your dates before submitting.</p>' : enquiry) +
+    '<form id="reservation-form" data-room="' + h(room.id) + '" data-capacity="' + room.capacity +
     '"><label for="arrival">Arrival</label><input id="arrival" name="arrival_date" type="date" required><label for="departure">Departure (checkout day)</label><input id="departure" name="departure_date" type="date" required><label for="spaces">' +
-    (room.capacity > 1 ? "People / bed spaces" : "People") +
-    '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' +
-    room.capacity +
-    '" value="1" required><button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p><fieldset><legend>Contact details for your request</legend><label for="full-name">Full name</label><input id="full-name" name="full_name" autocomplete="name" minlength="2" maxlength="120" required><label for="email">Email</label><input id="email" name="email" autocomplete="email" type="email" maxlength="254" required><label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required><label for="occupation">Occupation (optional)</label><input id="occupation" name="occupation_type" maxlength="80"><label for="introduction">Tell us a little about your stay (optional)</label><textarea id="introduction" name="introduction" maxlength="2000"></textarea></fieldset>' +
-    (bookingEnabled(env)
-      ? '<div class="cf-turnstile" data-sitekey="' +
-        h(env.TURNSTILE_SITE_KEY) +
-        '"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
-      : "") +
-    '<p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p><button id="submit-request" type="submit" disabled>Submit reservation request</button><p id="request-result" role="status" aria-live="polite"></p></form><script src="/booking.js" defer></script></section>'
-  );
+    (room.capacity > 1 ? 'People / bed spaces' : 'People') +
+    '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' + room.capacity +
+    '" value="1" required><button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
+    contactFields + '</form><script src="/booking.js" defer></script></section>';
 }
 export function renderListing(route, cat, env = {}) {
   const location = names[route.suburb];

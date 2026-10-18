@@ -47,7 +47,10 @@ test("server renders nested room with escaped content, accurate rate and disable
   assert.ok(
     text.includes("/locations/fulham/properties/house-1/rooms/room-1/"),
   );
-  assert.ok(text.includes('id="submit-request" type="submit" disabled'));
+  assert.ok(!text.includes('id="submit-request"'));
+  assert.ok(!text.includes('name="full_name"'));
+  assert.ok(text.includes("Online reservation requests are currently unavailable"));
+  assert.ok(text.includes("Check availability"));
 });
 test("unapproved or mismatched property/room yields real 404", () => {
   assert.equal(
@@ -142,4 +145,14 @@ test("availability response requires both database and Worker activation gates",
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test('configured request page retains protected form while unavailable pages omit applicant fields',async()=>{
+ const env={RESERVATION_REQUESTS_ENABLED:'true',SUPABASE_SERVICE_ROLE_KEY:'synthetic-secret',TURNSTILE_SECRET_KEY:'synthetic-turnstile',TURNSTILE_SITE_KEY:'synthetic-public-site-key'};
+ const text=await renderListing({kind:'room',suburb:'fulham',property:'house-1',room:'room-1'},cat,env).text();
+ assert.ok(text.includes('name="full_name"'));
+ assert.ok(text.includes('id="submit-request" type="submit" disabled'));
+ assert.ok(text.includes('data-sitekey="synthetic-public-site-key"'));
+ assert.ok(!text.includes('synthetic-secret'));
+ assert.ok(!text.includes('synthetic-turnstile'));
 });
