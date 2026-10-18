@@ -19,3 +19,11 @@ test('blocks unfinished manual email templates', () => {
   assert.equal(hasUnfilledPlaceholders('Amount: [VERIFY AMOUNT]'), true);
   assert.equal(hasUnfilledPlaceholders('Inspection on 20 October at 10 AM'), false);
 });
+
+
+test('future arrivals and checked-out people are excluded from current tenant emails', () => {
+  const current = tenant(1, 'current@example.test');
+  const future = { ...tenant(2, 'future@example.test'), start_date: '2026-10-17' };
+  const departed = { ...tenant(3, 'past@example.test'), end_date: today };
+  assert.deepEqual(eligibleRecipients([current, future, departed], today).map(p => p.id), [1]);
+});
