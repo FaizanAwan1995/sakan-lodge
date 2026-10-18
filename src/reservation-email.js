@@ -37,7 +37,7 @@ export async function reservationEmail(request, env) {
         copyAdministrators: false,
       }),
     });
-    const sent = await gmailSend(internal, env);
+    const sent = await gmailSend(internal, env, true);
     const result = await sent.json();
     if (!sent.ok || !result.sent || !result.messageId) {
       await databaseRpc(
