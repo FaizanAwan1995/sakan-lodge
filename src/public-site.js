@@ -176,7 +176,7 @@ function linkCard(title, path, desc) {
 }
 function roomForm(room, env) {
   const enabled = bookingEnabled(env);
-  const enquiry = '<p>Online reservation requests are currently unavailable. <a href="mailto:sakanlodges@gmail.com?subject=' +
+  const enquiry = '<p>Online reservation requests are currently unavailable. Check your dates below, then continue with a prefilled email request. Alternatively, <a href="mailto:sakanlodges@gmail.com?subject=' +
     h(encodeURIComponent('Room enquiry: ' + room.title)) + '">Email our team about this room</a> or <a href="tel:+61426721787">call 0426 721 787</a>.</p>';
   const contactFields = enabled
     ? '<fieldset><legend>Contact details for your request</legend><label for="full-name">Full name</label><input id="full-name" name="full_name" autocomplete="name" minlength="2" maxlength="120" required><label for="email">Email</label><input id="email" name="email" autocomplete="email" type="email" maxlength="254" required><label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required><label for="occupation">Occupation (optional)</label><input id="occupation" name="occupation_type" maxlength="80"><label for="introduction">Tell us a little about your stay (optional)</label><textarea id="introduction" name="introduction" maxlength="2000"></textarea></fieldset><div class="cf-turnstile" data-sitekey="' +
