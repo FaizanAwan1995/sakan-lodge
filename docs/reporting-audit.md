@@ -39,6 +39,6 @@ GitHub CI passed 122 application/backup checks and all 41 PostgreSQL checks, inc
 
 - Apply the tested reporting migration before deploying a client that calls `ledger_snapshot()`. Customer activation remains off.
 - Reconcile imported historical receipts, expenses and opening bond liabilities against source records. A paid-through date or paid-status declaration is not a transaction history.
-- Prepare the reusable private agreement and capture an explicitly approved nightly rate before enabling under-seven-night reservation check-in. Automatic weekly-to-nightly conversion is blocked; existing nightly ledger records are unchanged.
+- Import and approve the prepared private template after owner review. Structured nightly-rate approval is now implemented; signed rates, bonds and resident names govern confirmation/check-in. Automatic weekly-to-nightly conversion remains blocked; existing nightly ledger records are unchanged.
 - Review unmatched/off-cycle landlord costs before treating their operating allocation as settled.
 - Complete authenticated desktop/mobile and downloaded-CSV acceptance. Real-world completeness and browser behavior are not established by calculation tests alone.
