@@ -207,7 +207,7 @@ export async function verifyManualBooking({
     "simultaneous manual confirmations serialize room assignment",
     { skip: !process.env.SAKAN_TEST_DATABASE_URL },
     async () => {
-      await sql("update people set end_date=start_date where room_id=$1", [
+      await sql("delete from people where room_id=$1", [
         room,
       ]);
       const three = await make();

@@ -14,7 +14,7 @@ begin
  select capacity into cap from public.rooms where id=r.room_id for update;
  if r.offer_type is distinct from (case when cap=1 then 'private' else 'shared' end) or r.weekly_rate is distinct from (case when cap>1 then 185 when r.departure_date<(r.arrival_date+interval '2 months')::date then 300 else 255 end) then raise exception 'Room capacity changed. Regenerate agreement'; end if;
  if not exists(select 1 from public.room_profiles where room_id=r.room_id and ready) then raise exception 'Room must be ready'; end if;
- if sakan_private.free_spaces(r.room_id,r.arrival_date,r.departure_date,r.id)<r.spaces_requested then raise exception 'Room is no longer available'; end if;
+ if sakan_private.free_spaces(r.room_id,r.arrival_date,r.departure_date,r.id)<r.spaces_requested then raise exception 'Room is no longer available' using errcode='23P01'; end if;
  if jsonb_array_length(c.fields->'resident_names') is distinct from r.spaces_requested then raise exception 'Contract must name every resident'; end if;
  if r.departure_date-r.arrival_date<7 and (c.fields->>'billing_type' is distinct from 'nightly' or coalesce((c.fields->>'nightly_rate')::numeric,0)<=0) then raise exception 'Explicit nightly rate required'; end if;
  update public.reservations set status='assigned',hold_expires_at=null where id=r.id;
