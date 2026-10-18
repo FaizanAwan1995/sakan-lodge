@@ -70,6 +70,7 @@ test("worker creates actual PDF bytes and registers only its private immutable s
   globalThis.fetch = async (url, options) => {
     paths.push(String(url));
     if (String(url).includes("/rest/v1/rpc/")) {
+      assert.equal(options.headers.Authorization, "Bearer synthetic-staff");
       const args = JSON.parse(options.body);
       if (args.p_path) c.document_path = args.p_path;
       return new Response(JSON.stringify({ contract: c, code: "SYNTHETIC" }));

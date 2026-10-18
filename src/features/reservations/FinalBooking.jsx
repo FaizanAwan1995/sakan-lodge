@@ -24,7 +24,7 @@ export default function FinalBooking({
     ) : null;
   return (
     <div className="card">
-      <h3>Confirm reservation manually</h3>
+      <h3>3. Confirm reservation</h3>
       <p>
         When you are ready, confirm this reservation and assign the tenant to
         the room. Payment and signed-document checks are handled by you outside
@@ -38,6 +38,11 @@ export default function FinalBooking({
         />{" "}
         I have completed my checks and approve this reservation.
       </label>
+      {!current && (
+        <p role="status">
+          Generate or open the current contract PDF before confirming.
+        </p>
+      )}
       <button
         disabled={busy || !verified || !current}
         onClick={() =>

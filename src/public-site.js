@@ -24,15 +24,21 @@ export const json = (data, status = 200) =>
  * bearer JWTs. Use the server-only secret for privileged reservation writes.
  * Legacy JWT keys remain supported until they are rotated.
  */
-export async function databaseRpc(env, name, data = {}, { admin = false } = {}) {
+export async function databaseRpc(env, name, data = {}, options = {}) {
+  const { admin = false } = typeof options === "object" ? options : {};
+  const staffAuthorization =
+    typeof options === "string" ? options : options.authorization;
+  if (staffAuthorization && !/^Bearer \S+$/.test(staffAuthorization))
+    throw new Error("Invalid staff session");
   if (!env.SUPABASE_URL || !env.SUPABASE_PUBLIC_KEY)
     throw new Error("Database unavailable");
   const key = admin
-    ? (env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY)
+    ? env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY
     : env.SUPABASE_PUBLIC_KEY;
   if (!key) throw new Error("Database credential unavailable");
   const headers = { apikey: key, "content-type": "application/json" };
-  if (key.startsWith("eyJ")) headers.Authorization = "Bearer " + key;
+  if (staffAuthorization) headers.Authorization = staffAuthorization;
+  else if (key.startsWith("eyJ")) headers.Authorization = "Bearer " + key;
   const response = await fetch(
     env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/" + name,
     {
@@ -183,22 +189,39 @@ function linkCard(title, path, desc) {
 }
 function roomForm(room, env) {
   const enabled = bookingEnabled(env);
-  const enquiry = '<p>Online reservation requests are currently unavailable. Check your dates below, then continue with a prefilled email request. Alternatively, <a href="mailto:sakanlodges@gmail.com?subject=' +
-    h(encodeURIComponent('Room enquiry: ' + room.title)) + '">Email our team about this room</a> or <a href="tel:+61426721787">call 0426 721 787</a>.</p>';
+  const enquiry =
+    '<p>Online reservation requests are currently unavailable. Check your dates below, then continue with a prefilled email request. Alternatively, <a href="mailto:sakanlodges@gmail.com?subject=' +
+    h(encodeURIComponent("Room enquiry: " + room.title)) +
+    '">Email our team about this room</a> or <a href="tel:+61426721787">call 0426 721 787</a>.</p>';
   const contactFields = enabled
     ? '<fieldset><legend>Contact details for your request</legend><label for="full-name">Full name</label><input id="full-name" name="full_name" autocomplete="name" minlength="2" maxlength="120" required><label for="email">Email</label><input id="email" name="email" autocomplete="email" type="email" maxlength="254" required><label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required><label for="occupation">Occupation (optional)</label><input id="occupation" name="occupation_type" maxlength="80"><label for="introduction">Tell us a little about your stay (optional)</label><textarea id="introduction" name="introduction" maxlength="2000"></textarea></fieldset><p>Spam protection: a successful security check does not confirm a booking.</p><div class="cf-turnstile" data-appearance="interaction-only" data-sitekey="' +
-      h(env.TURNSTILE_SITE_KEY) + '"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script><p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p><button id="submit-request" type="submit" disabled>Submit reservation request</button><p id="request-result" role="status" aria-live="polite"></p>'
-    : '';
-  return '<section class="catalog-card"><h2>' +
-    (enabled ? 'Check dates and request a stay' : 'Check room availability') + '</h2>' +
-    (enabled ? '<p>A request is not a confirmed booking and does not reserve a space. Check availability for your dates before submitting.</p>' : enquiry) +
-    '<form id="reservation-form" data-room="' + h(room.id) + '" data-room-title="' + h(room.title) + '" data-capacity="' + room.capacity +
+      h(env.TURNSTILE_SITE_KEY) +
+      '"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script><p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p><button id="submit-request" type="submit" disabled>Submit reservation request</button><p id="request-result" role="status" aria-live="polite"></p>'
+    : "";
+  return (
+    '<section class="catalog-card"><h2>' +
+    (enabled ? "Check dates and request a stay" : "Check room availability") +
+    "</h2>" +
+    (enabled
+      ? "<p>A request is not a confirmed booking and does not reserve a space. Check availability for your dates before submitting.</p>"
+      : enquiry) +
+    '<form id="reservation-form" data-room="' +
+    h(room.id) +
+    '" data-room-title="' +
+    h(room.title) +
+    '" data-capacity="' +
+    room.capacity +
     '"><label for="arrival">Arrival</label><input id="arrival" name="arrival_date" type="date" required><label for="departure">Departure (checkout day)</label><input id="departure" name="departure_date" type="date" required><label for="spaces">' +
-    (room.capacity > 1 ? 'People / bed spaces' : 'People') +
-    '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' + room.capacity +
+    (room.capacity > 1 ? "People / bed spaces" : "People") +
+    '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' +
+    room.capacity +
     '" value="1" required><button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
-    (enabled ? '' : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="mailto:sakanlodges@gmail.com">Continue reservation request by email ↗</a><p>Your selected room and dates will be added to an email draft. <strong>Send that email</strong> to lodge your enquiry. This does not reserve the room; our team must confirm availability.</p></div>') +
-    contactFields + '</form><script src="/booking.js" defer></script></section>';
+    (enabled
+      ? ""
+      : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="mailto:sakanlodges@gmail.com">Continue reservation request by email ↗</a><p>Your selected room and dates will be added to an email draft. <strong>Send that email</strong> to lodge your enquiry. This does not reserve the room; our team must confirm availability.</p></div>') +
+    contactFields +
+    '</form><script src="/booking.js" defer></script></section>'
+  );
 }
 export function renderListing(route, cat, env = {}) {
   const location = names[route.suburb];
@@ -218,16 +241,48 @@ export function renderListing(route, cat, env = {}) {
           h(title) +
           "</h1><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays.</p>" +
           included +
-          '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' + h(location) + '</h2>' +
+          '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
+          h(location) +
+          "</h2>" +
           (properties.length === 1
-            ? '<p class="property-label">' + h(properties[0].name) + '</p><div class="catalog-grid">' +
-              cat.rooms.filter(r => r.property_id === properties[0].id).map(r => linkCard(r.title,
-                publicPath({suburb: route.suburb, property: properties[0].slug, room: r.slug}),
-                r.capacity > 1 ? "Shared accommodation · $185/person/week · long-term only" : "Private room · $255/week long-term · $300/week short-term")).join('') + '</div>'
-            : '<div class="catalog-grid">' + properties.map(p => linkCard(p.name,
-                publicPath({suburb: route.suburb, property: p.slug}), p.description)).join('') + '</div>') +
-          (properties.length ? '' : '<p>No rooms are currently advertised here. <a href="mailto:sakanlodges@gmail.com">Enquire about availability in ' + h(location) + '</a>.</p>') +
-          '</section>' + renderSuburbGuide(route.suburb),
+            ? '<p class="property-label">' +
+              h(properties[0].name) +
+              '</p><div class="catalog-grid">' +
+              cat.rooms
+                .filter((r) => r.property_id === properties[0].id)
+                .map((r) =>
+                  linkCard(
+                    r.title,
+                    publicPath({
+                      suburb: route.suburb,
+                      property: properties[0].slug,
+                      room: r.slug,
+                    }),
+                    r.capacity > 1
+                      ? "Shared accommodation · $185/person/week · long-term only"
+                      : "Private room · $255/week long-term · $300/week short-term",
+                  ),
+                )
+                .join("") +
+              "</div>"
+            : '<div class="catalog-grid">' +
+              properties
+                .map((p) =>
+                  linkCard(
+                    p.name,
+                    publicPath({ suburb: route.suburb, property: p.slug }),
+                    p.description,
+                  ),
+                )
+                .join("") +
+              "</div>") +
+          (properties.length
+            ? ""
+            : '<p>No rooms are currently advertised here. <a href="mailto:sakanlodges@gmail.com">Enquire about availability in ' +
+              h(location) +
+              "</a>.</p>") +
+          "</section>" +
+          renderSuburbGuide(route.suburb),
       ),
     );
   }
@@ -495,7 +550,8 @@ export async function handlePublicSite(request, env) {
     let requestsOpen = false;
     if (route?.kind === "room" && bookingEnabled(env)) {
       try {
-        requestsOpen = (await databaseRpc(env, "customer_requests_enabled")) === true;
+        requestsOpen =
+          (await databaseRpc(env, "customer_requests_enabled")) === true;
       } catch {
         // Fail closed: room pages stay useful for availability and enquiries.
         requestsOpen = false;

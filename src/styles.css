@@ -211,3 +211,22 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .google-link-info p{margin:.35rem 0 0}
 .google-link-action{border:1px solid #ad9475;border-radius:10px;background:#fffaf2;color:#3c3126;font:inherit;font-weight:650;padding:.75rem 1.1rem;cursor:pointer}
 .google-link-action:hover:not(:disabled){background:#f3e9db}
+
+/* Focused reservation workspace; diagnostic history lives in Activity. */
+.reservation-workspace { max-width:1040px; margin:auto; }
+.reservation-workspace > .card, .reservation-workspace article.card { background:#fffdf8; }
+.reservation-workspace h2 { font-family:inherit; overflow-wrap:anywhere; font-size:1.35rem; }
+.reservation-workspace p { overflow-wrap:anywhere; }
+.reservation-workspace button { border:1px solid #c8c4b9; border-radius:10px; background:#fff; color:#294c43; padding:11px 16px; margin:5px 5px 5px 0; line-height:1.35; }
+.reservation-workspace button.primary, .reservation-workspace .contract-panel > div > button:last-child { background:#294c43; color:#fff; border-color:#294c43; }
+.reservation-workspace button:disabled { opacity:.55; cursor:not-allowed; }
+.reservation-secondary, .contract-editor { background:#faf8f1; border:1px solid #deded3; border-radius:12px; padding:14px; margin:14px 0; }
+.reservation-workspace summary { font-weight:650; cursor:pointer; padding:5px 0; }
+.reservation-workspace label { display:block; margin:12px 0; font-size:.95rem; }
+.reservation-workspace input[type=checkbox] { width:20px; height:20px; margin:0 9px 0 0; vertical-align:middle; box-shadow:none; }
+.reservation-workspace .contract-panel { padding:0; }
+.reservation-workspace .contract-panel iframe { border-radius:8px; background:white; }
+.reservation-activity { background:#fffdf8; padding:18px; border:1px solid #deded3; border-radius:14px; margin:18px 0; }
+.reservation-activity details { padding:12px 0; border-bottom:1px solid #ddd; }
+.reservation-activity summary { cursor:pointer; overflow-wrap:anywhere; }
+@media(max-width:600px){.reservation-workspace article.card{padding:14px;border-radius:14px;}.reservation-workspace .card{padding:12px;box-shadow:none;}.reservation-workspace h3{font-size:1.15rem;}.reservation-workspace button{max-width:100%;}.reservation-workspace .contract-panel iframe{height:420px!important;}}
