@@ -9,22 +9,19 @@ const parseLines = (value) =>
 export default function ListingManagement({ db }) {
   const [properties, setProperties] = useState([]),
     [rooms, setRooms] = useState([]),
-    [releases, setReleases] = useState([]),
     [editing, setEditing] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   async function refresh() {
     setError("");
     try {
-      const [p, r, l] = await Promise.all([
+      const [p, r] = await Promise.all([
         supabase.from("property_profiles").select("*"),
         supabase.from("room_profiles").select("*"),
-        supabase.from("room_listing_releases").select("*").is("revoked_at", null).is("consumed_at", null),
       ]);
-      if (p.error || r.error || l.error) throw p.error || r.error || l.error;
+      if (p.error || r.error) throw p.error || r.error;
       setProperties(p.data || []);
       setRooms(r.data || []);
-      setReleases(l.data || []);
     } catch (e) {
       setError(e.message || "Unable to load listings");
     }
@@ -44,19 +41,6 @@ export default function ListingManagement({ db }) {
       window.removeEventListener("online", sync);
     };
   }, []);
-  async function withdraw(id) {
-    setBusy(true);
-    setError("");
-    try {
-      const { error: problem } = await supabase.rpc("withdraw_room_listing_release", { p_release: id });
-      if (problem) throw problem;
-      await refresh();
-    } catch (problem) {
-      setError(problem.message || "Unable to withdraw release");
-    } finally {
-      setBusy(false);
-    }
-  }
   const set = (key, value) =>
     setEditing((x) => ({
       ...x,
@@ -112,9 +96,10 @@ export default function ListingManagement({ db }) {
     <section aria-label="Public listing management">
       <h2>Public listings</h2>
       <p>
-        Only spaces explicitly released from a ledger checkout can go public,
-        after readiness checks and listing approval. Check-ins, holds and blocks
-        reduce availability automatically. Public descriptions and photos
+        Approved, ready listings follow ledger availability automatically. Completed
+        checkouts add availability; check-ins, holds and blocks reduce it. Future
+        checkout dates do not advertise rooms early. Unpublish a room or mark it
+        not ready to keep it off the website. Public descriptions and photos
         must not reveal private street addresses or resident details. Existing
         ledger labels and rates are unchanged.
       </p>
@@ -218,7 +203,7 @@ export default function ListingManagement({ db }) {
               checked={editing.published}
               onChange={(e) => set("published", e.target.checked)}
             />{" "}
-            Approve profile for publication when a released space is available
+            Approve public profile; availability follows the ledger automatically
           </label>
           {editing.published && (
             <label>
@@ -271,23 +256,19 @@ export default function ListingManagement({ db }) {
                   .filter((r) => r.property_id === p.id)
                   .map((r) => {
                     const rp = rooms.find((x) => x.room_id === r.id);
-                    const released = releases.filter((x) => x.room_id === r.id);
                     return (
                       <li key={r.id} style={{ margin: "12px 0" }}>
                         {r.label} · capacity {r.capacity} ·{" "}
                         {rp?.published ? "Approved profile" : "Draft"} ·{" "}
                         {rp?.ready ? "Ready" : "Not ready"}{" "}
-                        · {released.length} released space(s){" "}
+                        · Availability synced from ledger{" "}
                         <button
                           className="small"
                           onClick={() => open("room", r.id, rp)}
                         >
                           Edit public room
                         </button>
-                        {released.map((release) => <div key={release.id}>
-                          <small>Ledger checkout: {release.checkout_date}</small>{" "}
-                          <button className="small" disabled={busy} onClick={() => withdraw(release.id)}>Withdraw released space</button>
-                        </div>)}
+
                       </li>
                     );
                   })}
