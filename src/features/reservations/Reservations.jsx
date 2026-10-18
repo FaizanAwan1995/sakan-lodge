@@ -238,6 +238,7 @@ export default function Reservations({ db, reload }) {
     win.document.close();
     win.print();
   }
+  const needsNightlyRate = selected && (Date.parse(selected.departure_date + 'T00:00:00Z') - Date.parse(selected.arrival_date + 'T00:00:00Z')) / 86400000 < 7;
   if (isLocalMode || !supabase)
     return (
       <section className="card">
@@ -522,7 +523,7 @@ export default function Reservations({ db, reload }) {
                       />
                     </label>
                     <button
-                      disabled={busy || draft.bond == null || draft.bond === ""}
+                      disabled={busy || needsNightlyRate || draft.bond == null || draft.bond === ""}
                       onClick={() => {
                         if (
                           confirm(
@@ -545,6 +546,7 @@ export default function Reservations({ db, reload }) {
                     >
                       Check in to ledger
                     </button>
+                    {needsNightlyRate && <p>No approved nightly rate is recorded for this reservation. Nightly check-in is unavailable.</p>}
                   </>
                 )}
               </div>
