@@ -12,6 +12,6 @@ Additional corrections exclude future arrivals from current-tenant selections, r
 
 Mocked tests cover reviewed content, recipient privacy, no-delivery preview, concurrent/repeated attempts, uncertain outcomes, staff ownership, changed CC configuration, expired reviews, placeholder/header validation, Unicode MIME transport and audit failures. These are application tests, including a transactional storage fixture; Cloudflare workerd SQLite tests now additionally verify 24 simultaneous claims, persistence after restart and real alarm cleanup at the production compatibility date. Authenticated browser acceptance, OAuth renewal and authorised real delivery remain separate checks.
 
-The complete CI run passed 122 application/backup tests and 41 PostgreSQL checks, with no failures or skips.
+The complete CI run passed 125 application/backup tests, 45 PostgreSQL checks and two Cloudflare runtime tests, with no failures or skips.
 
 Deployment must include the Worker and ledger client together. Keep customer booking gates off. Remaining acceptance includes connected-account checks, mobile/desktop preview interactions, an explicitly authorised test send and Sent Mail/audit reconciliation. No real email was sent during this review.
