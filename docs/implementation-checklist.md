@@ -35,8 +35,8 @@ Checked implementation items describe source code, not production activation.
 
 ## Verification and release gates
 
-- [x] Pass revised application/PostgreSQL CI: 77 application/backup tests and 35 database checks, no failures/skips.
-- [ ] Verify the latest reporting review in exact-head PostgreSQL CI, including concurrent snapshot consistency.
+- [x] Pass revised application/PostgreSQL CI: 122 application/backup tests and 41 database checks, no failures/skips.
+- [x] Verify the latest reporting review in PostgreSQL CI, including concurrent snapshot consistency.
 - [x] Verify competing ledger releases and reservation/check-in races after the release migration in separate PostgreSQL sessions.
 - [x] Verify holds versus holds, check-ins versus check-ins, and holds versus check-ins in separate PostgreSQL sessions.
 - [ ] Complete authenticated desktop/mobile, accessibility, offline and error-path acceptance.
@@ -57,5 +57,6 @@ The agreed decisions are recorded in [requirements-decisions.md](requirements-de
 - [x] Server-prepared immutable tenant email preview; real sender/staff CC and BCC recipients.
 - [x] Atomic single-attempt claim; no automatic retry after uncertain delivery.
 - [x] Subject/body placeholder checks, current-resident eligibility, MIME encoding and audit-failure regression coverage.
-- [ ] Exact-head CI, Cloudflare runtime expiry/concurrency and authenticated browser acceptance.
+- [x] Application and PostgreSQL CI: 122 + 41 checks, no failures or skips.
+- [ ] Cloudflare runtime expiry/concurrency and authenticated browser acceptance.
 - [ ] Authorised real delivery and Gmail Sent Mail/audit reconciliation.
