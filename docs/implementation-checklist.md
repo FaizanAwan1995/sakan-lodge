@@ -28,10 +28,15 @@ Checked implementation items describe source code, not production activation.
 - [x] Authenticated encrypted backup implementation and synthetic recovery test.
 - [x] Realtime publication and staff refresh support.
 - [x] Ledger release/withdrawal, idempotent release, check-in consumption and checkout-correction safeguards.
+- [x] Reporting separates earned rent, actual receipts and forecasts; overhead, bonds, imported balances and CSV scopes reconcile.
+- [x] Consistent staff-only ledger snapshot, large transaction-history checks and missing budget-column migration.
+- [x] Multi-week reservation check-in preserves fortnightly billing at the agreed weekly rate.
+- [ ] Complete structured nightly-rate approval in contracts before enabling under-seven-night reservation check-in.
 
 ## Verification and release gates
 
 - [x] Pass revised application/PostgreSQL CI: 77 application/backup tests and 35 database checks, no failures/skips.
+- [ ] Verify the latest reporting review in exact-head PostgreSQL CI, including concurrent snapshot consistency.
 - [x] Verify competing ledger releases and reservation/check-in races after the release migration in separate PostgreSQL sessions.
 - [x] Verify holds versus holds, check-ins versus check-ins, and holds versus check-ins in separate PostgreSQL sessions.
 - [ ] Complete authenticated desktop/mobile, accessibility, offline and error-path acceptance.
@@ -39,9 +44,18 @@ Checked implementation items describe source code, not production activation.
 - [x] Recover the supplied agreement, fortnightly-in-advance payment terms and general two-week bond rule.
 - [ ] Prepare the reusable private agreement from that source with current utilities wording, fresh applicant fields and fresh signatures; verify generated output.
 - [ ] Verify and approve room content/readiness as each checked-out space is released from the ledger.
+- [ ] Reconcile historical receipts/costs and opening bond liabilities against source records; paid-through/paid-status fields do not replace transaction history.
 - [ ] Verify authorized test email delivery.
 - [ ] Verify the deployed release and explicitly enable customer requests after acceptance.
 
 Deployment-specific details and operational findings belong in private records.
 
 The agreed decisions are recorded in [requirements-decisions.md](requirements-decisions.md). Routine release review is not a request to repeat those business decisions.
+
+## Email preview and delivery review
+
+- [x] Server-prepared immutable tenant email preview; real sender/staff CC and BCC recipients.
+- [x] Atomic single-attempt claim; no automatic retry after uncertain delivery.
+- [x] Subject/body placeholder checks, current-resident eligibility, MIME encoding and audit-failure regression coverage.
+- [ ] Exact-head CI, Cloudflare runtime expiry/concurrency and authenticated browser acceptance.
+- [ ] Authorised real delivery and Gmail Sent Mail/audit reconciliation.
