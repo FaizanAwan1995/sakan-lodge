@@ -122,3 +122,67 @@ test('editing the dates requires a fresh availability check without disabling su
   await c.formEvents.submit({preventDefault() {}});
   assert.equal(c.calls.filter(x => x.url.startsWith('/api/availability')).length, 2);
 });
+
+test('available room offers a working date-prefilled email request when online submission is closed', async () => {
+  const eventHandlers = {}, checkHandlers = {};
+  const values = {arrival_date:'2030-01-01',departure_date:'2030-03-01',spaces_requested:'1'};
+  const fields = Object.fromEntries(Object.entries(values).map(([key]) => [
+    key, {
+      get value() {return values[key];},
+      reportValidity() {return true;}
+    }
+  ]));
+  const form = {
+    dataset: {room:'synthetic-room-id',roomTitle:'Noor Room 1'},
+    elements:fields,
+    addEventListener(name,fn){eventHandlers[name]=fn;}
+  };
+  const result={textContent:''},nextStep={hidden:true},email={href:''};
+  const check={disabled:false,addEventListener(name,fn){checkHandlers[name]=fn;}};
+  const nodes={'#reservation-form':form,'#availability-result':result,
+    '#check-availability':check,'#submit-request':null,
+    '#enquiry-next-step':nextStep,'#email-reservation':email};
+  const calls=[];
+  vm.runInNewContext(source,{
+    document:{querySelector(selector){return nodes[selector]||null;}},
+    Intl,Date,crypto,URLSearchParams,
+    fetch:async(url)=>{
+      calls.push(url);
+      return {ok:true,json:async()=>({spaces:1,weekly_rate:255,offer_type:'private',requests_enabled:false})};
+    }
+  });
+  assert.equal(nextStep.hidden,true);
+  await checkHandlers.click();
+  assert.equal(nextStep.hidden,false);
+  const target=new URL(email.href);
+  assert.equal(target.protocol,'mailto:');
+  assert.equal(target.pathname,'sakanlodges@gmail.com');
+  assert.match(target.searchParams.get('subject'),/Noor Room 1/);
+  assert.match(target.searchParams.get('body'),/Arrival: 2030-01-01/);
+  assert.match(target.searchParams.get('body'),/Departure \(checkout day\): 2030-03-01/);
+  assert.match(target.searchParams.get('body'),/synthetic-room-id/);
+  assert.match(result.textContent,/Continue below/);
+  values.departure_date='2030-04-01';
+  eventHandlers.input();
+  assert.equal(nextStep.hidden,true,'stale availability must not leave enquiry action visible');
+});
+
+test('no enquiry button shown when all spaces are occupied', async()=>{
+  const eventHandlers={},checkHandlers={};
+  const form={dataset:{room:'r',roomTitle:'Room'},elements:{
+    arrival_date:{value:'2030-01-01',reportValidity:()=>true},
+    departure_date:{value:'2030-03-01',reportValidity:()=>true},
+    spaces_requested:{value:'1',reportValidity:()=>true}
+  },addEventListener(name,fn){eventHandlers[name]=fn;}};
+  const result={textContent:''},nextStep={hidden:true},email={href:''};
+  const check={addEventListener(name,fn){checkHandlers[name]=fn;}};
+  const nodes={'#reservation-form':form,'#availability-result':result,
+    '#check-availability':check,'#enquiry-next-step':nextStep,'#email-reservation':email};
+  vm.runInNewContext(source,{
+    document:{querySelector:s=>nodes[s]||null},Intl,Date,crypto,URLSearchParams,
+    fetch:async()=>({ok:true,json:async()=>({spaces:0,weekly_rate:255,requests_enabled:false})})
+  });
+  await checkHandlers.click();
+  assert.equal(nextStep.hidden,true);
+  assert.equal(email.href,'');
+});
