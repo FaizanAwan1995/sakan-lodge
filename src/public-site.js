@@ -185,11 +185,12 @@ function roomForm(room, env) {
   return '<section class="catalog-card"><h2>' +
     (enabled ? 'Check dates and request a stay' : 'Check room availability') + '</h2>' +
     (enabled ? '<p>A request is not a confirmed booking and does not reserve a space. Check availability for your dates before submitting.</p>' : enquiry) +
-    '<form id="reservation-form" data-room="' + h(room.id) + '" data-capacity="' + room.capacity +
+    '<form id="reservation-form" data-room="' + h(room.id) + '" data-room-title="' + h(room.title) + '" data-capacity="' + room.capacity +
     '"><label for="arrival">Arrival</label><input id="arrival" name="arrival_date" type="date" required><label for="departure">Departure (checkout day)</label><input id="departure" name="departure_date" type="date" required><label for="spaces">' +
     (room.capacity > 1 ? 'People / bed spaces' : 'People') +
     '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' + room.capacity +
     '" value="1" required><button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
+    (enabled ? '' : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="mailto:sakanlodges@gmail.com">Continue reservation request by email ↗</a><p>Your selected room and dates will be added to an email draft. <strong>Send that email</strong> to lodge your enquiry. This does not reserve the room; our team must confirm availability.</p></div>') +
     contactFields + '</form><script src="/booking.js" defer></script></section>';
 }
 export function renderListing(route, cat, env = {}) {
