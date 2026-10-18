@@ -18,11 +18,9 @@ The email review adds server-stored previews and one-attempt delivery claims, ch
 
 Application, API and isolated database tests are provided. A PostgreSQL service in CI runs the competing-reservation test using separate database sessions. Local checks do not replace authenticated browser acceptance or real-service delivery testing.
 
-Verified in GitHub CI: **77 application/backup tests and 35 PostgreSQL workflow checks passed, with no failures or skips**. Five separate-session checks verified competing holds, competing ledger check-ins, a hold racing a check-in, competing releases of one vacant bed, and a reservation/check-in race after the release migration. Ledger checkout/extension and concurrent listing approval checks also passed. Syntax checks and the production build passed.
+Verified in GitHub CI: **122 application/backup tests and 41 PostgreSQL workflow checks passed, with no failures or skips**. Six separate-session checks verified competing holds, competing ledger check-ins, a hold racing a check-in, competing releases of one vacant bed, a reservation/check-in race after the release migration, and a financial snapshot racing a multi-table writer. Syntax checks and the production build passed.
 
-The explicit-ledger-release checks cover actual checkout eligibility, released-bed limits, readiness/approval, check-in consumption, withdrawal, corrections, reconfiguration and access control.
-
-The later reporting review passes 122 application/backup checks and 35 isolated database checks locally. Six separate-session checks are reserved for real PostgreSQL CI; verification of this new review is pending publication.
+The explicit-ledger-release checks cover actual checkout eligibility, released-bed limits, readiness/approval, check-in consumption, withdrawal, corrections, reconfiguration and access control. Reporting tests cover earned/received/forecast reconciliation and complete staff-only snapshots. Email tests use mocked Gmail and transactional storage; real-service and browser acceptance remain outstanding.
 
 The implementation is available in [draft PR #5](https://github.com/FaizanAwan1995/sakan-lodge/pull/5). These results verify the code and isolated database behavior; they do not assert production activation or browser acceptance.
 
