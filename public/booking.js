@@ -87,7 +87,7 @@
       check.disabled = false;
     }
   }
-  check.addEventListener("click", () => { void verifyAvailability(); });
+  check.addEventListener("click", () => verifyAvailability());
   // Availability-only pages must never submit or collect applicant details.
   if (!submit) {
     form.addEventListener("submit", (event) => event.preventDefault());
