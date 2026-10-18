@@ -32,7 +32,7 @@ export async function reservationEmail(request, env) {
       );
       const c = snapshot.contract;
       if (
-        c.status !== "approved" ||
+        !["approved", "signed"].includes(c.status) ||
         c.document_path !== claimed.payload.document_path
       )
         throw Error("Contract changed");

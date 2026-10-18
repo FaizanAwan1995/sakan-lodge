@@ -16,6 +16,7 @@ export default function AgreementBuilder({
   const [templates, setTemplates] = useState([]),
     [error, setError] = useState(""),
     [pdf, setPdf] = useState(""),
+    [generated, setGenerated] = useState(null),
     [reviewed, setReviewed] = useState(false);
   const [template, setTemplate] = useState({
     title: "SAKAN Lodge standard agreement",
@@ -41,9 +42,11 @@ export default function AgreementBuilder({
     setForm((old) => ({ ...old, [key]: value }));
     setReviewed(false);
   };
-  const current = contracts.find((c) =>
-    ["draft", "approved", "signed"].includes(c.status),
-  );
+  const current =
+    (generated?.reservation_revision === reservation.revision
+      ? generated
+      : null) ||
+    contracts.find((c) => ["draft", "approved", "signed"].includes(c.status));
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -65,7 +68,7 @@ export default function AgreementBuilder({
       setTemplates(t.data || []);
       setForm((old) => ({
         ...old,
-        template_id: t.data?.[0]?.id || "",
+        template_id: "",
         premises_address: d.data?.premises_address || "",
       }));
       if (d.data)
@@ -105,14 +108,15 @@ export default function AgreementBuilder({
       .download(c.document_path);
     if (error) throw error;
     setPdf(URL.createObjectURL(data));
+    setGenerated(c);
   }
   return (
     <div className="card">
       <h4>1. Verify details and generate contract</h4>
       <p>
         Review the applicant details below. Generate a private PDF, review it
-        here, then send a provisional booking notice. The booking is confirmed
-        only after bond and signatures are verified.
+        here, optionally send the booking email. You can confirm the reservation
+        manually later.
       </p>
       {error && <p role="alert">{error}</p>}
       {!templates.length && (
@@ -125,10 +129,11 @@ export default function AgreementBuilder({
         <summary>Agreement setup (once, or when terms change)</summary>
         <p>
           Review the supplied sample’s reusable terms and proprietor details.
-          Old resident details and signatures are excluded. The sample’s
-          obsolete electricity threshold and immediate-eviction penalty are
-          excluded from this draft; review the complete wording before
-          approving.
+          Old resident details and resident signatures are excluded. The
+          authorised proprietor signature is included in newly generated
+          contracts. The sample’s obsolete electricity threshold and
+          immediate-eviction penalty are excluded from this draft; review the
+          complete wording before approving.
         </p>
         <label>
           Template name
@@ -272,6 +277,7 @@ export default function AgreementBuilder({
       <button
         disabled={
           busy ||
+          !["pending", "review", "held"].includes(reservation.status) ||
           !reviewed ||
           !form.premises_address ||
           (!form.template_id && template.terms.length < 40)
@@ -303,7 +309,7 @@ export default function AgreementBuilder({
       </button>
       {current && (
         <div>
-          <h4>2. Review PDF and send provisional notice</h4>
+          <h4>2. Review PDF and send booking email</h4>
           {current.document_path ? (
             <button disabled={busy} onClick={() => run(() => preview(current))}>
               Review generated PDF v{current.version}
@@ -342,7 +348,7 @@ export default function AgreementBuilder({
               busy ||
               !current.document_path ||
               !pdf ||
-              !["draft", "approved"].includes(current.status)
+              !["draft", "approved", "signed"].includes(current.status)
             }
             onClick={() =>
               run(async () => {
@@ -369,7 +375,7 @@ export default function AgreementBuilder({
               })
             }
           >
-            Approve PDF and send provisional booking email
+            Send booking confirmation email
           </button>
         </div>
       )}

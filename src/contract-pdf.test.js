@@ -27,7 +27,7 @@ const fields = {
       220,
     ),
 };
-test("generated PDF has A4 pages, readable fixed snapshot and no copied signatures", async () => {
+test("generated PDF has A4 pages, readable fixed snapshot and no resident signatures", async () => {
   const bytes = await contractPdf({ version: 1, fields }, "SYNTHETIC-ONLY");
   assert.equal(new TextDecoder().decode(bytes.slice(0, 5)), "%PDF-");
   const doc = await PDFDocument.load(bytes);
@@ -40,5 +40,30 @@ test("missing verified contract fields cannot produce a signing document", async
   await assert.rejects(
     () => contractPdf({ version: 1, fields: {} }, "TEST"),
     /Complete reviewed/,
+  );
+});
+
+test("owner-authorised proprietor artwork is embedded in new PDF, without resident signatures", async () => {
+  const signature_png =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9ZkAAAAASUVORK5CYII=";
+  const bytes = await contractPdf(
+    {
+      version: 2,
+      fields: {
+        ...fields,
+        proprietor_signature: {
+          signature_png,
+          signature_name: "Synthetic Owner",
+        },
+        proprietor_signature_date: "2030-01-01",
+      },
+    },
+    "SYNTHETIC",
+  );
+  const pdf = await PDFDocument.load(bytes);
+  assert.ok(
+    pdf
+      .getPages()
+      .some((p) => p.node.Resources()?.toString().includes("/XObject")),
   );
 });
