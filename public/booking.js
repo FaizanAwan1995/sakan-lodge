@@ -26,7 +26,7 @@
   let checkedDates = "";
   form.addEventListener("input", () => {
     if (dates() !== checkedDates) {
-      submit.disabled = true;
+      if (submit) submit.disabled = true;
       result.textContent = "Check availability for the updated dates.";
     }
     if (verified && verified !== fingerprint()) {
@@ -45,7 +45,7 @@
     )
       return;
     check.disabled = true;
-    submit.disabled = true;
+    if (submit) submit.disabled = true;
     result.textContent = "Checking your full stay…";
     const selected = dates();
     try {
@@ -67,8 +67,10 @@
         data.weekly_rate +
         "/week" +
         (data.offer_type === "shared" ? " per person" : "") +
-        ". Requests require administrator confirmation.";
-      submit.disabled =
+        (data.requests_enabled
+          ? ". Requests require administrator confirmation."
+          : ". Online requests are currently unavailable. Please email or call our team to enquire.");
+      if (submit) submit.disabled =
         !data.requests_enabled || data.spaces < Number(spaces.value);
     } catch (e) {
       result.textContent =
@@ -77,6 +79,11 @@
       check.disabled = false;
     }
   });
+  // Availability-only pages must never submit or collect applicant details.
+  if (!submit) {
+    form.addEventListener("submit", (event) => event.preventDefault());
+    return;
+  }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (
@@ -87,7 +94,7 @@
     )
       return;
     sending = true;
-    submit.disabled = true;
+    if (submit) submit.disabled = true;
     message.textContent = "Submitting request…";
     verified = fingerprint();
     try {
