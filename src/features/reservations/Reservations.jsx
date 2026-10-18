@@ -1,3 +1,5 @@
+import AgreementBuilder from './AgreementBuilder.jsx';
+import { agreementDocument } from '../../agreement-document.js';
 import { useEffect, useRef, useState } from "react";
 import { supabase, isLocalMode } from "../../store.js";
 import ListingManagement from "./ListingManagement.jsx";
@@ -209,36 +211,13 @@ export default function Reservations({ db, reload }) {
       return;
     }
     win.opener = null;
-    const f = c.fields;
-    win.document.write(
-      '<!doctype html><html><head><meta charset="utf-8"><title>Agreement ' +
-        escapeHtml(selected.reservation_code) +
-        "</title><style>body{font:14px/1.6 sans-serif;max-width:760px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;font:inherit}@media print{button{display:none}}</style></head><body><h1>SAKAN Lodge agreement</h1><p>" +
-        escapeHtml(selected.reservation_code) +
-        " · version " +
-        c.version +
-        " · " +
-        escapeHtml(c.status) +
-        "</p><p>" +
-        escapeHtml(f.full_name) +
-        " · " +
-        escapeHtml(f.arrival_date) +
-        " to " +
-        escapeHtml(f.departure_date) +
-        "</p><p>AUD $" +
-        escapeHtml(f.weekly_rate) +
-        "/week" +
-        (selected.offer_type === "shared" ? " per person" : "") +
-        "</p><p>" +
-        escapeHtml(f.utilities) +
-        "</p><pre>" +
-        escapeHtml(f.terms) +
-        "</pre><p>Resident signature: ____________________ Date: __________</p><p>Proprietor signature: ____________________ Date: __________</p></body></html>",
-    );
+    try { win.document.write(agreementDocument(c, selected.reservation_code)); }
+    catch (error) { win.close(); setError(error.message); return; }
     win.document.close();
     win.print();
   }
-  const needsNightlyRate = selected && (Date.parse(selected.departure_date + 'T00:00:00Z') - Date.parse(selected.arrival_date + 'T00:00:00Z')) / 86400000 < 7;
+  const approvedNightly = detail.contracts.some(c => c.status === 'signed' && c.fields.billing_type === 'nightly' && Number(c.fields.nightly_rate) > 0);
+  const needsNightlyRate = !approvedNightly && selected && (Date.parse(selected.departure_date + 'T00:00:00Z') - Date.parse(selected.arrival_date + 'T00:00:00Z')) / 86400000 < 7;
   if (isLocalMode || !supabase)
     return (
       <section className="card">
@@ -471,7 +450,7 @@ export default function Reservations({ db, reload }) {
                 <button
                   disabled={
                     busy ||
-                    !["pending", "review", "held"].includes(selected.status)
+                    !["pending", "review", "held"].includes(selected.status) || needsNightlyRate
                   }
                   onClick={() => action("confirm")}
                 >
@@ -552,6 +531,7 @@ export default function Reservations({ db, reload }) {
               </div>
               <div className="card">
                 <h3>Contracts</h3>
+                <AgreementBuilder key={selected.id + ":" + selected.revision} reservation={selected} busy={busy} run={run}/>
                 <p>
                   Paste the current approved agreement terms; no legal clauses
                   or bond conditions are invented. Print an approved version to
