@@ -171,6 +171,8 @@
         output.code +
         ". This is not a confirmed booking. Our team will review your request.";
       completed = true;
+      const securityCheck = form.querySelector?.(".cf-turnstile");
+      if (securityCheck) securityCheck.hidden = true;
       form
         .querySelectorAll("input,textarea,button")
         .forEach((el) => (el.disabled = true));

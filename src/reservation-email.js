@@ -22,6 +22,49 @@ export async function reservationEmail(request, env) {
       { p_id: data.id, p_action: "claim" },
       authorization,
     );
+    const options = {};
+    if (claimed.kind === "provisional_offer") {
+      const snapshot = await databaseRpc(
+        env,
+        "booking_contract_document",
+        { p_id: claimed.payload.contract_id },
+        authorization,
+      );
+      const c = snapshot.contract;
+      if (
+        c.status !== "approved" ||
+        c.document_path !== claimed.payload.document_path
+      )
+        throw Error("Contract changed");
+      const file = await fetch(
+        env.SUPABASE_URL.replace(/\/$/, "") +
+          "/storage/v1/object/authenticated/reservation-contracts/" +
+          c.document_path,
+        {
+          headers: {
+            Authorization: authorization,
+            apikey: env.SUPABASE_PUBLIC_KEY,
+          },
+        },
+      );
+      if (!file.ok) throw Error("Contract PDF unavailable");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (
+        bytes.length > 10485760 ||
+        new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-"
+      )
+        throw Error("Invalid contract PDF");
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 8192)
+        binary += String.fromCharCode(...bytes.slice(i, i + 8192));
+      options.attachments = [
+        {
+          filename: "SAKAN-agreement-v" + c.version + ".pdf",
+          base64: btoa(binary),
+        },
+      ];
+      options.expectedSender = "sakanlodges@gmail.com";
+    }
     const internal = new Request("https://sakanlodge.com/api/gmail/send", {
       method: "POST",
       headers: {
@@ -37,7 +80,7 @@ export async function reservationEmail(request, env) {
         copyAdministrators: false,
       }),
     });
-    const sent = await gmailSend(internal, env, true);
+    const sent = await gmailSend(internal, env, true, options);
     const result = await sent.json();
     if (!sent.ok || !result.sent || !result.messageId) {
       await databaseRpc(

@@ -1,3 +1,4 @@
+import { bookingContractApi } from './booking-contract-api.js';
 export { GmailOAuthState } from './gmail-oauth-state.js';
 import { gmailCallback, gmailStart } from './gmail-oauth-callback.js';
 import { gmailSend } from './gmail-send.js';
@@ -22,6 +23,7 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);
     if(pathname==='/api/reservations/email')return reservationEmail(request,env);
     const publicResponse=await handlePublicSite(request,env);
     if(publicResponse)return publicResponse;
