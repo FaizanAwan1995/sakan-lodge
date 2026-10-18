@@ -10,7 +10,7 @@ The source agreement has already been supplied privately. A private import JSON 
 
 New database tests cover immutable/private templates, unresolved and obsolete wording, complete structured fields, stale revisions, invalid amounts, snapshot preservation, signed nightly billing, resident/bond matching and no fabricated payments. Renderer tests cover escaping, multiple signatures, amounts and draft labels. Cloudflare workerd tests exercise real SQLite claims, concurrent attempts, restart persistence and expiry cleanup at the production compatibility date. Dependencies and the current workerd binary are pinned.
 
-Source validation is complete locally: 125 application/backup tests, 39 isolated database checks and two runtime tests pass. Six separate-session database checks require PostgreSQL CI. CI results are recorded in the development report after verification.
+GitHub CI passed 125 application/backup tests, all 45 PostgreSQL checks and two actual workerd runtime tests, with no failures or skips. This includes six separate-session checks. Both build modes and the encrypted synthetic database restore rehearsal passed.
 
 Release order: verify private recovery first; apply the staff/inventory, ledger-release, reporting and private-template migrations in their reviewed dependency order; deploy the matching Worker/client; import and approve the reviewed private template; verify authenticated desktop/mobile workflows and authorised real email delivery. Customer booking gates stay off until acceptance. A browser-local demo is not a substitute for an isolated authenticated staging backend.
 
