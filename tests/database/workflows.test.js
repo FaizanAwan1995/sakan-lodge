@@ -1,3 +1,4 @@
+import {verifyBookingContracts} from './booking-contract-checks.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -800,5 +801,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   });
   await verifyAgreements({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018035042_private_agreement_templates.sql"))});
   await verifyAutomaticAvailability({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018045755_automatic_ledger_availability.sql"))});
+  await verifyBookingContracts({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018095439_booking_contract_workflow.sql"))});
   await db.close();
 });

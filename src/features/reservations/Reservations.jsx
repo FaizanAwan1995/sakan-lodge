@@ -1,5 +1,6 @@
-import AgreementBuilder from './AgreementBuilder.jsx';
-import { agreementDocument } from '../../agreement-document.js';
+import FinalBooking from "./FinalBooking.jsx";
+import AgreementBuilder from "./AgreementBuilder.jsx";
+import { agreementDocument } from "../../agreement-document.js";
 import { useEffect, useRef, useState } from "react";
 import { supabase, isLocalMode } from "../../store.js";
 import ListingManagement from "./ListingManagement.jsx";
@@ -9,6 +10,7 @@ const STATES = [
   "review",
   "held",
   "confirmed",
+  "assigned",
   "checked_in",
   "cancelled",
   "archived",
@@ -151,6 +153,11 @@ export default function Reservations({ db, reload }) {
       setError(e.message);
     }
   }
+  const acceptReservation = (r) => {
+    selectedRef.current = r;
+    setSelected(r);
+    setStale(false);
+  };
   const change = (key, value) => setDraft((x) => ({ ...x, [key]: value }));
   const action = (name, data = {}) =>
     run(async () => {
@@ -211,13 +218,29 @@ export default function Reservations({ db, reload }) {
       return;
     }
     win.opener = null;
-    try { win.document.write(agreementDocument(c, selected.reservation_code)); }
-    catch (error) { win.close(); setError(error.message); return; }
+    try {
+      win.document.write(agreementDocument(c, selected.reservation_code));
+    } catch (error) {
+      win.close();
+      setError(error.message);
+      return;
+    }
     win.document.close();
     win.print();
   }
-  const approvedNightly = detail.contracts.some(c => c.status === 'signed' && c.fields.billing_type === 'nightly' && Number(c.fields.nightly_rate) > 0);
-  const needsNightlyRate = !approvedNightly && selected && (Date.parse(selected.departure_date + 'T00:00:00Z') - Date.parse(selected.arrival_date + 'T00:00:00Z')) / 86400000 < 7;
+  const approvedNightly = detail.contracts.some(
+    (c) =>
+      c.status === "signed" &&
+      c.fields.billing_type === "nightly" &&
+      Number(c.fields.nightly_rate) > 0,
+  );
+  const needsNightlyRate =
+    !approvedNightly &&
+    selected &&
+    (Date.parse(selected.departure_date + "T00:00:00Z") -
+      Date.parse(selected.arrival_date + "T00:00:00Z")) /
+      86400000 <
+      7;
   if (isLocalMode || !supabase)
     return (
       <section className="card">
@@ -409,9 +432,12 @@ export default function Reservations({ db, reload }) {
                 <button
                   disabled={
                     busy ||
-                    ["cancelled", "archived", "checked_in"].includes(
-                      selected.status,
-                    )
+                    [
+                      "cancelled",
+                      "archived",
+                      "checked_in",
+                      "assigned",
+                    ].includes(selected.status)
                   }
                 >
                   Save changes for review
@@ -450,15 +476,6 @@ export default function Reservations({ db, reload }) {
                 <button
                   disabled={
                     busy ||
-                    !["pending", "review", "held"].includes(selected.status) || needsNightlyRate
-                  }
-                  onClick={() => action("confirm")}
-                >
-                  Confirm after signed agreement
-                </button>
-                <button
-                  disabled={
-                    busy ||
                     !["pending", "review", "held", "confirmed"].includes(
                       selected.status,
                     )
@@ -480,6 +497,11 @@ export default function Reservations({ db, reload }) {
                 >
                   Archive cancelled request
                 </button>
+                {selected.status === "assigned" && (
+                  <button disabled={busy} onClick={() => action("check_in")}>
+                    Record actual arrival (tenant already assigned)
+                  </button>
+                )}
                 {selected.status === "confirmed" && (
                   <>
                     <label>
@@ -502,7 +524,12 @@ export default function Reservations({ db, reload }) {
                       />
                     </label>
                     <button
-                      disabled={busy || needsNightlyRate || draft.bond == null || draft.bond === ""}
+                      disabled={
+                        busy ||
+                        needsNightlyRate ||
+                        draft.bond == null ||
+                        draft.bond === ""
+                      }
                       onClick={() => {
                         if (
                           confirm(
@@ -525,59 +552,38 @@ export default function Reservations({ db, reload }) {
                     >
                       Check in to ledger
                     </button>
-                    {needsNightlyRate && <p>No approved nightly rate is recorded for this reservation. Nightly check-in is unavailable.</p>}
+                    {needsNightlyRate && (
+                      <p>
+                        No approved nightly rate is recorded for this
+                        reservation. Nightly check-in is unavailable.
+                      </p>
+                    )}
                   </>
                 )}
               </div>
               <div className="card">
                 <h3>Contracts</h3>
-                <AgreementBuilder key={selected.id + ":" + selected.revision} reservation={selected} busy={busy} run={run}/>
-                <p>
-                  Paste the current approved agreement terms; no legal clauses
-                  or bond conditions are invented. Print an approved version to
-                  PDF, obtain signatures and retain the signed document
-                  privately.
-                </p>
-                <label>
-                  Template reference
-                  <input
-                    value={draft.template_reference || ""}
-                    onChange={(e) =>
-                      change("template_reference", e.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Agreement terms
-                  <textarea
-                    maxLength={30000}
-                    value={draft.terms || ""}
-                    onChange={(e) => change("terms", e.target.value)}
-                  />
-                </label>
-                <button
-                  disabled={
-                    busy ||
-                    !draft.template_reference ||
-                    draft.terms?.length < 40
+                <AgreementBuilder
+                  key={selected.id}
+                  reservation={selected}
+                  busy={busy}
+                  run={run}
+                  contracts={detail.contracts}
+                  roomLabel={
+                    db.rooms.find((r) => r.id === selected.room_id)?.label
                   }
-                  onClick={() =>
-                    contract("draft", {
-                      terms: draft.terms,
-                      template_reference: draft.template_reference,
-                    })
-                  }
-                >
-                  Create contract version
-                </button>
+                  onReservation={acceptReservation}
+                />
                 {detail.contracts.map((c) => (
                   <article key={c.id}>
                     <h4>
                       Version {c.version} · {c.status}
                     </h4>
-                    <button onClick={() => printContract(c)}>
-                      Print / save PDF
-                    </button>
+                    {!c.document_path && (
+                      <button onClick={() => printContract(c)}>
+                        Legacy HTML copy
+                      </button>
+                    )}
                     {c.status === "draft" && (
                       <button
                         disabled={busy}
@@ -686,11 +692,21 @@ export default function Reservations({ db, reload }) {
                   </article>
                 ))}
               </div>
+              <FinalBooking
+                reservation={selected}
+                contracts={detail.contracts}
+                busy={busy}
+                run={run}
+                onReservation={acceptReservation}
+                reload={reload}
+              />
               <div className="card">
                 <h3>Notification drafts</h3>
                 <p>
-                  No messages are sent automatically. “Uncertain” means review
-                  Gmail Sent Mail; automatic retry is blocked.
+                  The provisional notice is sent when you review the PDF and
+                  click its send button. Other notifications require review and
+                  send. “Uncertain” means review Gmail Sent Mail; automatic
+                  retry is blocked.
                 </p>
                 {detail.messages.map((n) => (
                   <details key={n.id}>
