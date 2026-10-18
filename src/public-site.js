@@ -19,18 +19,25 @@ export const json = (data, status = 200) =>
       "cache-control": "no-store",
     },
   });
-export async function databaseRpc(env, name, data = {}, authorization) {
+/**
+ * Supabase's modern sb_publishable_ / sb_secret_ keys are API keys, not
+ * bearer JWTs. Use the server-only secret for privileged reservation writes.
+ * Legacy JWT keys remain supported until they are rotated.
+ */
+export async function databaseRpc(env, name, data = {}, { admin = false } = {}) {
   if (!env.SUPABASE_URL || !env.SUPABASE_PUBLIC_KEY)
     throw new Error("Database unavailable");
+  const key = admin
+    ? (env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY)
+    : env.SUPABASE_PUBLIC_KEY;
+  if (!key) throw new Error("Database credential unavailable");
+  const headers = { apikey: key, "content-type": "application/json" };
+  if (key.startsWith("eyJ")) headers.Authorization = "Bearer " + key;
   const response = await fetch(
     env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/rpc/" + name,
     {
       method: "POST",
-      headers: {
-        apikey: env.SUPABASE_PUBLIC_KEY,
-        Authorization: authorization || "Bearer " + env.SUPABASE_PUBLIC_KEY,
-        "content-type": "application/json",
-      },
+      headers,
       body: JSON.stringify(data),
       signal: AbortSignal.timeout(8000),
     },
@@ -70,7 +77,7 @@ export async function limitedJson(request, max = 12000) {
 export function bookingEnabled(env) {
   return (
     env.RESERVATION_REQUESTS_ENABLED === "true" &&
-    !!env.SUPABASE_SERVICE_ROLE_KEY &&
+    !!(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY) &&
     !!env.TURNSTILE_SECRET_KEY &&
     !!env.TURNSTILE_SITE_KEY
   );
@@ -427,7 +434,7 @@ export async function handlePublicSite(request, env) {
         env,
         "submit_reservation",
         { p_data: data, p_key: key },
-        "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
+        { admin: true },
       );
       return json(result, 201);
     } catch (e) {
