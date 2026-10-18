@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName } from "pdf-lib";
 import { contractPdf } from "./contract-pdf.js";
 const fields = {
   proprietor: {
@@ -35,6 +35,7 @@ test("generated PDF has A4 pages, readable fixed snapshot and no resident signat
   for (const p of doc.getPages())
     assert.ok(Math.abs(p.getWidth() - 595.28) < 0.01);
   assert.equal(doc.getForm().getFields().length, 0);
+  assert.ok(doc.context.enumerateIndirectObjects().some(([,obj])=>obj.dict?.get(PDFName.of("Filter"))?.toString()==="/DCTDecode"), "owner-supplied JPEG logo is embedded in the PDF");
 });
 test("missing verified contract fields cannot produce a signing document", async () => {
   await assert.rejects(

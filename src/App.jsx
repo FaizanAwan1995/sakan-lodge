@@ -536,7 +536,7 @@ function Rooms({ db, d, today, reload, residentId }) {
                   return (
                     <div className="row resident-row" key={x.id}>
                       <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
-                        <span>{x.name}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
+                        <span>{x.name}{x.end_date > today && <small className="muted">Checkout scheduled: {nice(x.end_date)}</small>}<small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · checked in {nice(x.start_date)} · bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
                         {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
                       </button>
                       <button className="small checkout-button" onClick={() => setEdit({ type: 'checkout', data: x })}>Check out</button>
@@ -631,20 +631,24 @@ function RoomForm({ room, d, done }) {
 }
 
 function CheckoutForm({ person, today, done }) {
-  const [date, setDate] = useState(today);
+  const earliest = dayAfter(person.start_date);
+  const [date, setDate] = useState(person.end_date || (today < earliest ? earliest : today));
   const [busy, setBusy] = useState(false);
+  const scheduled = date > today;
   return <form onSubmit={async (e) => {
     e.preventDefault();
     setBusy(true);
-    const ok = await save('people', { end_date: date }, person.id, `checked out ${person.name} on ${date}`);
+    const ok = await save('people', { end_date: date }, person.id, `${scheduled ? "scheduled checkout for" : "checked out"} ${person.name} on ${date}`);
     setBusy(false);
-    if (ok) done();
+    if (ok) { alert(scheduled ? `Checkout scheduled for ${nice(date)}. ${person.name} remains active until that date. An unpaid balance does not block checkout.` : `${person.name} has checked out and moved to Past residents. The financial history is retained.`); done(); }
   }}>
     <h1>Check out {person.name}</h1>
     <p className="muted">Checked in {nice(person.start_date)}. The checkout date is stored on the resident record and rent is charged up to the day before checkout.</p>
-    <p className="muted">Checkout alone does not publish a listing. After checkout, release the space from Past residents, then verify readiness and approve its listing.</p>
-    <label>Checkout date</label><input type="date" min={dayAfter(person.start_date)} value={date} onChange={(e) => setDate(e.target.value)} required />
-    <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Confirm checkout'}</button>
+    <p className="muted">Checkout does not delete the resident or their financial history. Once the checkout date arrives, the room becomes vacant automatically if its public listing is approved and ready.</p>
+    {scheduled && <p role="status">This schedules checkout for {nice(date)}. The tenant will remain in the room until that date; any balance remains in their account.</p>}
+    {today < earliest && <p className="muted">This resident checked in today. A one-night stay ends {nice(earliest)}. The checkout date is the day they leave, not their last night.</p>}
+    <label>Checkout date</label><input type="date" min={earliest} value={date} onChange={(e) => setDate(e.target.value)} required />
+    <button className="primary" disabled={busy}>{busy ? 'Saving…' : scheduled ? 'Schedule checkout' : 'Confirm checkout'}</button>
     <button type="button" className="small" onClick={done}>Cancel</button>
   </form>;
 }

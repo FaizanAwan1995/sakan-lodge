@@ -1,3 +1,4 @@
+import { contractLogoJpeg } from "./contract-logo.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 const plain = (value) =>
   String(value ?? "")
@@ -23,6 +24,7 @@ export async function contractPdf(contract, code) {
   const navy = rgb(0.12, 0.2, 0.28),
     gold = rgb(0.56, 0.4, 0.18),
     pale = rgb(0.96, 0.95, 0.92);
+  const logo = await pdf.embedJpg(Uint8Array.from(atob(contractLogoJpeg), c => c.charCodeAt(0)));
   let signature;
   if (f.proprietor_signature?.signature_png) {
     signature = await pdf.embedPng(
@@ -42,6 +44,7 @@ export async function contractPdf(contract, code) {
       color: navy,
     });
     page.drawRectangle({ x: 0, y: 740, width: 595.28, height: 4, color: gold });
+    page.drawImage(logo, {x:465,y:754,width:76,height:76});
     page.drawText("SAKAN", {
       x: 42,
       y: 798,
