@@ -1,3 +1,6 @@
+import { reviewsApi, reviewsEnabled } from './reviews-api.js';
+import { renderReviewSection } from './reviews.js';
+import { databaseRpc } from './public-site.js';
 import { bookingContractApi } from './booking-contract-api.js';
 export { GmailOAuthState } from './gmail-oauth-state.js';
 import { gmailCallback, gmailStart } from './gmail-oauth-callback.js';
@@ -23,6 +26,7 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);
     if(pathname==='/api/reservations/email')return reservationEmail(request,env);
     const publicResponse=await handlePublicSite(request,env);
@@ -35,7 +39,10 @@ async function handleRequest(request, env) {
     if (pathname === '/' || pathname === '/landing.html') {
       const response = await fetchFromAssets(env, request, '/landing.html');
       if (response && response.status !== 404) {
-        return new Response(await response.text(), {
+        let reviews = [], reviewsUnavailable = false;
+        try { reviews = await databaseRpc(env, 'published_testimonials'); } catch { reviewsUnavailable = true; }
+        const page = (await response.text()).replace('<!--SAKAN_REVIEWS-->', renderReviewSection(Array.isArray(reviews) ? reviews : [], { siteKey: env.TURNSTILE_SITE_KEY, enabled: reviewsEnabled(env), unavailable: reviewsUnavailable }));
+        return new Response(page, {
           status: response.status,
           headers: {
             'content-type': 'text/html; charset=utf-8',
