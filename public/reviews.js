@@ -49,14 +49,18 @@
   script.onload = () => {
     if (!window.turnstile) return;
     widget = window.turnstile.render('#review-verification', {
-      sitekey: form.dataset.siteKey, action: 'review',
+      sitekey: form.dataset.siteKey, action: 'review', size: form.clientWidth < 300 ? 'compact' : 'normal',
       callback: value => { token = value; state(); if (!busy && !received) status.textContent = 'Ready to submit when you have completed the form.'; },
       'expired-callback': () => { token = ''; state(); },
       'error-callback': () => { token = ''; state(); status.textContent = 'Verification could not load. Please retry or contact our team.'; }
     });
   };
   script.onerror = () => { status.textContent = 'Verification could not load. Refresh the page or contact our team.'; };
-  document.head.append(script);
+  let verificationStarted = false;
+  const panel = form.closest('details');
+  const startVerification = () => { if (!verificationStarted) { verificationStarted = true; document.head.append(script); } };
+  panel.addEventListener('toggle', () => { if (panel.open) startVerification(); });
+  if (panel.open) startVerification();
   form.addEventListener('submit', async e => {
     e.preventDefault();
     if (busy || received || !token || !form.reportValidity()) return;
@@ -68,7 +72,7 @@
     signature = nextSignature;
     busy = true; state(); status.textContent = 'Submitting your review…';
     try {
-      const response = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type':'application/json', 'Idempotency-Key':key }, body: JSON.stringify({ ...data, turnstile_token:token }) });
+      const response = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type':'application/json', 'Idempotency-Key':key }, body: JSON.stringify({ ...data, turnstile_token:token }), signal: AbortSignal.timeout(20000) });
       const result = await response.json();
       if (!response.ok || result.received !== true) throw Error(result.error || 'We could not confirm receipt. Keep your review and try again.');
       received = true; status.textContent = result.message; submit.textContent = 'Review received'; form.reset();
