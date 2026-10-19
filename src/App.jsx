@@ -620,7 +620,7 @@ function RoomForm({ room, d, done }) {
   const [label, setLabel] = useState(room.label);
   const [cap, setCap] = useState(room.capacity);
   const occupied = room.id && d.people.some((p) => p.room_id === room.id);
-  const scheduled = room.id ? d.people.filter((p) => p.room_id === room.id && (!p.end_date || p.end_date > L.todayStr())) : [];
+  const scheduled = room.id ? d.people.filter((p) => p.room_id === room.id && L.isActive(p, L.todayStr())) : [];
   const peak = Math.max(0, ...scheduled.map((p) => {
     const day = p.start_date < L.todayStr() ? L.todayStr() : p.start_date;
     return scheduled.filter((x) => x.start_date <= day && (!x.end_date || x.end_date > day)).length;

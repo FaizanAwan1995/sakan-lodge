@@ -27,3 +27,8 @@ test('future arrivals and checked-out people are excluded from current tenant em
   const departed = { ...tenant(3, 'past@example.test'), end_date: today };
   assert.deepEqual(eligibleRecipients([current, future, departed], today).map(p => p.id), [1]);
 });
+
+test('same-day immediate checkout excludes the tenant despite the minimum-night billing end', () => {
+ const person = {id:'departed', name:'Synthetic departure', email:'departure@example.test', start_date:'2026-10-19', end_date:'2026-10-20', checked_out_at:'2026-10-19T01:00:00Z'};
+ assert.deepEqual(eligibleRecipients([person], '2026-10-19'), []);
+});

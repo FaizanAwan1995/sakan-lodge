@@ -1,3 +1,4 @@
+import { isActive } from '../../ledger.js';
 import { tenantReference } from '../../tenant-model.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isLocalMode } from '../../store.js';
@@ -66,7 +67,7 @@ export default function TenantCommunications({ db, today }) {
     setMessage(templates[value].body);
     setPreview(false);
   };
-  const tenants = useMemo(() => db.people.filter((p) => p.start_date <= today && (!p.end_date || p.end_date > today)), [db.people, today]);
+  const tenants = useMemo(() => db.people.filter((p) => p.start_date <= today && isActive(p, today)), [db.people, today]);
   const recipients = useMemo(() => eligibleRecipients(db.people, today, ''), [db.people, today]);
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
   const propertyGroups = db.properties.map((property) => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminTenantActions from '../reservations/AdminTenantActions.jsx';
 import TenantStatements from '../reports/TenantStatements.jsx';
-import { tenantReference, tenantStatus } from '../../tenant-model.js';
+import { tenantReference, tenantStatus, occupancyEnd } from '../../tenant-model.js';
 import { supabase, isLocalMode, removeTestTenant } from '../../store.js';
 import { fmt, nice } from '../../lib/formatters.js';
 
@@ -56,7 +56,7 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
     <div className="tenant-account-summary">
       <section className="card"><h2>Rent account</h2><strong className={person.owed > 0 ? 'err' : 'ok'}>{fmt(person.owed > 0 ? person.owed : person.credit)} {person.owed > 0 ? 'outstanding' : person.credit > 0 ? 'credit' : 'due'}</strong><p>Rent and extra charges, less payments and admin credits. Bond is tracked separately.</p><button type="button" onClick={onPayment}>Record payment or bond transaction</button></section>
       <section className="card"><h2>Bond</h2><p>{fmt(person.bond_paid)} received · {fmt(person.bond_held)} held</p><p>Expected {fmt(person.bond)}. Refunds and retained amounts are recorded as bond transactions.</p></section>
-      <section className="card"><h2>Stay & contact</h2><p>Arrives {nice(person.start_date)}{person.end_date ? ` · Departure ${nice(person.end_date)}` : ''}</p><p>{person.email || 'No email'}<br />{person.phone || 'No phone'}</p>{person.document_url && <a href={person.document_url} target="_blank" rel="noreferrer">Open resident document</a>}</section>
+      <section className="card"><h2>Stay & contact</h2><p>Arrives {nice(person.start_date)}{person.checked_out_at ? ` · Departed ${nice(occupancyEnd(person))}` : person.end_date ? ` · Departure ${nice(person.end_date)}` : ''}</p><p>{person.email || 'No email'}<br />{person.phone || 'No phone'}</p>{person.document_url && <a href={person.document_url} target="_blank" rel="noreferrer">Open resident document</a>}</section>
     </div>
     <section className="card"><h2>Manage tenancy</h2><p>Checkout frees the bed. Clearing dues records an admin credit. Neither action deletes the financial history.</p>
       {status !== 'Checked out' && <button type="button" className="small" onClick={onSchedule}>Schedule departure</button>}
