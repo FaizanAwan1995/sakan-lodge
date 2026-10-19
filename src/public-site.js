@@ -239,7 +239,7 @@ export function renderListing(route, cat, env = {}) {
         crumbs([{ name: location }]) +
           "<h1>" +
           h(title) +
-          "</h1><p>Looking for a room while studying, working or moving as a couple? Explore accommodation in " + h(location) + ", Adelaide, South Australia for university students, working professionals and couples. Check your journey to your campus or workplace from the property.</p><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays. Couples should enquire for two occupants so our team can confirm a suitable room and sleeping arrangement. Single-occupancy private rooms are for one person.</p>" +
+          "</h1><p>Looking for a room while studying, working or moving as a couple? Explore accommodation in " + h(location) + ", Adelaide, South Australia for university students, working professionals and couples. Muslim room seekers are welcome to enquire and discuss prayer routines, kitchen arrangements and other needs with our team. Check your journey to your campus or workplace from the property.</p><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays. Couples should enquire for two occupants so our team can confirm a suitable room and sleeping arrangement. Single-occupancy private rooms are for one person.</p>" +
           included +
           '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
           h(location) +
