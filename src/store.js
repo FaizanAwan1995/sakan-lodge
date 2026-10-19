@@ -134,14 +134,14 @@ const newId = () => globalThis.crypto?.randomUUID?.() || `local-${Date.now()}-${
 
 function auditLocal(db, action) {
   db.audit.unshift({ id: newId(), at: new Date().toISOString(), by: getLocalActor() || 'Local preview', action });
-  db.audit = db.audit.slice(0, 300);
 }
 
 function describeLocalChange(db, table, row, verb) {
   const property = db.properties.find((p) => p.id === (row.property_id || row.propertyId))?.name;
   const person = db.people.find((p) => p.id === (row.person_id || row.personId));
   const subject = table === 'people' ? row.name : table === 'properties' ? row.name : table === 'rooms' ? row.label : table === 'payments' ? `${row.kind || 'rent'} payment${person ? ` for ${person.name}` : ''}` : table === 'expenses' ? `${row.category} expense${property ? ` at ${property}` : ''}` : table === 'maintenance' ? `${row.title || 'repair'}${property ? ` at ${property}` : ''}` : table;
-  return `${verb} ${subject || table}`;
+  const tenantId = table === 'people' ? row.id : row.person_id;
+  return `${verb} ${subject || table}${tenantId ? ` | Tenant ID ${tenantId}` : ''}`;
 }
 
 /** Local-mode records stay in this browser only and are never uploaded. */
@@ -165,15 +165,15 @@ export async function deleteRow(table, id) {
       }
       const prior = db[table] || [];
       const deleted = prior.find((row) => row.id === id);
+      const description = deleted ? describeLocalChange(db, table, deleted, 'deleted') : `deleted ${table} entry`;
       db[table] = prior.filter((row) => row.id !== id);
       if (table === 'rooms') db.people = db.people.map((p) => p.room_id === id ? { ...p, room_id: null } : p);
       if (table === 'people') {
         const personId = id;
         db.charges = db.charges.filter((row) => row.person_id !== personId);
         db.payments = db.payments.filter((row) => row.person_id !== personId);
-        db.maintenance = (db.maintenance || []).filter((row) => row.room_id !== id);
       }
-      auditLocal(db, deleted ? describeLocalChange(db, table, deleted, 'deleted') : `deleted ${table} entry`);
+      auditLocal(db, description);
       writeLocalDb(db);
       return true;
     } catch (error) {
@@ -216,23 +216,30 @@ export function useStore(session) {
   const loadVersion = useRef(0);
   const [db, setDb] = useState(null);
   const [error, setError] = useState(null);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const reload = useCallback(async () => {
     const version = ++loadVersion.current;
+    setRefreshing(true);
     try {
       if (isLocalMode) {
         setDb(readLocalDb());
+        setLastRefreshed(Date.now());
         setError(null);
         return;
       }
       const o = await loadLedgerSnapshot(supabase);
       if (version !== loadVersion.current) return;
       setDb(o);
+      setLastRefreshed(Date.now());
       setError(null);
     } catch (e) {
       if (version !== loadVersion.current) return;
       reportError('load records', e);
       setError(e);
+    } finally {
+      if (version === loadVersion.current) setRefreshing(false);
     }
   }, []);
 
@@ -250,21 +257,30 @@ export function useStore(session) {
       };
     }
     let timer;
+    const onReturn = () => { if (document.visibilityState !== 'hidden') void reload(); };
+    const poll = setInterval(onReturn, 60000);
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('online', onReturn);
+    document.addEventListener('visibilitychange', onReturn);
     const ch = supabase
       .channel('ledger')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
         clearTimeout(timer);
         timer = setTimeout(reload, 150);
       })
-      .subscribe();
+      .subscribe(status => { if (status === 'SUBSCRIBED') void reload(); });
     return () => {
       loadVersion.current++;
       clearTimeout(timer);
+      clearInterval(poll);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('online', onReturn);
+      document.removeEventListener('visibilitychange', onReturn);
       supabase.removeChannel(ch);
     };
   }, [session, reload]);
 
-  return { db, error, reload };
+  return { db, error, reload, lastRefreshed, refreshing };
 }
 
 
@@ -317,6 +333,7 @@ export async function postElectricityBill({ propertyId, billDate, qStart, qEnd, 
 }
 
 export async function save(table, row, id, action) {
+  if (table === 'people' && id && row.id && row.id !== id) { alert('Tenant ID is permanent and cannot be changed.'); return false; }
   const validationError = validateFinancialRow(table, row);
   if (validationError) { alert(validationError); return false; }
   if (isLocalMode) {
@@ -357,4 +374,39 @@ export async function save(table, row, id, action) {
     alert(errorMessage(error));
     return false;
   }
+}
+
+
+/** All tenant edits target the immutable people.id, with a stale-record check. */
+export async function updateTenantDetails(expected, changes) {
+  try {
+    if (isLocalMode) {
+      const db = readLocalDb();
+      const current = db.people.find(p => p.id === expected.id);
+      if (!current || JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('This tenant changed. Return to the account and review the latest details before editing.');
+      return await save('people', changes, expected.id);
+    }
+    const { error } = await supabase.rpc('update_tenant_details', {p_id:expected.id, p_expected:expected, p_changes:changes});
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    alert(error.code === '40001' ? 'This tenant changed. Cancel this edit, refresh and review the latest details.' : error.message || errorMessage(error));
+    return false;
+  }
+}
+
+export async function removeTestTenant(id, reason) {
+  if (isLocalMode) {
+    const db = readLocalDb();
+    const person = db.people.find(p => p.id === id);
+    if (!person) throw new Error('Tenant not found.');
+    if (db.payments.some(p => p.person_id === id) || db.charges.some(p => p.person_id === id) || +person.opening_balance || +person.bond > 0 && ['paid','held'].includes(person.bond_status)) throw new Error('This account has financial history. Check the tenant out instead.');
+    if (reason.trim().length < 5) throw new Error('Enter a reason of at least five characters.');
+    auditLocal(db, `removed empty test tenant ${person.name} | Tenant ID ${id} | ${reason.trim()}`);
+    db.people = db.people.filter(p => p.id !== id);
+    writeLocalDb(db);
+    return;
+  }
+  const { error } = await supabase.rpc('remove_test_tenant', {p_id:id, p_reason:reason});
+  if (error) throw error;
 }

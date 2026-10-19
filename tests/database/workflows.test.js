@@ -1,3 +1,4 @@
+import {verifyTenantIdentity} from './tenant-identity-checks.js';
 import {verifyAdminActions} from './admin-actions-checks.js';
 import {verifyManualBooking} from './manual-booking-checks.js';
 import {verifyBookingContracts} from './booking-contract-checks.js';
@@ -806,5 +807,7 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyBookingContracts({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read("../../supabase/migrations/20261018095439_booking_contract_workflow.sql"))});
   await verifyManualBooking({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261018104703_simplify_manual_booking.sql'))});
   await verifyAdminActions({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261018124518_admin_checkout_adjustments.sql'))});
+  await db.exec(await read('../../supabase/migrations/20261019014154_tenant_identity_and_audit.sql'));
+  await verifyTenantIdentity({t,sql,rpc,STAFF,OTHER,PROP});
   await db.close();
 });
