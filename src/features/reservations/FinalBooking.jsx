@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../store.js";
 export default function FinalBooking({
   reservation,
@@ -15,6 +15,9 @@ export default function FinalBooking({
       c.document_path &&
       c.reservation_revision === reservation.revision,
   );
+  useEffect(() => {
+    setVerified(false);
+  }, [reservation.id, reservation.revision, current?.id]);
   if (!["pending", "review", "held"].includes(reservation.status))
     return reservation.status === "assigned" ? (
       <p>
