@@ -1,3 +1,5 @@
+import { isActive } from '../../ledger.js';
+import { tenantReference } from '../../tenant-model.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isLocalMode } from '../../store.js';
 import { eligibleRecipients, uniqueRecipientEmails, hasUnfilledPlaceholders, isValidTenantEmail } from './email-utils.js';
@@ -65,7 +67,7 @@ export default function TenantCommunications({ db, today }) {
     setMessage(templates[value].body);
     setPreview(false);
   };
-  const tenants = useMemo(() => db.people.filter((p) => p.start_date <= today && (!p.end_date || p.end_date > today)), [db.people, today]);
+  const tenants = useMemo(() => db.people.filter((p) => p.start_date <= today && isActive(p, today)), [db.people, today]);
   const recipients = useMemo(() => eligibleRecipients(db.people, today, ''), [db.people, today]);
   const chosen = recipients.filter((p) => selected.includes(String(p.id)));
   const propertyGroups = db.properties.map((property) => {
@@ -163,7 +165,7 @@ export default function TenantCommunications({ db, today }) {
     <div style={{ display: 'grid', gap: '.65rem', marginTop: '1rem', marginBottom: '1.25rem' }}>
       {propertyGroups.map((group) => {
         const id = String(group.property.id);
-        const matching = group.residents.filter((person) => [person.name, person.email, db.rooms.find((room) => String(room.id) === String(person.room_id))?.label].some((value) => String(value || '').toLowerCase().includes(search.trim().toLowerCase())));
+        const matching = group.residents.filter((person) => [person.name, person.id, person.email, db.rooms.find((room) => String(room.id) === String(person.room_id))?.label].some((value) => String(value || '').toLowerCase().includes(search.trim().toLowerCase())));
         const expanded = expandedProperties.includes(id) || (search.trim().length > 0 && matching.length > 0);
         return <div key={id} style={{ border: '1px solid var(--border, #d8dfd8)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.65rem', padding: '.7rem .85rem', background: 'var(--surface, #f4f7f4)' }}>
@@ -176,7 +178,7 @@ export default function TenantCommunications({ db, today }) {
             {matching.length === 0 && <p style={{ opacity: .7 }}>No matching tenants.</p>}
             {matching.map((person) => <label key={person.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '.7rem', padding: '.65rem 0', borderBottom: '1px solid var(--border, #edf0ed)' }}>
               <input type="checkbox" disabled={!isValidTenantEmail(person.email)} checked={selected.includes(String(person.id))} onChange={(e) => { setSelected((old) => e.target.checked ? [...new Set([...old, String(person.id)])] : old.filter((value) => value !== String(person.id))); setPreview(false); }} style={{ width: 20, height: 20, flexShrink: 0, marginTop: 3 }} />
-              <span style={{ minWidth: 0 }}><strong>{person.name}</strong><span style={{ display: 'block', opacity: .7, fontSize: '.85rem' }}>{db.rooms.find((room) => String(room.id) === String(person.room_id))?.label || 'Room not assigned'} · {isValidTenantEmail(person.email) ? person.email : 'Email missing or invalid'}</span></span>
+              <span style={{ minWidth: 0 }}><strong>{person.name}</strong><small className="tenant-reference" style={{display:'block'}}>Tenant ID {tenantReference(person)}</small><span style={{ display: 'block', opacity: .7, fontSize: '.85rem' }}>{db.rooms.find((room) => String(room.id) === String(person.room_id))?.label || 'Room not assigned'} · {isValidTenantEmail(person.email) ? person.email : 'Email missing or invalid'}</span></span>
             </label>)}
           </div>}
         </div>;

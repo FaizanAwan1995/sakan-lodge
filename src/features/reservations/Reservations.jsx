@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom';
+import { reservationTenants, tenantReference, tenantStatus } from '../../tenant-model.js';
+import { todayStr } from '../../ledger.js';
 import FinalBooking from "./FinalBooking.jsx";
 import AgreementBuilder from "./AgreementBuilder.jsx";
 import { useEffect, useRef, useState } from "react";
@@ -270,6 +273,7 @@ export default function Reservations({ db, reload }) {
                 Reload this reservation
               </button>
               <h2>{selected.full_name}</h2>
+              {reservationTenants(selected, db.people).length > 0 && <section className="card"><h3>Linked tenant accounts</h3><p>Current tenant details and balances are managed in these accounts. This booking and its contracts retain the original application details.</p>{reservationTenants(selected, db.people).map(person => <p key={person.id}><Link to={`/rooms/${person.id}`}>{person.name} · {tenantStatus(person, todayStr())}</Link><small className="tenant-reference">Tenant ID {tenantReference(person)}</small></p>)}</section>}
               <p>
                 Status: <strong>{selected.status}</strong>
               </p>
@@ -546,7 +550,7 @@ export default function Reservations({ db, reload }) {
                 .map((r) => (
                   <article key={r.id} className="card">
                     <h2>
-                      {r.full_name} · {r.status}
+                      {reservationTenants(r, db.people).map(person => person.name).join(', ') || r.full_name} · {r.status}
                     </h2>
                     <p>
                       {r.reservation_code} · {format(r.arrival_date)} –{" "}
@@ -557,6 +561,7 @@ export default function Reservations({ db, reload }) {
                       · {db.rooms.find((x) => x.id === r.room_id)?.label} ·{" "}
                       {r.spaces_requested} space(s)
                     </p>
+                    {reservationTenants(r, db.people).map(person => <p key={person.id} className="tenant-reference"><Link to={`/rooms/${person.id}`}>Tenant ID {tenantReference(person)} · {tenantStatus(person, todayStr())}</Link></p>)}
                     <button onClick={() => open(r)}>Manage request</button>
                   </article>
                 ))}

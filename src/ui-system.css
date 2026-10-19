@@ -118,3 +118,15 @@ pre { max-width:100%; overflow:auto; font-size:13px; line-height:1.6; }
  html { scroll-behavior:auto; }
  *,*::before,*::after { animation:none!important; transition:none!important; }
 }
+
+/* One tenant account holds detailed actions; room cards remain scannable. */
+.tenant-reference { font-size:12px; overflow-wrap:anywhere; color:var(--muted); }
+.tenant-reference code { font-family:ui-monospace,monospace; }
+.tenant-account-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:14px; }
+.tenant-account-summary .card { margin:0; }
+.tenant-account > section,.tenant-account > details { margin-top:16px; }
+.tenant-account .admin-tenant-actions > p { flex-basis:100%; }
+.tenant-filters { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:16px; }
+.tenant-filters input,.tenant-filters select { width:100%; }
+.sync-status { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--muted); margin-bottom:16px; }
+@media(max-width:600px) { .tenant-filters { grid-template-columns:1fr; } .tenant-account .screen-heading button { width:100%; } }
