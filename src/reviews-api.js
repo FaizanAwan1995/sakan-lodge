@@ -17,7 +17,7 @@ export async function reviewsApi(request, env) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key || '') || typeof input.turnstile_token !== 'string' || !input.turnstile_token || input.turnstile_token.length > 2048) throw Error('Please complete the verification.');
   } catch (e) { return json({ error: e.message === 'Request too large' ? 'Review is too large.' : 'Check your details, publishing consent and verification.' }, 400); }
   try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: input.turnstile_token, remoteip: request.headers.get('CF-Connecting-IP') || '', idempotency_key: key }), signal: AbortSignal.timeout(8000) });
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: input.turnstile_token, remoteip: request.headers.get('CF-Connecting-IP') || '' }), signal: AbortSignal.timeout(8000) });
     const verified = await response.json();
     if (!response.ok || !verified.success || verified.hostname !== 'sakanlodge.com' || verified.action !== 'review') return json({ error: 'Verification failed. Please try again.' }, 400);
     const bytes = new TextEncoder().encode(env.TURNSTILE_SECRET_KEY + ':' + (request.headers.get('CF-Connecting-IP') || 'unknown'));
