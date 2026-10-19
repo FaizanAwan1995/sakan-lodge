@@ -74,3 +74,9 @@ body{overflow-wrap:break-word}
 
 .room-examples{padding-top:12px}.room-example-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.room-example{margin:0;overflow:hidden;border-radius:14px;background:#f8f5ed;border:1px solid var(--sakan-line)}.room-example a{display:block}.room-example img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;object-position:center 60%}.room-example figcaption{padding:16px 20px;color:var(--sakan-green);font-weight:700;font-size:.9rem}.room-examples-link{display:inline-flex;align-items:center;gap:14px;min-height:48px;margin-top:20px;font-weight:700;color:var(--sakan-green)}
 @media(max-width:680px){.room-example-grid{grid-template-columns:1fr}.room-examples{padding-top:12px}}
+
+/* Consistent photo frames and centred crops keep the room imagery balanced. */
+.hero-photo{overflow:hidden}.hero-photo img{object-position:50% 50%}
+.room-example a{aspect-ratio:4/3;overflow:hidden}.room-example img{height:100%;aspect-ratio:4/3;object-position:50% 50%}
+.catalog-photos img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;object-position:50% 50%}
+@media(max-width:680px){.hero-photo{height:auto;min-height:0;aspect-ratio:4/3}.hero-photo img{height:100%;width:100%;object-fit:cover}}
