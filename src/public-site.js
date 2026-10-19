@@ -228,18 +228,18 @@ export function renderListing(route, cat, env = {}) {
   const base = publicPath({ suburb: route.suburb });
   const properties = cat.properties.filter((p) => p.suburb === location);
   if (route.kind === "location") {
-    const title = "Rooms for rent in " + location + ", Adelaide";
+    const title = "Rooms for rent in " + location + ", Adelaide SA";
     return html(
       shell(
         title,
-        "Explore private rooms and shared accommodation in " +
+        "Rooms for university students, working professionals and couples in " +
           location +
-          ", Adelaide. Electricity, water, gas and internet included.",
+          ", Adelaide, South Australia. Private and shared options; utilities included. Confirm room capacity.",
         base,
         crumbs([{ name: location }]) +
           "<h1>" +
           h(title) +
-          "</h1><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays.</p>" +
+          "</h1><p>Looking for a room while studying, working or moving as a couple? Explore accommodation in " + h(location) + ", Adelaide, South Australia for university students, working professionals and couples. Check your journey to your campus or workplace from the property.</p><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays. Couples should enquire for two occupants so our team can confirm a suitable room and sleeping arrangement. Single-occupancy private rooms are for one person.</p>" +
           included +
           '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
           h(location) +
