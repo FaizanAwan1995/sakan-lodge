@@ -11,7 +11,7 @@ test('testimonial submission, private moderation, public projection and abuse li
  try {
   await db.exec(await readFile(new URL('./database/foundation.sql',import.meta.url),'utf8'));
   await db.exec(`create table public.audit(id bigserial primary key,"by" text,action text);create function public.is_sakan_staff() returns boolean language sql stable as $$select auth.uid()='${STAFF}'::uuid$$;`);
-  await db.exec(await readFile(new URL('../supabase/migrations/20261019075805_tenant_testimonials.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/20261019080417_tenant_testimonials.sql',import.meta.url),'utf8'));
   const role=async(name,uid='')=>{await db.exec(`reset role;set role ${name}`);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);};
   const rpc=async(name,args=[])=> (await db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) as result`,args.map(x=>x&&typeof x==='object'?JSON.stringify(x):x))).rows[0].result;
   await role('anon');assert.deepEqual(await rpc('published_testimonials'),[]);
