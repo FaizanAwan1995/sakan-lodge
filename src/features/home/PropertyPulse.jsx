@@ -120,7 +120,7 @@ export default function PropertyPulseList({ properties, people, payments, today,
               <span>{person.name}</span>
               <div>
                 <b className={person.owed > 0 && person.daysLate <= 3 ? 'err' : 'ok'}>{person.owed > 0 ? fmt(person.owed) : 'Paid'}</b>
-                <small>{person.owed > 0 ? person.dueText : 'Current tenant'} · {person.stay_type === 'short' ? `${fmt(person.nightly_rate)}/night` : `${fmt(person.weekly_rate)}/wk`}</small>
+                <small>{person.owed > 0 ? person.dueText : 'Current tenant'} · {['short', 'per_night'].includes(person.stay_type) ? `${fmt(person.nightly_rate)}/night` : `${fmt(person.weekly_rate)}/wk`}</small>
               </div>
             </button>
           ))}
