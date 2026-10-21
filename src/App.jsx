@@ -1,3 +1,4 @@
+import { residentStayOption, residentBillingRow } from './resident-billing.js';
 import Reviews from './features/reviews/Reviews.jsx';
 import TenantAccount from './features/tenants/TenantAccount.jsx';
 import { tenantMatches, tenantReference, roomAtCapacity } from './tenant-model.js';
@@ -549,7 +550,7 @@ function Rooms({ db, d, today, reload, residentId, go }) {
                       <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
                         <span className="resident-details"><strong className="resident-name">{x.name}</strong><small className="tenant-reference">Tenant ID {tenantReference(x)}</small>
                           {x.end_date > today && <small>Checkout scheduled: {nice(x.end_date)}</small>}
-                          <small>{x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
+                          <small>{['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
                           <small>Bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>
                           {x.phone && <small>{x.phone}</small>}{x.email && <small>{x.email}</small>}
                         </span>
@@ -564,7 +565,7 @@ function Rooms({ db, d, today, reload, residentId, go }) {
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
                     <button className="row" key={x.id} onClick={() => navigate(`/rooms/${x.id}`)}>
-                      <span>{x.name}<small className="tenant-reference">Tenant ID {tenantReference(x)}</small><small>Arrives {nice(x.start_date)} · {x.stay_type === 'short' ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small></span>
+                      <span>{x.name}<small className="tenant-reference">Tenant ID {tenantReference(x)}</small><small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small></span>
                       <small className="muted">Booked</small>
                     </button>
                   );
@@ -670,7 +671,7 @@ function CheckoutForm({ person, today, done }) {
   </form>;
 }
 
-const PF = ['name', 'phone', 'email', 'property_id', 'room_id', 'stay_type', 'weekly_rate', 'nightly_rate', 'start_date', 'end_date', 'paid_up_to', 'opening_balance', 'first_charge_amount', 'bond', 'bond_status', 'document_url', 'document_notes'];
+const PF = ['name', 'phone', 'email', 'property_id', 'room_id', 'stay_type', 'weekly_rate', 'nightly_rate', 'start_date', 'end_date', 'paid_up_to', 'opening_balance', 'first_charge_amount', 'rent_cycle_anchor', 'bond', 'bond_status', 'document_url', 'document_notes'];
 const NUM = ['weekly_rate', 'nightly_rate', 'opening_balance', 'first_charge_amount', 'bond'];
 
 function normaliseBondStatus(value) {
@@ -683,6 +684,7 @@ function PersonForm({ person, db, done }) {
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState(() => {
     const initial = Object.fromEntries(PF.map((k) => [k, person[k] ?? '']));
+    initial.stay_type = residentStayOption(person);
     initial.bond_status = normaliseBondStatus(person.bond_status || initial.bond_status || 'not_paid');
     initial.document_url = person.document_url || '';
     initial.document_notes = person.document_notes || '';
@@ -692,8 +694,10 @@ function PersonForm({ person, db, done }) {
   const prop = db.properties.find((p) => p.id === f.property_id);
   const rooms = db.rooms.map((r) => ({ ...r, house: db.properties.find((p) => p.id === r.property_id)?.name })).sort((a, b) => (a.house + a.sort).localeCompare(b.house + b.sort));
   const long = f.stay_type === 'long';
-  const nightly = f.stay_type === 'short' || f.stay_type === 'per_night';
-  const prop1 = long && prop && +f.weekly_rate > 0 && f.start_date >= L.LEDGER_START && !f.paid_up_to ? L.proposeFirstCharge(+f.weekly_rate, f.start_date, prop.lease_anchor) : null;
+  const nightly = f.stay_type === 'per_night';
+  const weekly = !nightly;
+  const chooseStay = (stay_type) => setF({ ...f, stay_type, first_charge_amount: '', rent_cycle_anchor: stay_type === 'short_weekly' ? f.start_date : '' });
+  const prop1 = weekly && prop && +f.weekly_rate > 0 && f.start_date >= L.LEDGER_START && !f.paid_up_to ? L.proposeFirstCharge(+f.weekly_rate, f.start_date, f.rent_cycle_anchor || prop.lease_anchor) : null;
   const checkInError = (() => {
     if (!f.room_id || !f.start_date) return '';
     const room = db.rooms.find((r) => r.id === f.room_id);
@@ -713,7 +717,7 @@ function PersonForm({ person, db, done }) {
       row.bond_status = normaliseBondStatus(row.bond_status || 'not_paid');
       row.document_url = row.document_url || null;
       row.document_notes = row.document_notes || null;
-      const ok = person.id ? await updateTenantDetails(person, row) : await save('people', row);
+      const ok = person.id ? await updateTenantDetails(person, residentBillingRow(row)) : await save('people', residentBillingRow(row));
       setBusy(false);
       if (ok) done();
     }}>
@@ -728,21 +732,32 @@ function PersonForm({ person, db, done }) {
       </select>
       <label>Stay</label>
       <div className="seg">
-        <button type="button" className={long ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'long' })}>Long term</button>
-        <button type="button" className={f.stay_type === 'short' ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'short' })}>Short term</button>
-        <button type="button" className={f.stay_type === 'per_night' ? 'on' : ''} onClick={() => setF({ ...f, stay_type: 'per_night' })}>Per night</button>
+        <button type="button" className={long ? 'on' : ''} onClick={() => chooseStay('long')}>Long term</button>
+        <button type="button" className={f.stay_type === 'short_weekly' ? 'on' : ''} onClick={() => chooseStay('short_weekly')}>Short term</button>
+        <button type="button" className={f.stay_type === 'per_night' ? 'on' : ''} onClick={() => chooseStay('per_night')}>Per night</button>
       </div>
-      {long ? <><label>Weekly rent</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.weekly_rate} onChange={set('weekly_rate')} required /></>
+      {weekly ? <><label>Weekly rent</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.weekly_rate} onChange={set('weekly_rate')} required /></>
         : <><label>Nightly rate</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.nightly_rate} onChange={set('nightly_rate')} required /></>}
-      <label>Move-in date</label><input type="date" value={f.start_date} onChange={set('start_date')} required />
+      <label>Move-in date</label><input type="date" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value, rent_cycle_anchor: f.rent_cycle_anchor ? e.target.value : '' })} required />
       <label>{long ? 'Move-out date (blank while resident)' : 'Check-out date'}</label><input type="date" min={dayAfter(f.start_date)} value={f.end_date} onChange={set('end_date')} required={!long} />
       {!long && f.start_date && f.end_date && f.end_date <= f.start_date && <p className="err">Check-out must be after check-in.</p>}
       <label>Paid up to (existing residents — charges start the day after)</label><input type="date" value={f.paid_up_to} onChange={set('paid_up_to')} />
+      {weekly && <>
+        <label>Rent cycle</label>
+        <select value={f.rent_cycle_anchor ? 'checkin' : 'house'} onChange={(e) => setF({ ...f, rent_cycle_anchor: e.target.value === 'checkin' ? f.start_date : '', first_charge_amount: '' })}>
+          <option value="house">Property cycle — first part period</option>
+          <option value="checkin">Fortnight from check-in date</option>
+        </select>
+        {f.rent_cycle_anchor && f.start_date && <p className="muted">First fortnight: {nice(f.start_date)} to {nice(L.n2d(L.d2n(f.start_date) + 13))}. Regular rent: {fmt(+f.weekly_rate * 2)} per fortnight. A shorter stay ends at checkout.</p>}
+        <label>First rent charge (optional override)</label>
+        <input type="number" min="0" step="0.01" inputMode="decimal" value={f.first_charge_amount} onChange={set('first_charge_amount')} placeholder="Leave blank to calculate from weekly rent" />
+        <small className="muted">Overrides the first charge only. Later rent follows the selected cycle. Record money received separately in Rent.</small>
+      </>}
       {prop1 && prop1.days > 0 && (
         <p className="muted">Part period: {prop1.days} day(s) to {nice(prop1.nextCycle)} = {fmt(prop1.exact)}, proposed <b>{fmt(prop1.proposed)}</b>.{' '}
           <button type="button" className="link" onClick={() => setF({ ...f, first_charge_amount: prop1.proposed })}>Use {fmt(prop1.proposed)}</button></p>
       )}
-      <label>Bond expected</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bond} onChange={set('bond')} placeholder={long && f.weekly_rate ? `usually ${fmt(f.weekly_rate * 2)}` : ''} />
+      <label>Bond expected</label><input type="number" min="0" step="0.01" inputMode="decimal" value={f.bond} onChange={set('bond')} placeholder={weekly && f.weekly_rate ? `usually ${fmt(f.weekly_rate * 2)}` : ''} />
       <label>Bond status</label>
       <select value={f.bond_status || 'not_paid'} onChange={set('bond_status')}>
         <option value="not_paid">Not paid</option>

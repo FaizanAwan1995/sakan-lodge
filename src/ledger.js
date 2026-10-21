@@ -60,7 +60,7 @@ export function rentCharges(person, property, asOf) {
   const end = person.end_date ? d2n(person.end_date) : Infinity; // end_date = move-out day, not charged
   let first = true;
   while (s < end && s <= lim) {
-    const nc = nextCycleOnOrAfter(property.lease_anchor, s);
+    const nc = nextCycleOnOrAfter(person.rent_cycle_anchor || property.lease_anchor, s);
     let pe, amt, note;
     if (nc > s) {
       pe = Math.min(nc, end);
@@ -78,6 +78,7 @@ export function rentCharges(person, property, asOf) {
       const days = pe - s;
       amt = days === 14 ? 2 * w : floor5((w / 7) * days);
       note = days === 14 ? 'Fortnight' : `Final part period, ${days} day(s)`;
+      if (person.rent_cycle_anchor && first && !person.paid_up_to && s === d2n(person.start_date) && s >= d2n(LEDGER_START)) amt = num(person.first_charge_amount) ?? amt;
     }
     out.push({ ...base, period_start: n2d(s), period_end: n2d(pe - 1), due_date: n2d(s), amount: amt, note });
     s = pe;
