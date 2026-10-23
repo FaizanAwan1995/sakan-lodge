@@ -4,6 +4,8 @@ import { fmt, nice, sum } from '../../lib/formatters.js';
 
 export default function PropertyPulseList({ properties, people, payments, today, fortnightStart, onSelectTenant, onRecordPayment, onReorderProperty }) {
   const [draggedId, setDraggedId] = useState(null);
+  const [expanded, setExpanded] = useState({});
+  const [attentionOnly, setAttentionOnly] = useState({});
   const pulses = properties.map((property) => {
     const residents = people.filter((person) => person.property_id === property.id && person.start_date <= today && L.isActive(person, today));
     const tenantRows = residents
@@ -40,6 +42,7 @@ export default function PropertyPulseList({ properties, people, payments, today,
       isUrgent,
       rentIn,
       tenantRows,
+      overdueCount: tenantRows.filter((person) => person.daysLate > 0 && person.owed > 0).length,
     };
   });
 
@@ -60,8 +63,9 @@ export default function PropertyPulseList({ properties, people, payments, today,
     return b.residentOwed - a.residentOwed || Number(b.isUrgent) - Number(a.isUrgent);
   });
 
-  return pulses.map(({ id, name, residentCount, beds, residentOwed, tenantDue, landlordNext, landlordPayment, isUrgent, rentIn, tenantRows }) => {
-    const tenantLabel = tenantDue ? `${tenantDue.name}${tenantDue.daysLate > 0 ? ` · ${tenantDue.daysLate}d late` : ' · due today'}` : 'No tenant arrears';
+  return pulses.map(({ id, name, residentCount, beds, residentOwed, tenantDue, landlordNext, landlordPayment, isUrgent, rentIn, tenantRows, overdueCount }) => {
+    const visibleRows = (attentionOnly[id] ? tenantRows.filter((p) => p.owed > 0) : tenantRows).slice(0, expanded[id] ? undefined : 5);
+    const filteredCount = attentionOnly[id] ? tenantRows.filter((p) => p.owed > 0).length : tenantRows.length;
     const landlordStatusText = landlordPayment.paid ? 'Paid' : landlordNext.days <= 0 ? 'Unpaid' : `${landlordNext.days} day${landlordNext.days === 1 ? '' : 's'} away`;
     const landlordUrgent = !landlordPayment.paid && landlordNext.days >= 0 && landlordNext.days <= 3;
     return (
@@ -99,31 +103,34 @@ export default function PropertyPulseList({ properties, people, payments, today,
         }}
       >
         <div className="between property-pulse-header">
-          <strong>{name}</strong>
-          <span>{residentCount} residents · {beds} beds</span>
+          <div><strong className="pulse-property-name">{name}</strong><small className="pulse-occupancy">{residentCount} residents · {beds} beds</small></div>
+          {overdueCount > 0 && <span className="pulse-alert">{overdueCount} overdue</span>}
         </div>
         <div className="pulse-metrics">
           <span>
-            <small>Tenant rent to collect</small>
+            <small>Rent outstanding</small>
             <b className={residentOwed > 0 ? 'err' : ''}>{fmt(residentOwed)}</b>
-            <small>{tenantLabel}</small>
+            <small>{tenantDue ? `${tenantRows.filter(p => p.owed > 0).length} resident(s) to follow up` : 'All up to date'}</small>
           </span>
           <span>
-            <small>Next landlord payment</small>
+            <small>Next landlord rent</small>
             <b className={landlordUrgent ? 'err' : 'ok'}>{nice(landlordNext.date)} · {fmt(landlordNext.amount)}</b>
             <small>{landlordStatusText}</small>
           </span>
         </div>
+        <div className="pulse-residents-heading">
+          <strong>Residents</strong>
+          <button type="button" className={attentionOnly[id] ? 'pulse-filter active' : 'pulse-filter'} aria-pressed={Boolean(attentionOnly[id])} onClick={() => setAttentionOnly(prev => ({ ...prev, [id]: !prev[id] }))}>{attentionOnly[id] ? 'Show all' : 'Needs attention'}</button>
+        </div>
         <div className="property-tenant-list">
-          {tenantRows.map((person) => (
-            <div className="tenant-action-row" key={person.id}><button type="button" className="tenant-row" onClick={() => onSelectTenant?.(person.id)}>
-              <span>{person.name}</span>
-              <div>
-                <b className={person.owed > 0 ? 'err' : 'ok'}>{person.owed > 0 ? fmt(person.owed) : 'Paid'}</b>
-                <small>{person.owed > 0 ? person.dueText : 'Current tenant'} · {['short', 'per_night'].includes(person.stay_type) ? `${fmt(person.nightly_rate)}/night` : `${fmt(L.billingTermsAt(person,today).weekly_rate)}/wk`}</small>
-              </div>
-            </button><button className="small" onClick={()=>onRecordPayment?.(person.id)}>Record payment</button></div>
+          {visibleRows.map((person) => (
+            <button type="button" className="pulse-tenant-link" key={person.id} onClick={() => onSelectTenant?.(person.id)} aria-label={`Open ${person.name}'s account`}>
+              <span className="pulse-tenant-info"><strong>{person.name}</strong><small>{person.owed > 0 ? person.dueText : 'Up to date'} · {['short', 'per_night'].includes(person.stay_type) ? `${fmt(person.nightly_rate)}/night` : `${fmt(L.billingTermsAt(person,today).weekly_rate)}/wk`}</small></span>
+              <span className="pulse-tenant-status"><b className={person.owed > 0 ? 'err' : 'ok'}>{person.owed > 0 ? fmt(person.owed) : 'Paid'}</b><span aria-hidden="true">›</span></span>
+            </button>
           ))}
+          {filteredCount === 0 && <p className="pulse-empty">No residents need attention.</p>}
+          {filteredCount > 5 && <button type="button" className="pulse-show-more" onClick={() => setExpanded(prev => ({ ...prev, [id]: !prev[id] }))}>{expanded[id] ? 'Show fewer residents' : `View all ${filteredCount} residents`}</button>}
         </div>
         <div className="between property-pulse-footer">
           <small>Rent collected · 14d</small>
