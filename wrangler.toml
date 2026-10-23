@@ -25,3 +25,13 @@ class_name = "GmailOAuthState"
 [[migrations]]
 tag = "gmail-oauth-state-v1"
 new_sqlite_classes = ["GmailOAuthState"]
+
+# Preview-specific Gmail OAuth storage; never share production tokens.
+[[previews.kv_namespaces]]
+binding = "GMAIL_TOKEN_STORE"
+id = "0bd63cd09f324424970ab520394c20f0"
+
+# Automatically isolated Durable Object storage for each preview.
+[[previews.durable_objects.bindings]]
+name = "GMAIL_OAUTH_STATE"
+class_name = "GmailOAuthState"
