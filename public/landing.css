@@ -22,3 +22,8 @@
 .floating-contact .floating-enquiry{background:#d6ae62;color:#102d26;border:1px solid #b9934b}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:680px){.floating-contact{right:max(10px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));gap:8px}.floating-contact>a,.floating-contact>button{width:44px;height:44px;min-height:44px;max-width:44px;padding:0}.floating-contact svg{width:21px;height:21px}}
+
+/* Desktop hover and keyboard feedback; touch devices retain steady controls. */
+@media(hover:hover) and (pointer:fine){.floating-contact>a:hover,.floating-contact>button:hover{transform:translateY(-4px) scale(1.06);box-shadow:0 9px 24px #102d2640}}
+.floating-contact>a:active,.floating-contact>button:active{transform:scale(.96)}
+@media(prefers-reduced-motion:reduce){.floating-contact>a,.floating-contact>button{transition:none!important}}
