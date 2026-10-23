@@ -27,3 +27,13 @@
 @media(hover:hover) and (pointer:fine){.floating-contact>a:hover,.floating-contact>button:hover{transform:translateY(-4px) scale(1.06);box-shadow:0 9px 24px #102d2640}}
 .floating-contact>a:active,.floating-contact>button:active{transform:scale(.96)}
 @media(prefers-reduced-motion:reduce){.floating-contact>a,.floating-contact>button{transition:none!important}}
+
+/* Compact, collapsible contact palette; hidden attribute must override layout. */
+.contact-palette[hidden],.contact-palette-open[hidden]{display:none!important}
+.contact-palette{display:flex;flex-direction:column;align-items:flex-end;gap:8px;position:relative;padding-top:18px}
+.floating-contact .contact-palette-toggle{position:absolute;right:0;top:-12px;width:24px;height:24px;min-height:24px;max-width:24px;padding:0;border-radius:50%;background:#fff;color:#173d32;border:1px solid #cbd8d0;font-size:20px;line-height:1;cursor:pointer;box-shadow:0 2px 8px #102d2625}
+.floating-contact .floating-enquiry{width:auto;max-width:none;min-width:112px;border-radius:999px;gap:7px;padding:0 12px;font-size:.8rem}
+.floating-contact .floating-enquiry span{white-space:nowrap}
+.floating-contact .contact-palette-open{width:auto;max-width:none;min-width:112px;min-height:44px;height:44px;border-radius:999px;padding:0 14px;background:#d6ae62;color:#102d26;border:1px solid #b9934b;font-weight:750;font-size:.8rem;cursor:pointer;box-shadow:0 4px 14px #102d2630}
+.floating-contact .floating-whatsapp,.floating-contact .floating-facebook{width:44px;height:44px;min-height:44px;max-width:44px}
+@media(max-width:680px){.contact-palette{gap:8px}.floating-contact .floating-enquiry{min-width:105px;width:auto;max-width:none;padding:0 11px}}
