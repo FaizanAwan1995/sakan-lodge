@@ -299,8 +299,9 @@ export function billingTermsAt(person, day) {
 export function accountSummary(person, property, today) {
   const yesterday = n2d(d2n(today)-1);
   const paid = person.payments.filter(p => (!p.kind || p.kind === 'rent') && p.date <= today).reduce((n,p)=>n + +p.amount,0);
-  const oldCharges = person.charges.filter(c=>c.due_date<=yesterday).reduce((n,c)=>n + +c.amount,0);
-  const overdue = money(Math.min(person.owed,Math.max(0,oldCharges-paid)));
+  const credits = -person.charges.filter(c=>c.due_date<=today && +c.amount<0).reduce((n,c)=>n + +c.amount,0);
+  const oldCharges = person.charges.filter(c=>c.due_date<=yesterday && +c.amount>=0).reduce((n,c)=>n + +c.amount,0);
+  const overdue = money(Math.min(person.owed,Math.max(0,oldCharges-paid-credits)));
   const future = rentCharges(person,property,n2d(d2n(today)+400)).find(c=>c.due_date>today);
   return {overdue, dueToday:money(Math.max(0,person.owed-overdue)), next:future};
 }

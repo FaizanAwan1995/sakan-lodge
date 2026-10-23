@@ -28,3 +28,10 @@ test('account summary separates overdue, today and credit after oldest-first par
  const other=accountSummary({...p,payments:partial,...balance(charges,partial,'2026-10-16')},property,'2026-10-16');
  assert.equal(other.overdue,240);assert.equal(other.dueToday,340);
 });
+
+test('a credit entered today pays oldest arrears before today’s charge',()=>{
+ const charges=[{due_date:'2026-10-02',amount:340},{due_date:'2026-10-16',amount:340},{due_date:'2026-10-16',amount:-100}];
+ const p={...person,charges,payments:[],...balance(charges,[],'2026-10-16')};
+ const summary=accountSummary(p,property,'2026-10-16');
+ assert.equal(summary.overdue,240);assert.equal(summary.dueToday,340);
+});
