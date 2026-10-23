@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as L from '../../ledger.js';
 import { fmt, nice, sum } from '../../lib/formatters.js';
 
-export default function PropertyPulseList({ properties, people, payments, today, fortnightStart, onSelectTenant, onReorderProperty }) {
+export default function PropertyPulseList({ properties, people, payments, today, fortnightStart, onSelectTenant, onRecordPayment, onReorderProperty }) {
   const [draggedId, setDraggedId] = useState(null);
   const pulses = properties.map((property) => {
     const residents = people.filter((person) => person.property_id === property.id && person.start_date <= today && L.isActive(person, today));
@@ -116,13 +116,13 @@ export default function PropertyPulseList({ properties, people, payments, today,
         </div>
         <div className="property-tenant-list">
           {tenantRows.map((person) => (
-            <button type="button" key={person.id} className="tenant-row" onClick={() => onSelectTenant?.(person.id)}>
+            <div className="tenant-action-row" key={person.id}><button type="button" className="tenant-row" onClick={() => onSelectTenant?.(person.id)}>
               <span>{person.name}</span>
               <div>
-                <b className={person.owed > 0 && person.daysLate <= 3 ? 'err' : 'ok'}>{person.owed > 0 ? fmt(person.owed) : 'Paid'}</b>
-                <small>{person.owed > 0 ? person.dueText : 'Current tenant'} · {['short', 'per_night'].includes(person.stay_type) ? `${fmt(person.nightly_rate)}/night` : `${fmt(person.weekly_rate)}/wk`}</small>
+                <b className={person.owed > 0 ? 'err' : 'ok'}>{person.owed > 0 ? fmt(person.owed) : 'Paid'}</b>
+                <small>{person.owed > 0 ? person.dueText : 'Current tenant'} · {['short', 'per_night'].includes(person.stay_type) ? `${fmt(person.nightly_rate)}/night` : `${fmt(L.billingTermsAt(person,today).weekly_rate)}/wk`}</small>
               </div>
-            </button>
+            </button><button className="small" onClick={()=>onRecordPayment?.(person.id)}>Record payment</button></div>
           ))}
         </div>
         <div className="between property-pulse-footer">

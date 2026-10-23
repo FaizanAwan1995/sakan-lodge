@@ -1,3 +1,5 @@
+import AccountPayment from './features/tenants/AccountPayment.jsx';
+import AccountTransactions from './features/tenants/AccountTransactions.jsx';
 import { residentStayOption, residentBillingRow } from './resident-billing.js';
 import Reviews from './features/reviews/Reviews.jsx';
 import TenantAccount from './features/tenants/TenantAccount.jsx';
@@ -6,7 +8,6 @@ import ReservationActivity from './features/reservations/ReservationActivity.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { errorMessage } from './error-handling.js';
-import { findPossibleDuplicatePayment } from './financial-safety.js';
 import FinancialReports from './features/reports/FinancialReports.jsx';
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectricityBill, getLocalActor, setLocalActor, restoreLocalBackup, updateTenantDetails } from './store.js';
@@ -257,6 +258,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const navigate = useNavigate();
   const { residentId } = useParams();
   const [payFor, setPayFor] = useState(null);
+  const [paymentTenant, setPaymentTenant] = useState(null);
   const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [linkMessage, setLinkMessage] = useState('');
   const [today, setToday] = useState(L.todayStr);
@@ -267,11 +269,17 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
     return () => { clearInterval(timer); window.removeEventListener('focus', refreshDay); };
   }, []);
   const d = useMemo(() => db && L.derive(db, today), [db, today]);
+  useEffect(() => { if (d && location.state?.restoreScroll != null) requestAnimationFrame(() => window.scrollTo(0, location.state.restoreScroll)); }, [location.key, Boolean(d)]);
   const tab = tabFromPath(location.pathname);
   if (error) return <div className="pad err" role="alert"><h2>Unable to load Sakan Lodge</h2><p>{errorMessage(error)}</p><button type="button" onClick={reload}>Try again</button></div>;
   if (!d) return <div className="pad">Loading…</div>;
-  const ctx = { db, d, today, reload, session, go: (t, pid) => { setPayFor(pid ?? null); const route = t === 'today' ? '/home' : `/${t}`; navigate(route); window.scrollTo(0, 0); } };
-  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['rent', 'Rent'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['activity', 'Activity']];
+  const openTenant = (id) => { navigate(`/rooms/${id}`, {state:{from:location.pathname+location.search,scroll:window.scrollY}}); window.scrollTo(0,0); };
+  const ctx = { db, d, today, reload, session, openTenant, quickPayment:setPaymentTenant, go: (t, pid) => {
+    if(t==='rent' && pid) {setPaymentTenant(pid);return;}
+    setPayFor(pid ?? null); const route = t === 'today' ? '/home' : t==='rent' ? '/reports?view=transactions' : `/${t}`;
+    navigate(route); window.scrollTo(0, 0);
+  } };
+  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['activity', 'Activity']];
   return (
     <>
       <a className="ledger-skip-link" href="#main-content">Skip to content</a>
@@ -301,7 +309,8 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {!isLocalMode && <div className="sync-status"><span>{refreshing ? 'Refreshing shared ledger…' : lastRefreshed ? `Shared data refreshed ${new Date(lastRefreshed).toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'})}` : 'Loading shared ledger…'}</span><button type="button" className="small" disabled={refreshing} onClick={reload}>Refresh</button></div>}
         {tab === 'today' && <Today {...ctx} />}
         {tab === 'rooms' && <Rooms {...ctx} residentId={residentId || null} />}
-        {tab === 'rent' && <Rent key={payFor || 'none'} {...ctx} payFor={payFor} />}
+        {tab === 'rent' && <Navigate to="/reports?view=transactions" replace />}
+        {paymentTenant && d.people.some(p=>p.id===paymentTenant) && <AccountPayment key={paymentTenant} person={d.people.find(p=>p.id===paymentTenant)} db={db} today={today} reload={reload} onClose={()=>setPaymentTenant(null)} />}
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
         {tab === 'communications' && <TenantCommunications db={db} today={today} />}
@@ -314,7 +323,9 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
 }
 
 /* ---------------- Today ---------------- */
-function Today({ db, d, today, go }) {
+function Today({ db, d, today, go, openTenant, quickPayment }) {
+  const [tenantSearch,setTenantSearch]=useState(()=>sessionStorage.getItem('homeTenantSearch') || '');
+  useEffect(()=>{sessionStorage.setItem('homeTenantSearch',tenantSearch);},[tenantSearch]);
   const behind = d.people.filter((p) => p.owed > 0.005).sort((a, b) => b.daysLate - a.daysLate || b.owed - a.owed);
   const bonds = sum(d.people, (p) => p.bond_held);
   const legacyBonds = sum(d.people, (p) => p.legacy_bond_declared);
@@ -415,7 +426,8 @@ function Today({ db, d, today, go }) {
               payments={db.payments}
               today={today}
               fortnightStart={fortnightStart}
-              onSelectTenant={(personId) => go('rent', personId)}
+              onSelectTenant={openTenant}
+              onRecordPayment={quickPayment}
               onReorderProperty={handleReorderProperty}
             />
           </>
@@ -423,16 +435,16 @@ function Today({ db, d, today, go }) {
       case 'balanceHero':
         return <div className="hero"><small>Resident balances outstanding</small><b>{fmt(sum(behind, (p) => p.owed))}</b><small>Includes rent and resident utility charges.</small></div>;
       case 'shortcuts':
-        return <div className="today-shortcuts"><button onClick={() => go('rent')}>Record money</button><button onClick={() => go('rooms')}>Manage rooms & residents</button><button onClick={() => go('expenses')}>Open expenses</button></div>;
+        return <div className="today-shortcuts"><button onClick={() => document.getElementById('home-tenant-search')?.focus()}>Find tenant / record payment</button><button onClick={() => go('rooms')}>Manage rooms & residents</button><button onClick={() => go('expenses')}>Open expenses</button></div>;
       case 'attention':
         return (
           <>
             <h2>Needs attention</h2>
             {behind.length ? behind.map((p) => (
-              <button className="row" key={p.id} onClick={() => go('rent', p.id)}>
-                <span>{p.name}<small>{d.props[p.property_id]?.name} · {p.daysLate ? `${p.daysLate} day${p.daysLate > 1 ? 's' : ''} late` : 'due today'}</small></span>
-                <b className="err">{fmt(p.owed)}</b>
-              </button>
+              <div className="tenant-action-row" key={p.id}>
+                <button className="tenant-account-link" onClick={() => openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {p.daysLate ? `${p.daysLate} day${p.daysLate > 1 ? 's' : ''} late` : 'due today'}</small></span><b className="err">{fmt(p.owed)}</b></button>
+                <button className="small" onClick={() => quickPayment(p.id)}>Record payment</button>
+              </div>
             )) : <p className="muted">Everyone is square.</p>}
           </>
         );
@@ -455,8 +467,8 @@ function Today({ db, d, today, go }) {
       case 'schedule':
         return (
           <div className="schedule-grid">
-            <section className="schedule-card"><h2>Arrivals · next 14 days</h2>{arrivals.length ? arrivals.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.start_date)} · {db.rooms.find((r) => r.id === p.room_id)?.label}</small></span></div>) : <p className="muted">No arrivals booked.</p>}</section>
-            <section className="schedule-card"><h2>Departures · next 14 days</h2>{departures.length ? departures.map((p) => <div className="row" key={p.id}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.end_date)}</small></span></div>) : <p className="muted">No check-outs scheduled.</p>}</section>
+            <section className="schedule-card"><h2>Arrivals · next 14 days</h2>{arrivals.length ? arrivals.map((p) => <button className="row" key={p.id} onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.start_date)} · {db.rooms.find((r) => r.id === p.room_id)?.label}</small></span></button>) : <p className="muted">No arrivals booked.</p>}</section>
+            <section className="schedule-card"><h2>Departures · next 14 days</h2>{departures.length ? departures.map((p) => <button className="row" key={p.id} onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {nice(p.end_date)}</small></span></button>) : <p className="muted">No check-outs scheduled.</p>}</section>
           </div>
         );
       case 'bonds':
@@ -477,6 +489,11 @@ function Today({ db, d, today, go }) {
 
   return (
     <>
+      <section className="card home-tenant-search"><label htmlFor="home-tenant-search">Find any tenant</label><input id="home-tenant-search" type="search" value={tenantSearch} onChange={e=>setTenantSearch(e.target.value)} placeholder="Name, phone, email or tenant ID" />
+      <small>Includes current, upcoming and past tenants.</small>
+      {tenantSearch.trim() && d.people.filter(p=>tenantMatches(p,tenantSearch,'all',today)).map(p=><div className="tenant-action-row" key={p.id}><button className="tenant-account-link" onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {L.isActive(p,today)?p.start_date>today?'Upcoming':'Current':'Past tenant'}</small></span><b>{fmt(p.owed || p.credit)} {p.credit?'credit':'due'}</b></button><button className="small" onClick={()=>quickPayment(p.id)}>Record payment</button></div>)}
+      {tenantSearch.trim() && !d.people.some(p=>tenantMatches(p,tenantSearch,'all',today)) && <p>No tenants found.</p>}
+      </section>
       <h1 className="screen-title">Today</h1>
       {orderedSections.map((sectionId) => (
         <div
@@ -505,17 +522,19 @@ function Today({ db, d, today, go }) {
 }
 
 /* ---------------- Rooms ---------------- */
-function Rooms({ db, d, today, reload, residentId, go }) {
+function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
+  const location=useLocation();
   const [edit, setEdit] = useState(null);
   const navigate = useNavigate();
   useEffect(() => { setEdit(null); }, [residentId]);
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('Active');
+  const [query, setQuery] = useState(()=>sessionStorage.getItem('roomTenantSearch') || '');
+  const [status, setStatus] = useState(()=>sessionStorage.getItem('roomTenantStatus') || 'Active');
+  useEffect(()=>{sessionStorage.setItem('roomTenantSearch',query);sessionStorage.setItem('roomTenantStatus',status);},[query,status]);
   const selected = residentId ? d.people.find(person => person.id === residentId) : null;
   const done = () => { setEdit(null); reload(); };
-  const back = () => { setEdit(null); navigate('/rooms'); };
+  const back = () => { setEdit(null); navigate(location.state?.from || '/rooms',{state:{restoreScroll:location.state?.scroll || 0}}); };
   if (residentId && !selected) return <section className="card"><h1>Tenant unavailable</h1><p>This record was removed or is no longer accessible. The activity history is retained.</p><button onClick={back}>Back to rooms</button></section>;
-  if (residentId && selected && !edit) return <TenantAccount key={selected.id} person={selected} db={db} today={today} reload={reload} onEdit={() => setEdit({type:'person', data:db.people.find(p => p.id === selected.id)})} onSchedule={() => setEdit({type:'checkout',data:db.people.find(p => p.id === selected.id)})} onPayment={() => go('rent',selected.id)} onRemoved={back} />;
+  if (residentId && selected && !edit) return <TenantAccount key={selected.id} person={selected} db={db} today={today} reload={reload} onEdit={() => setEdit({type:'person', data:db.people.find(p => p.id === selected.id)})} onSchedule={() => setEdit({type:'checkout',data:db.people.find(p => p.id === selected.id)})} onPayment={() => go('rent',selected.id)} onRemoved={back} backLabel={location.state?.from?.startsWith('/home') ? 'Home' : location.state?.from?.startsWith('/reports') ? 'Reports' : 'Rooms & residents'} />;
   if (edit?.type === 'house') return <HouseForm p={edit.data} done={done} />;
   if (edit?.type === 'room') return <RoomForm room={edit.data} d={d} done={done} />;
   if (edit?.type === 'person') return <PersonForm person={edit.data} db={db} done={done} />;
@@ -540,19 +559,19 @@ function Rooms({ db, d, today, reload, residentId, go }) {
               <div className="card" key={r.id}>
                 <div className="between room-summary">
                   <button className="link" onClick={() => setEdit({ type: 'room', data: r })}>{r.label} · {assigned.filter(x => x.start_date <= today).length}/{r.capacity}{assigned.some(x => x.start_date > today) ? ` · ${assigned.filter(x => x.start_date > today).length} booked` : ''}</button>
-                  <span>{fmt(sum(assigned.filter((x) => x.start_date <= today && x.stay_type === 'long'), (x) => x.weekly_rate))}/wk{owed > 0 && <span className="err"> · {fmt(owed)} owed</span>}</span>
+                  <span>{fmt(sum(assigned.filter((x) => x.start_date <= today && x.stay_type === 'long'), (x) => L.billingTermsAt(x,today).weekly_rate))}/wk{owed > 0 && <span className="err"> · {fmt(owed)} owed</span>}</span>
                 </div>
                 {occ.map((x) => {
                   const bondStatus = normaliseBondStatus(x.bond_status || 'not_paid');
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
                     <div className="row resident-row" key={x.id}>
-                      <button className="resident-row-main" onClick={() => navigate(`/rooms/${x.id}`)}>
-                        <span className="resident-details"><strong className="resident-name">{x.name}</strong><small className="tenant-reference">Tenant ID {tenantReference(x)}</small>
+                      <button className="resident-row-main" onClick={() => openTenant(x.id)}>
+                        <span className="resident-details"><strong className="resident-name">{x.name}</strong>
                           {x.end_date > today && <small>Checkout scheduled: {nice(x.end_date)}</small>}
-                          <small>{['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
-                          <small>Bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small>
-                          {x.phone && <small>{x.phone}</small>}{x.email && <small>{x.email}</small>}
+                          <small>{['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
+                          <small>Bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · <span className={x.legacy_bond_declared ? 'err' : bondToneClass}>{x.legacy_bond_declared ? 'Receipt history needs reconciliation' : bondStatusLabel(x.bond_status)}</span></small>
+
                         </span>
                         {x.owed > 0 ? <b className="err">{fmt(x.owed)} owed</b> : x.credit > 0 ? <small className="ok">{fmt(x.credit)} credit</small> : null}
                       </button>
@@ -564,8 +583,8 @@ function Rooms({ db, d, today, reload, residentId, go }) {
                   const bondStatus = normaliseBondStatus(x.bond_status || 'not_paid');
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
-                    <button className="row" key={x.id} onClick={() => navigate(`/rooms/${x.id}`)}>
-                      <span>{x.name}<small className="tenant-reference">Tenant ID {tenantReference(x)}</small><small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(x.weekly_rate)}/wk`} · bond <span className={bondToneClass}>{bondStatusLabel(x.bond_status)}</span></small></span>
+                    <button className="row" key={x.id} onClick={() => openTenant(x.id)}>
+                      <span>{x.name}<small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · bond <span className={x.legacy_bond_declared ? 'err' : bondToneClass}>{x.legacy_bond_declared ? 'Receipt history needs reconciliation' : bondStatusLabel(x.bond_status)}</span></small></span>
                       <small className="muted">Booked</small>
                     </button>
                   );
@@ -577,10 +596,10 @@ function Rooms({ db, d, today, reload, residentId, go }) {
           <button className="small" onClick={() => setEdit({ type: 'room', data: { property_id: p.id, label: '', capacity: 1, sort: 99 } })}>+ Add room</button>
         </section>
       ))}
-      {d.people.filter(x => !x.room_id && L.isActive(x, today) && tenantMatches(x, query, status, today)).map(x => <button type="button" className="row" key={x.id} onClick={() => navigate(`/rooms/${x.id}`)}><span>{x.name}<small>No room assigned</small><small className="tenant-reference">Tenant ID {tenantReference(x)}</small></span></button>)}
+      {d.people.filter(x => !x.room_id && L.isActive(x, today) && tenantMatches(x, query, status, today)).map(x => <button type="button" className="row" key={x.id} onClick={() => openTenant(x.id)}><span>{x.name}<small>No room assigned</small></span></button>)}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
-        <div className="card" key={x.id}><button className="row" onClick={() => navigate(`/rooms/${x.id}`)}>
-          <span>{x.name}<small className="tenant-reference">Tenant ID {tenantReference(x)}</small><small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.checked_out_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(x.checked_out_at)) : x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
+        <div className="card" key={x.id}><button className="row" onClick={() => openTenant(x.id)}>
+          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.checked_out_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(x.checked_out_at)) : x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
           {x.owed > 0 && <b className="err">{fmt(x.owed)}</b>}
         </button></div>))}</>}
     </>
@@ -600,6 +619,7 @@ function HouseForm({ p, done }) {
       if (ok) done();
     }}>
       <h1>{p.id ? `${p.name} settings` : 'Add property'}</h1>
+      {person.id && <><p className="muted">These are corrections to stored details. For a new rate or billing cycle, use Schedule a future rent change in the account. Corrections retain before-and-after values.</p><label>Reason for correction<input required minLength={5} value={reason} onChange={e=>setReason(e.target.value)} /></label></>}
       <label>Name</label><input value={f.name} onChange={set('name')} required />
       <label>Landlord rent per fortnight</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.lease_rent} onChange={set('lease_rent')} required />
       <label>A date landlord rent falls due (cycle runs every 14 days from it)</label><input type="date" value={f.lease_anchor} onChange={set('lease_anchor')} required />
@@ -681,6 +701,7 @@ function normaliseBondStatus(value) {
 }
 
 function PersonForm({ person, db, done }) {
+  const [reason,setReason]=useState('');
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState(() => {
     const initial = Object.fromEntries(PF.map((k) => [k, person[k] ?? '']));
@@ -717,11 +738,19 @@ function PersonForm({ person, db, done }) {
       row.bond_status = normaliseBondStatus(row.bond_status || 'not_paid');
       row.document_url = row.document_url || null;
       row.document_notes = row.document_notes || null;
-      const ok = person.id ? await updateTenantDetails(person, residentBillingRow(row)) : await save('people', residentBillingRow(row));
+      if (person.id) {
+        const before=L.derive(db,L.todayStr()).people.find(p=>p.id===person.id);
+        const after=L.derive({...db,people:db.people.map(p=>p.id===person.id?{...p,...residentBillingRow(row)}:p)},L.todayStr()).people.find(p=>p.id===person.id);
+        if (before.owed!==after.owed || before.credit!==after.credit) {
+          if (!confirm(`This correction changes today's balance from ${fmt(before.owed-before.credit)} to ${fmt(after.owed-after.credit)}. Earlier rent may change. For a future rate change, cancel and use Schedule a future rent change in the account. Save this correction?`)) {setBusy(false);return;}
+        }
+      }
+      const ok = person.id ? await updateTenantDetails(person, residentBillingRow(row), reason) : await save('people', residentBillingRow(row));
       setBusy(false);
       if (ok) done();
     }}>
       <h1>{person.id ? person.name : 'New resident'}</h1>{person.id && <p className="tenant-reference">Tenant ID <code>{tenantReference(person)}</code></p>}
+      {person.id && <><p className="muted">These are corrections to stored details. For a new rate or billing cycle, use Schedule a future rent change in the account. Corrections retain before-and-after values.</p><label>Reason for correction<input required minLength={5} value={reason} onChange={e=>setReason(e.target.value)} /></label></>}
       <label>Name</label><input value={f.name} onChange={set('name')} required />
       <label>Phone</label><input type="tel" value={f.phone} onChange={set('phone')} />
       <label>Email</label><input type="email" value={f.email || ''} onChange={set('email')} placeholder="tenant@example.com" />
@@ -751,7 +780,7 @@ function PersonForm({ person, db, done }) {
         {f.rent_cycle_anchor && f.start_date && <p className="muted">First fortnight: {nice(f.start_date)} to {nice(L.n2d(L.d2n(f.start_date) + 13))}. Regular rent: {fmt(+f.weekly_rate * 2)} per fortnight. A shorter stay ends at checkout.</p>}
         <label>First rent charge (optional override)</label>
         <input type="number" min="0" step="0.01" inputMode="decimal" value={f.first_charge_amount} onChange={set('first_charge_amount')} placeholder="Leave blank to calculate from weekly rent" />
-        <small className="muted">Overrides the first charge only. Later rent follows the selected cycle. Record money received separately in Rent.</small>
+        <small className="muted">Overrides the first charge only. Later rent follows the selected cycle. Record money received in the tenant account.</small>
       </>}
       {prop1 && prop1.days > 0 && (
         <p className="muted">Part period: {prop1.days} day(s) to {nice(prop1.nextCycle)} = {fmt(prop1.exact)}, proposed <b>{fmt(prop1.proposed)}</b>.{' '}
@@ -769,8 +798,8 @@ function PersonForm({ person, db, done }) {
       <input type="url" value={f.document_url || ''} onChange={(e) => setF({ ...f, document_url: e.target.value })} placeholder="https://... or document link" />
       <label>Document notes</label>
       <textarea rows="3" value={f.document_notes || ''} onChange={(e) => setF({ ...f, document_notes: e.target.value })} placeholder="Resident document notes or reference details" />
-      <small className="muted">Record each bond receipt, refund or retained amount in Rent so the cash and bond liability reconcile.</small>
-      {person.id && <p className="muted">Bond recorded: {fmt(person.bond_paid || 0)} received · {fmt(person.bond_held || 0)} still held. Record refunds or retained amounts in Rent.</p>}
+      <small className="muted">Record each bond receipt, refund or retained amount in the tenant account so the cash and bond liability reconcile.</small>
+      {person.id && <p className="muted">Bond recorded: {fmt(person.bond_paid || 0)} received · {fmt(person.bond_held || 0)} still held. Record refunds or retained amounts in the tenant account.</p>}
       {checkInError && <p className="err">{checkInError}</p>}
       <button className="primary" disabled={busy || Boolean(checkInError)}>{busy ? 'Saving…' : person.id ? 'Save resident details' : 'Confirm check in'}</button>
       <button type="button" className="small" onClick={done}>Cancel</button>
@@ -779,84 +808,6 @@ function PersonForm({ person, db, done }) {
 }
 
 /* ---------------- Rent ---------------- */
-function Rent({ db, d, today, payFor, reload }) {
-  const navigate = useNavigate();
-  const people = [...d.people].sort((a, b) => a.name.localeCompare(b.name));
-  const [pid, setPid] = useState(payFor || '');
-  const person = d.people.find((p) => p.id === pid);
-  const [amount, setAmount] = useState(person?.owed ? person.owed : '');
-  const [kind, setKind] = useState('rent');
-  const [method, setMethod] = useState('cash');
-  const [by, setBy] = useState(getLocalActor() || localStorage.getItem('receivedBy') || TEAM[0]);
-  const [date, setDate] = useState(today);
-  const [note, setNote] = useState('');
-  const [editingId, setEditingId] = useState(null);
-  const [receipt, setReceipt] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [paymentPage, setPaymentPage] = useState(0);
-  const paymentPageSize = 25;
-  const sortedPayments = [...db.payments].sort((a, b) => ((b.date || '') + (b.created_at || '')).localeCompare((a.date || '') + (a.created_at || '')));
-  const paymentPages = Math.max(1, Math.ceil(sortedPayments.length / paymentPageSize));
-  const currentPaymentPage = Math.min(paymentPage, paymentPages - 1);
-  const recent = sortedPayments.slice(currentPaymentPage * paymentPageSize, (currentPaymentPage + 1) * paymentPageSize);
-  const fortnightStart = L.n2d(L.d2n(today) - 13);
-  const rentReceivedFortnight = sum(db.payments.filter((p) => (!p.kind || p.kind === 'rent') && p.date >= fortnightStart && p.date <= today), (p) => p.amount);
-  const originalPayment = db.payments.find((p) => p.id === editingId);
-  const availableBond = person ? person.bond_held + (['bond_refund','bond_deducted'].includes(originalPayment?.kind) && originalPayment.person_id === person.id ? +originalPayment.amount : 0) : 0;
-  const paymentError = ['bond_refund','bond_deducted'].includes(kind) && +amount > availableBond ? `This exceeds the recorded bond balance (${fmt(availableBond)} available).` : '';
-  const paymentPeople = people.filter((p) => p.id === pid || (kind === 'rent' ? L.isActive(p, today) || p.owed > 0 : kind === 'bond' ? L.isActive(p, today) || p.bond_due > 0 : p.bond_held > 0));
-
-  return (
-    <>
-      <div className="hero rent-summary"><small>Rent collected in the last 14 days</small><b>{fmt(rentReceivedFortnight)}</b><small>Bonds are recorded separately and excluded.</small></div>
-      <form onSubmit={async (e) => {
-        e.preventDefault();
-        if (!person || !(+amount > 0) || paymentError) return;
-        setBusy(true);
-        const row = { person_id: person.id, property_id: person.property_id, date, amount: L.money(amount), method, received_by: by, kind, note: nn(note) };
-        if (!editingId && findPossibleDuplicatePayment(db.payments, row, null) && !window.confirm('A payment with the same resident, date, amount and method already exists. Record another payment anyway?')) { setBusy(false); return; }
-        const possibleDuplicate = !editingId && findPossibleDuplicatePayment(db.payments, row, editingId);
-        if (possibleDuplicate && !window.confirm('A matching payment already exists for this resident, date, amount and method. Record another payment anyway?')) { setBusy(false); return; }
-        const ok = await save('payments', row, editingId, `${editingId ? 'updated' : 'recorded'} ${kind.replace('_', ' ')} payment for ${person.name} (${fmt(amount)})`);
-        setBusy(false);
-        if (ok) {
-          localStorage.setItem('receivedBy', by);
-          if (!editingId) setReceipt({ ...row, name: person.name });
-          setEditingId(null); setKind('rent'); setNote(''); setPid(''); setAmount('');
-          reload();
-        }
-      }}>
-        <h1>{editingId ? 'Edit payment' : 'Record payment'}</h1>
-        <label>Transaction type</label><div className="seg payment-types">{[['rent','Rent'],['bond','Bond received'],['bond_refund','Bond refunded'],['bond_deducted','Bond retained']].map(([key, label]) => <button type="button" key={key} className={kind === key ? 'on' : ''} onClick={() => { setKind(key); if (key === 'bond_deducted') setMethod('adjustment'); else if (method === 'adjustment') setMethod('cash'); if (person) setAmount(String(key === 'rent' ? person.owed : key === 'bond' ? person.bond_due : person.bond_held)); }}>{label}</button>)}</div>
-        <label>Resident</label>
-        <select value={pid} onChange={(e) => { setPid(e.target.value); const p = d.people.find((x) => x.id === e.target.value); setAmount(p ? String(kind === 'rent' ? p.owed : kind === 'bond' ? p.bond_due : p.bond_held) : ''); setReceipt(null); }} required>
-          <option value="">Choose…</option>
-          {paymentPeople.map((p) => <option key={p.id} value={p.id}>{p.name} — {d.props[p.property_id]?.name} — {tenantReference(p)}{kind === 'rent' && p.owed > 0 ? ` (owes ${fmt(p.owed)})` : kind === 'bond' ? ` (bond due ${fmt(p.bond_due)})` : ''}</option>)}
-        </select>
-        <label>Amount</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-        {kind === 'bond_deducted' ? <p className="muted">This settles part of the bond liability; it is not a cash receipt or operating income.</p> : <><label>Method</label>
-        <div className="seg">{['cash', 'transfer'].map((m) => <button type="button" key={m} className={method === m ? 'on' : ''} onClick={() => setMethod(m)}>{m}</button>)}</div></>}
-        <label>{kind === 'bond_deducted' ? 'Handled by' : 'Received by'}</label>
-        <div className="seg">{TEAM.map((t) => <button type="button" key={t} className={by === t ? 'on' : ''} onClick={() => setBy(t)}>{t}</button>)}</div>
-        <label>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-        <label>Note</label><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional reference" />
-        {paymentError && <p className="err">{paymentError}</p>}
-        <button className="primary" disabled={busy || Boolean(paymentError)}>{busy ? 'Saving…' : editingId ? 'Save payment changes' : 'Record payment'}</button>
-        {editingId && <button type="button" className="small" onClick={() => { setEditingId(null); setKind('rent'); setPid(''); setAmount(''); setNote(''); }}>Cancel edit</button>}
-      </form>
-      {receipt && <div className="receipt"><b>Receipt</b><br />{receipt.name}: {receipt.kind === 'bond' ? 'bond received' : receipt.kind === 'bond_refund' ? 'bond refunded' : receipt.kind === 'bond_deducted' ? 'bond retained' : 'rent received'} {fmt(receipt.amount)} on {nice(receipt.date)}{receipt.method !== 'adjustment' ? ` by ${receipt.method}` : ''}, handled by {receipt.received_by}.</div>}
-      <h2>Payment history</h2>
-      <p className="muted">Showing {recent.length} of {sortedPayments.length} transactions.</p>
-      {recent.map((p) => {
-        const who = d.people.find((x) => x.id === p.person_id);
-        const label = { rent: 'Rent', bond: 'Bond received', bond_refund: 'Bond refunded', bond_deducted: 'Bond retained' }[p.kind || 'rent'];
-        return <div className="row" key={p.id}><span>{who ? <button type="button" className="link" onClick={() => navigate(`/rooms/${who.id}`)}>{who.name}</button> : 'Tenant unavailable'}{who && <small className="tenant-reference">Tenant ID {tenantReference(who)}</small>}<small>{label} · {nice(p.date)} · {p.method} · {p.received_by}{p.note ? ` · ${p.note}` : ''}</small></span><span><b>{fmt(p.amount)}</b><button type="button" className="small" onClick={() => { setEditingId(p.id); setPid(p.person_id); setAmount(String(p.amount)); setKind(p.kind || 'rent'); setMethod(p.method || 'cash'); setBy(p.received_by || TEAM[0]); setDate(p.date); setNote(p.note || ''); setReceipt(null); window.scrollTo(0,0); }}>Edit</button><button type="button" className="small" onClick={async () => { if (window.prompt('Deleting a financial transaction changes resident balances. Type DELETE to confirm:') === 'DELETE') { const ok = await deleteRow('payments', p.id); if (ok) reload(); if (editingId === p.id) setEditingId(null); } }}>Delete</button></span></div>;
-      })}
-
-      <nav aria-label="Payment history pages" className="between"><button type="button" className="small" disabled={currentPaymentPage===0} onClick={()=>setPaymentPage(p=>Math.max(0,p-1))}>Previous</button><span>Page {currentPaymentPage+1} of {paymentPages}</span><button type="button" className="small" disabled={currentPaymentPage>=paymentPages-1} onClick={()=>setPaymentPage(p=>Math.min(paymentPages-1,p+1))}>Next</button></nav>    </>
-  );
-}
-
 /* ---------------- Expenses ---------------- */
 function Expenses({ db, d, today, reload, payFor }) {
   const [mode, setMode] = useState('list');
@@ -997,8 +948,10 @@ function ElecBill({ db, d, today, done }) {
 }
 
 /* ---------------- Reports ---------------- */
-function Reports({ db, today }) {
-  return <FinancialReports db={db} today={today} />;
+function Reports(props) {
+  const location=useLocation();const navigate=useNavigate();
+  const transactions=new URLSearchParams(location.search).get('view')==='transactions';
+  return <><div className="seg" aria-label="Report view"><button className={!transactions?'on':''} onClick={()=>navigate('/reports')}>Financial reports</button><button className={transactions?'on':''} onClick={()=>navigate('/reports?view=transactions')}>Transactions</button></div>{transactions?<AccountTransactions {...props}/>:<FinancialReports db={props.db} today={props.today}/>}</>;
 }
 
 /* ---------------- Activity ---------------- */
@@ -1036,7 +989,7 @@ function Activity({ db, session, reload }) {
       {isLocalMode && <div className="card"><h2>Local data backup</h2><p className="muted">Keep a copy of this browser ledger somewhere safe. A backup contains resident contact details and financial records. Restoring replaces the current browser data.</p><div className="backup-actions"><button type="button" className="small" onClick={backup}>Download backup</button><label className="small">Restore backup<input type="file" accept="application/json,.json" onChange={restore} /></label></div></div>}
       <ReservationActivity />
       {db.audit.map((a) => (
-        <div className="card" key={a.id}><small className="muted">{new Date(a.at).toLocaleString('en-AU')} · {a.by}</small><div style={{ fontSize: 13, wordBreak: 'break-word' }}>{a.action}</div></div>
+        <div className="card" key={a.id}><small className="muted">{new Date(a.at).toLocaleString('en-AU')} · {a.by}</small><div style={{ fontSize: 13, wordBreak: 'break-word' }}>{a.action}</div>{a.reason && <p>Reason: {a.reason}</p>}{(a.before_values || a.after_values) && <details><summary>Before & after</summary><div className="audit-values"><pre>{JSON.stringify(a.before_values,null,2)}</pre><pre>{JSON.stringify(a.after_values,null,2)}</pre></div></details>}</div>
       ))}
     </>
   );

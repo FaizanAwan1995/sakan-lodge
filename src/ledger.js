@@ -52,7 +52,6 @@ export function rentCharges(person, property, asOf) {
   }
 
   // Long stay — rules 3.2 / 3.3. Charges begin the day after paid_up_to, else on move-in.
-  const w = +person.weekly_rate || 0;
   let s = person.paid_up_to ? d2n(person.paid_up_to) + 1 : d2n(person.start_date);
   // Never create charges before the actual move-in date, even if `paid_up_to`
   // was imported with an earlier date.
@@ -60,7 +59,9 @@ export function rentCharges(person, property, asOf) {
   const end = person.end_date ? d2n(person.end_date) : Infinity; // end_date = move-out day, not charged
   let first = true;
   while (s < end && s <= lim) {
-    const nc = nextCycleOnOrAfter(person.rent_cycle_anchor || property.lease_anchor, s);
+    const terms = billingTermsAt(person, n2d(s));
+    const w = +terms.weekly_rate || 0;
+    const nc = nextCycleOnOrAfter(terms.rent_cycle_anchor || property.lease_anchor, s);
     let pe, amt, note;
     if (nc > s) {
       pe = Math.min(nc, end);
@@ -210,7 +211,9 @@ export function defaultRentForPeriod(person, property, start, end) {
   }
 
   if (person.stay_type === 'long') {
-    return money((+person.weekly_rate || 0) * ((activeEndExclusive - activeStart) / 7));
+    let total = 0;
+    for (let day=activeStart;day<activeEndExclusive;day++) total += (+billingTermsAt(person,n2d(day)).weekly_rate || 0)/7;
+    return money(total);
   }
 
   return 0;
@@ -285,4 +288,20 @@ export function derive(db, asOf) {
   });
   const expenses = operatingExpenses(properties, expensesRows, asOf);
   return { props, people, expenses };
+}
+
+/** Scheduled terms only affect cycles starting on/after their effective date. */
+export function billingTermsAt(person, day) {
+  const entries = [...(person.billing_schedule || [])].filter(x => x.effective_from <= day).sort((a,b) => b.effective_from.localeCompare(a.effective_from));
+  return entries[0] || person;
+}
+
+export function accountSummary(person, property, today) {
+  const yesterday = n2d(d2n(today)-1);
+  const paid = person.payments.filter(p => (!p.kind || p.kind === 'rent') && p.date <= today).reduce((n,p)=>n + +p.amount,0);
+  const credits = -person.charges.filter(c=>c.due_date<=today && +c.amount<0).reduce((n,c)=>n + +c.amount,0);
+  const oldCharges = person.charges.filter(c=>c.due_date<=yesterday && +c.amount>=0).reduce((n,c)=>n + +c.amount,0);
+  const overdue = money(Math.min(person.owed,Math.max(0,oldCharges-paid-credits)));
+  const future = rentCharges(person,property,n2d(d2n(today)+400)).find(c=>c.due_date>today);
+  return {overdue, dueToday:money(Math.max(0,person.owed-overdue)), next:future};
 }

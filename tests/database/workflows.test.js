@@ -1,3 +1,4 @@
+import {verifyTenantAccount} from './tenant-account-checks.js';
 import {verifyRentCycle} from './rent-cycle-checks.js';
 import {verifyTenantIdentity} from './tenant-identity-checks.js';
 import {verifyAdminActions} from './admin-actions-checks.js';
@@ -812,5 +813,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyTenantIdentity({t,sql,rpc,STAFF,OTHER,PROP});
   await db.exec(await read('../../supabase/migrations/20261021233015_resident_checkin_rent_cycle.sql'));
   await verifyRentCycle({t,sql,rpc,STAFF,OTHER});
+  await verifyTenantAccount({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261023080438_tenant_account_workflow.sql'))});
   await db.close();
 });

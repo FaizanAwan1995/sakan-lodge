@@ -258,3 +258,25 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
  .property-group .card { padding:12px; }
  .row.resident-row { padding:14px 12px; }
 }
+
+/* Tenant account actions share one consistent, compact mobile layout. */
+.tenant-action-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #d9e2dc;min-width:0}
+.tenant-action-row>.tenant-account-link,.tenant-action-row>.tenant-row{flex:1;min-width:0;border:0;background:transparent;padding:8px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0}
+.tenant-action-row small{display:block;color:#60746a;font-size:.85rem;margin-top:4px}
+.tenant-action-row>.small{flex:none;white-space:nowrap}
+.account-dialog{width:min(580px,calc(100% - 24px));max-height:calc(100dvh - 32px);border:1px solid #c5d4ca;border-radius:18px;padding:24px;color:#183e33;box-shadow:0 18px 70px #0004;overflow-y:auto}
+.account-dialog::backdrop{background:#102a23aa}
+.account-dialog h2{margin:0;font-size:1.5rem}
+.account-dialog form{max-width:none;margin:0}
+.account-dialog fieldset{border:0;padding:0;margin:0;min-width:0}
+.account-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end}
+.account-form-grid label,.account-dialog label{min-width:0;display:block}
+.account-form-grid input,.account-form-grid select{width:100%;min-width:0}
+.account-preview{background:#eef4ef;border-radius:10px;padding:14px}
+.account-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
+.account-metrics .card{margin:0}.account-metrics strong{display:block;font-size:1.6rem;margin:8px 0}
+.account-actions{display:flex;gap:12px;margin:18px 0;flex-wrap:wrap}
+.account-transaction strong,.account-transaction small{display:block}.account-transaction>div{min-width:0;overflow-wrap:anywhere}
+.audit-values{display:grid;grid-template-columns:1fr 1fr;gap:10px}.audit-values pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;min-width:0}
+.home-tenant-search{margin-top:0}.tenant-account .seg{margin:12px 0}
+@media(max-width:600px){.account-metrics{grid-template-columns:1fr 1fr}.account-metrics .card:first-child{grid-column:1/-1}.tenant-action-row{flex-wrap:wrap;gap:4px}.tenant-action-row>.tenant-account-link,.tenant-action-row>.tenant-row{flex-basis:100%}.tenant-action-row>.small{margin-left:8px;font-size:.85rem;min-height:40px;padding:8px 12px}.account-dialog{padding:18px}.account-dialog h2{font-size:1.3rem}.account-form-grid{grid-template-columns:1fr 1fr}.audit-values{grid-template-columns:1fr}.resident-row .resident-name{font-size:1.1rem}}
