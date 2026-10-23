@@ -9,3 +9,6 @@
 .site-footer{padding-bottom:130px}
 @media(max-width:680px){.floating-contact{right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));gap:6px}.floating-contact>a,.floating-contact>button{min-height:44px;max-width:min(205px,calc(100vw - 20px));font-size:.75rem;padding:10px 13px}.site-footer{padding-bottom:145px}}
 @media(prefers-reduced-motion:reduce){.floating-contact>a,.floating-contact>button{transition:none}}
+
+.floating-whatsapp{background:#e8f8ed;color:#125b31;border:1px solid #a7d8b6}
+@media(max-width:680px){.floating-contact{gap:5px}.floating-contact>a,.floating-contact>button{padding:9px 12px}.site-footer{padding-bottom:180px}}
