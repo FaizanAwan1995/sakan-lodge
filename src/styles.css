@@ -269,7 +269,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .account-dialog h2{margin:0;font-size:1.5rem}
 .account-dialog form{max-width:none;margin:0}
 .account-dialog fieldset{border:0;padding:0;margin:0;min-width:0}
-.account-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.account-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end}
 .account-form-grid label,.account-dialog label{min-width:0;display:block}
 .account-form-grid input,.account-form-grid select{width:100%;min-width:0}
 .account-preview{background:#eef4ef;border-radius:10px;padding:14px}
