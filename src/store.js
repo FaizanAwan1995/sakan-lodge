@@ -378,15 +378,20 @@ export async function save(table, row, id, action) {
 
 
 /** All tenant edits target the immutable people.id, with a stale-record check. */
-export async function updateTenantDetails(expected, changes) {
+export async function updateTenantDetails(expected, changes, reason = '') {
   try {
     if (isLocalMode) {
       const db = readLocalDb();
       const current = db.people.find(p => p.id === expected.id);
       if (!current || JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('This tenant changed. Return to the account and review the latest details before editing.');
-      return await save('people', changes, expected.id);
+      if (reason.trim().length < 5) throw new Error('Enter a reason for this change.');
+      Object.assign(current, changes);
+      auditLocal(db, `updated tenant ${current.name}`);
+      Object.assign(db.audit[0], {tenant_id:current.id, before_values:expected, after_values:{...current}, reason});
+      writeLocalDb(db);
+      return true;
     }
-    const { error } = await supabase.rpc('update_tenant_details', {p_id:expected.id, p_expected:expected, p_changes:changes});
+    const { error } = await supabase.rpc('amend_tenant_details', {p_id:expected.id, p_expected:expected, p_changes:changes, p_reason:reason});
     if (error) throw error;
     return true;
   } catch (error) {
@@ -409,4 +414,45 @@ export async function removeTestTenant(id, reason) {
   }
   const { error } = await supabase.rpc('remove_test_tenant', {p_id:id, p_reason:reason});
   if (error) throw error;
+}
+
+/** Atomic, retry-safe account write. Request IDs are retained by the form on errors. */
+export async function accountTransaction(request, personId, data, expected = null, reason = null) {
+  if (!isLocalMode) {
+    const result = await supabase.rpc('account_transaction', {p_request:request,p_person:personId,p_data:data,p_expected:expected,p_reason:reason});
+    if (result.error) throw result.error;
+    return result.data;
+  }
+  const db = readLocalDb();
+  db.account_requests ||= {};
+  const payload = JSON.stringify({personId,data,expected,reason});
+  if (db.account_requests[request]) {
+    if (db.account_requests[request].payload !== payload) throw Error('Request already used with different details.');
+    return db.account_requests[request].result;
+  }
+  const person = db.people.find(p=>p.id===personId);
+  if (!person || !(+data.amount>0)) throw Error('Choose a tenant and a positive amount.');
+  const table = data.kind === 'charge' ? 'charges' : 'payments';
+  const old = expected && db[table].find(p=>p.id===expected.id);
+  if (expected && JSON.stringify(old)!==JSON.stringify(expected)) throw Error('Payment changed. Refresh before correcting.');
+  const row = table === 'charges' ? {id:newId(),person_id:personId,kind:'adjustment',due_date:data.date,amount:data.amount,note:reason} : {...data,id:old?.id || newId(),person_id:personId,property_id:old?.property_id || person.property_id,created_at:old?.created_at || new Date().toISOString()};
+  if (old) Object.assign(old,row);else db[table].push(row);
+  auditLocal(db, `${old ? 'corrected' : 'recorded'} ${data.kind} for ${person.name}`);
+  Object.assign(db.audit[0],{tenant_id:personId,before_values:expected,after_values:row,reason});
+  db.account_requests[request]={payload,result:row};
+  writeLocalDb(db);
+  return row;
+}
+export async function scheduleTenantBilling(expected, effective, weekly, anchor, reason) {
+  if (!isLocalMode) {
+    const result=await supabase.rpc('schedule_tenant_billing',{p_id:expected.id,p_expected:expected,p_effective:effective,p_weekly:+weekly,p_anchor:anchor,p_reason:reason});
+    if(result.error) throw result.error;
+    return result.data;
+  }
+  const db=readLocalDb();const p=db.people.find(p=>p.id===expected.id);
+  if(JSON.stringify(p)!==JSON.stringify(expected)) throw Error('Tenant changed. Refresh before saving.');
+  p.billing_schedule=[...(p.billing_schedule||[]),{effective_from:effective,weekly_rate:+weekly,rent_cycle_anchor:anchor,reason}];
+  auditLocal(db,`scheduled rent change for ${p.name}`);
+  Object.assign(db.audit[0],{tenant_id:p.id,before_values:expected,after_values:{...p},reason});
+  writeLocalDb(db);
 }
