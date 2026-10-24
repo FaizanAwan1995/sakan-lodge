@@ -175,7 +175,7 @@ function amenities(list) {
   );
 }
 const included =
-  "<p>Electricity, water, gas and internet included without additional charges.</p>";
+  '<section aria-label="Bills, appliances and household arrangements"><p>Electricity, water, gas and internet included without additional charges.</p><p>Heaters are provided, and air-conditioners are available on request. Contact our team to arrange heating or cooling for your stay. Other appliances with high electricity consumption require prior approval from SAKAN Lodge administrators.</p><details><summary>Household arrangements and halal suitability</summary><p>Most of our properties are men-only. Women applying individually and couples can also enquire. Placement depends on a suitable property, household arrangement, room capacity and availability; our team will confirm these details with you before a stay is agreed.</p><p>We offer a halal-suitable living environment. Please discuss your household preferences with our team so we can confirm a suitable placement for your stay.</p></details></section>';
 function linkCard(title, path, desc) {
   return (
     '<article class="catalog-card"><h2><a href="' +
