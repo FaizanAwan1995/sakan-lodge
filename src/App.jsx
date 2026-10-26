@@ -615,16 +615,17 @@ const nn = (v) => (v === '' || v === undefined ? null : v);
 const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : +v);
 
 function HouseForm({ p, done }) {
-  const [f, setF] = useState({ name: p.name ?? '', lease_rent: p.lease_rent ?? '', lease_anchor: p.lease_anchor ?? '', lease_start: p.lease_start ?? '', lease_end: p.lease_end ?? '', lease_first_amount: p.lease_first_amount ?? '', electricity_cap: p.electricity_cap ?? 800, bills_amount: p.bills_amount ?? 0, bills_frequency: p.bills_frequency ?? 'monthly' });
+  const [f, setF] = useState({ name: p.name ?? '', lease_rent: p.lease_rent ?? '', lease_anchor: p.lease_anchor ?? '', lease_start: p.lease_start ?? '', lease_end: p.lease_end ?? '', lease_first_amount: p.lease_first_amount ?? '', electricity_cap: p.electricity_cap ?? 800, bills_amount: p.bills_amount ?? 0, bills_frequency: p.bills_frequency ?? 'monthly', invoice_address: p.invoice_address ?? '' });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
-      const ok = await save('properties', { name: f.name.trim(), lease_rent: +f.lease_rent, lease_anchor: f.lease_anchor, lease_start: nn(f.lease_start), lease_end: nn(f.lease_end), lease_first_amount: numOrNull(f.lease_first_amount), electricity_cap: +f.electricity_cap, bills_amount: +f.bills_amount || 0, bills_frequency: f.bills_frequency || 'monthly' }, p.id);
+      const ok = await save('properties', { name: f.name.trim(), lease_rent: +f.lease_rent, lease_anchor: f.lease_anchor, lease_start: nn(f.lease_start), lease_end: nn(f.lease_end), lease_first_amount: numOrNull(f.lease_first_amount), electricity_cap: +f.electricity_cap, bills_amount: +f.bills_amount || 0, bills_frequency: f.bills_frequency || 'monthly', invoice_address: f.invoice_address.trim() || null }, p.id);
       if (ok) done();
     }}>
       <h1>{p.id ? `${p.name} settings` : 'Add property'}</h1>
       <label>Name</label><input value={f.name} onChange={set('name')} required />
+      <label>Private address for tenant invoices (optional override)</label><input maxLength={200} value={f.invoice_address} onChange={set('invoice_address')} placeholder="Uses verified contract address when blank"/><small className="muted">Used on private tenant invoices only. This does not publish the street address on room listings.</small>
       <label>Landlord rent per fortnight</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.lease_rent} onChange={set('lease_rent')} required />
       <label>A date landlord rent falls due (cycle runs every 14 days from it)</label><input type="date" value={f.lease_anchor} onChange={set('lease_anchor')} required />
       <label>{p.id ? 'Lease start (blank = before 1 Jul 2026)' : 'Lease start'}</label><input type="date" value={f.lease_start} onChange={set('lease_start')} required={!p.id} />

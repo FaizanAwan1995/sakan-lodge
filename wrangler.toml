@@ -1,5 +1,6 @@
 name = "sakan-lodge"
 main = "src/worker.js"
+keep_vars = true
 compatibility_date = "2026-10-13"
 
 routes = [
@@ -35,3 +36,12 @@ id = "0bd63cd09f324424970ab520394c20f0"
 [[previews.durable_objects.bindings]]
 name = "GMAIL_OAUTH_STATE"
 class_name = "GmailOAuthState"
+
+[vars]
+RENT_INVOICE_EMAILS_ENABLED = "true"
+
+[triggers]
+crons = ["* * * * *"]
+
+[previews.vars]
+RENT_INVOICE_EMAILS_ENABLED = "false"

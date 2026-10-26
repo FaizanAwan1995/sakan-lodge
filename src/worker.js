@@ -1,3 +1,4 @@
+import { rentInvoiceApi, processRentInvoices } from './rent-invoice-api.js';
 import { reviewsApi, reviewsEnabled } from './reviews-api.js';
 import { renderReviewSection } from './reviews.js';
 import { databaseRpc } from './public-site.js';
@@ -26,6 +27,7 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    if(pathname==='/api/rent-invoices/pdf')return rentInvoiceApi(request,env);
     if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);
     if(pathname==='/api/reservations/email')return reservationEmail(request,env);
@@ -124,6 +126,7 @@ async function handleRequest(request, env) {
 }
 
 export default {
+  async scheduled(controller,env,ctx){ctx.waitUntil(processRentInvoices(env).catch(()=>{console.error('Invoice queue processing unavailable; recorded payments remain saved.');}));},
   async fetch(request, env) {
     let response;
     try { response = await handleRequest(request, env); } catch { response = new Response('Service temporarily unavailable', {status:503,headers:{'cache-control':'no-store'}}); }
