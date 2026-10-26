@@ -144,7 +144,7 @@ export function balance(charges, payments, asOf) {
   const charged = money(due.reduce((s, c) => s + +c.amount, 0));
   // Only receipts taken by the report date count toward the balance. Future-dated
   // entries must not hide today's arrears when someone is entering payments in advance.
-  const received = payments.filter((p) => (!p.kind || p.kind === 'rent') && p.date && p.date <= asOf);
+  const received = payments.filter((p) => (!p.kind || ['rent','bond_applied'].includes(p.kind)) && p.date && p.date <= asOf);
   const paid = money(received.reduce((s, p) => s + +p.amount, 0));
   let rem = paid - due.filter(c => +c.amount < 0).reduce((s,c)=>s + +c.amount,0), oldest = null;
   for (const c of due.filter(c => +c.amount >= 0)) {
@@ -278,13 +278,14 @@ export function derive(db, asOf) {
   const people = peopleRows.map((p) => {
     const charges = [...openingCharge(p), ...rentCharges(p, props[p.property_id], asOf), ...chargesRows.filter((c) => c.person_id === p.id)];
     const payments = paymentsRows.filter((x) => x.person_id === p.id);
-    const bondTx = payments.filter((x) => ['bond', 'bond_refund', 'bond_deducted'].includes(x.kind) && x.date <= asOf);
+    const bondTx = payments.filter((x) => ['bond', 'bond_refund', 'bond_deducted', 'bond_applied'].includes(x.kind) && x.date <= asOf);
     const bondReceived = money(bondTx.filter((x) => x.kind === 'bond').reduce((s, x) => s + +x.amount, 0));
     const bondRefunded = money(bondTx.filter((x) => x.kind === 'bond_refund').reduce((s, x) => s + +x.amount, 0));
     const bondDeducted = money(bondTx.filter((x) => x.kind === 'bond_deducted').reduce((s, x) => s + +x.amount, 0));
-    const bondHeld = money(Math.max(0, bondReceived - bondRefunded - bondDeducted));
+    const bondApplied = money(bondTx.filter(x=>x.kind==='bond_applied').reduce((n,x)=>n + +x.amount,0));
+    const bondHeld = money(Math.max(0, bondReceived - bondRefunded - bondDeducted - bondApplied));
     const legacyBondDeclared = ['paid','held'].includes(p.bond_status) && bondReceived === 0 ? Math.max(0,+p.bond || 0) : 0;
-    return { ...p, charges, payments, bond_paid: bondReceived, bond_refunded: bondRefunded, bond_deducted: bondDeducted, bond_due: money(Math.max(0, (+p.bond || 0) - bondReceived)), bond_held: bondHeld, legacy_bond_declared: legacyBondDeclared, ...balance(charges, payments, asOf) };
+    return { ...p, charges, payments, bond_applied: bondApplied, bond_paid: bondReceived, bond_refunded: bondRefunded, bond_deducted: bondDeducted, bond_due: money(Math.max(0, (+p.bond || 0) - bondReceived)), bond_held: bondHeld, legacy_bond_declared: legacyBondDeclared, ...balance(charges, payments, asOf) };
   });
   const expenses = operatingExpenses(properties, expensesRows, asOf);
   return { props, people, expenses };
@@ -298,7 +299,7 @@ export function billingTermsAt(person, day) {
 
 export function accountSummary(person, property, today) {
   const yesterday = n2d(d2n(today)-1);
-  const paid = person.payments.filter(p => (!p.kind || p.kind === 'rent') && p.date <= today).reduce((n,p)=>n + +p.amount,0);
+  const paid = person.payments.filter(p => (!p.kind || ['rent','bond_applied'].includes(p.kind)) && p.date <= today).reduce((n,p)=>n + +p.amount,0);
   const credits = -person.charges.filter(c=>c.due_date<=today && +c.amount<0).reduce((n,c)=>n + +c.amount,0);
   const oldCharges = person.charges.filter(c=>c.due_date<=yesterday && +c.amount>=0).reduce((n,c)=>n + +c.amount,0);
   const overdue = money(Math.min(person.owed,Math.max(0,oldCharges-paid-credits)));

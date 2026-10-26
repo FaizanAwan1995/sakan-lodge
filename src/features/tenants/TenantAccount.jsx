@@ -1,3 +1,5 @@
+import StayHistory, { StaySummary } from './StayHistory.jsx';
+import BondSettlement from './BondSettlement.jsx';
 import AccountPayment from './AccountPayment.jsx';
 import AccountTransactions from './AccountTransactions.jsx';
 import BillingSchedule from './BillingSchedule.jsx';
@@ -13,6 +15,8 @@ import { fmt, nice } from '../../lib/formatters.js';
 export default function TenantAccount({ person, db, today, reload, onEdit, onSchedule, onPayment, onRemoved, backLabel = 'Rooms & residents' }) {
   const [tab,setTab]=useState('account');
   const [charge,setCharge]=useState(false);
+  const [settlement,setSettlement]=useState(false);
+  const [bondReceipt,setBondReceipt]=useState(false);
   const [copied,setCopied]=useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -63,7 +67,7 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
   return <section className="tenant-account">
     <button type="button" className="small" onClick={onRemoved}>← {backLabel}</button>
     <div className="between screen-heading"><div><h1>{person.name}</h1><p>{status} · {property?.name || 'Unassigned property'} · {room?.label || 'No room'}</p></div><button type="button" onClick={onEdit}>Edit details</button></div>
-    <div className="seg" aria-label="Tenant account sections">{['account','details','documents'].map(x=><button key={x} className={tab===x?'on':''} onClick={()=>setTab(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
+    <div className="seg" aria-label="Tenant account sections">{['account','details','history','documents'].map(x=><button key={x} className={tab===x?'on':''} onClick={()=>setTab(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
     {tab==='account' && <>
       <div className="account-metrics">
         <section className="card"><small>Outstanding</small><strong className={person.owed?'err':'ok'}>{fmt(person.owed)}</strong><small>{fmt(summary.overdue)} overdue · {fmt(summary.dueToday)} due today</small></section>
@@ -71,12 +75,16 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
         <section className="card"><small>Next rent charge</small><strong>{summary.next?fmt(summary.next.amount):'—'}</strong><small>{summary.next?nice(summary.next.due_date):'No further scheduled rent'}</small></section>
       </div>
       <div className="account-actions"><button className="primary" onClick={onPayment}>Record payment</button><button onClick={()=>setCharge(true)}>Add charge</button></div>
-      <section className="card"><h2>Bond — separate from rent</h2><p>{fmt(person.bond_paid)} received · {fmt(person.bond_held)} held · {fmt(person.bond)} expected</p>{person.legacy_bond_declared>0 && <p className="err">Marked paid in the legacy profile, but receipt history is missing. Reconcile the original receipt before recording it; no receipt has been created automatically.</p>}</section>
+      <section className="card"><h2>Bond — separate from rent</h2><p>{fmt(person.bond_paid)} received · {fmt(person.bond_held)} held · {fmt(person.bond)} expected</p>{person.legacy_bond_declared>0 && <p className="err">Marked paid in the legacy profile, but receipt history is missing. Reconcile the original receipt before recording it; no receipt has been created automatically.</p>}{person.legacy_bond_declared>0 && <button onClick={()=>setBondReceipt(true)}>Record original bond receipt</button>}<button type="button" disabled={!(person.bond_held>0)} onClick={()=>setSettlement(true)}>Settle bond — apply rent & refund</button><p className="muted">Uses recorded bond receipts. An allocation reduces rent owed without recording new cash income.</p></section>
+      <StaySummary person={person} today={today}/>
       <AccountTransactions db={db} d={{people:[person]}} personId={person.id} today={today} reload={reload}/>
       <details className="card"><summary>Statement — charges, payments and running balance</summary><TenantStatements db={db} today={today} fixedPersonId={person.id}/></details>
       <BillingSchedule key={JSON.stringify(raw.billing_schedule)} person={raw} property={property} today={today} reload={reload}/>
       {charge && <AccountPayment person={person} db={db} today={today} reload={reload} initialKind="charge" onClose={()=>setCharge(false)}/>}
     </>}
+    {tab==='history' && <StayHistory person={person} db={db} today={today}/>}
+    {settlement && <BondSettlement person={person} reload={reload} onClose={()=>setSettlement(false)}/>}
+    {bondReceipt && <AccountPayment person={person} db={db} today={today} reload={reload} initialKind="bond" onClose={()=>setBondReceipt(false)}/>}
     {tab==='details' && <>
       <section className="card"><h2>Stay & contact</h2><p>Arrives {nice(person.start_date)}{person.checked_out_at ? ` · Departed ${nice(occupancyEnd(person))}` : person.end_date ? ` · Departure ${nice(person.end_date)}` : ''}</p><p>{person.email || 'No email'}<br />{person.phone || 'No phone'}</p><p>{person.stay_type==='long'?`${fmt(terms.weekly_rate)}/week`:`${fmt(person.nightly_rate)}/night`}</p><p className="tenant-reference">Tenant ID <code>{tenantReference(person)}</code></p><button className="small" onClick={async()=>{try{await navigator.clipboard.writeText(person.id);setCopied(true);}catch{setError('Unable to copy. Select the tenant ID above.');}}}>{copied?'Copied':'Copy tenant ID'}</button></section>
     <section className="card"><h2>Manage tenancy</h2><p>Checkout frees the bed. Clearing dues records an admin credit. Neither action deletes the financial history.</p>

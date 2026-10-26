@@ -29,7 +29,7 @@ export default function TenantStatements({db,today,fixedPersonId}) {
       <button type="button" className="primary" onClick={exportCsv}>Download tenant statement (CSV)</button>
       <h3>Bond activity</h3>
       {statement.bondIssue && <p role="alert" className="err">Bond refunds or retained amounts exceed recorded receipts. Reconcile the bond transactions before relying on this balance.</p>}
-      {statement.bondTransactions.length ? <div style={{overflowX:'auto'}}><table><thead><tr><th>Date</th><th>Action</th><th>Amount</th><th>Bond balance</th></tr></thead><tbody>{statement.bondTransactions.map((r,i)=><tr key={i}><td>{r.date}</td><td>{{bond:'Received',bond_refund:'Refunded',bond_deducted:'Retained'}[r.kind]}</td><td>{r.amount.toFixed(2)}</td><td>{r.balance.toFixed(2)}</td></tr>)}</tbody></table></div> : <p className="muted">No bond receipts, refunds or retained amounts have been recorded.</p>}
+      {statement.bondTransactions.length ? <div style={{overflowX:'auto'}}><table><thead><tr><th>Date</th><th>Action</th><th>Amount</th><th>Bond balance</th></tr></thead><tbody>{statement.bondTransactions.map((r,i)=><tr key={i}><td>{r.date}</td><td>{{bond:'Received',bond_refund:'Refunded',bond_deducted:'Retained',bond_applied:'Applied to rent'}[r.kind]}</td><td>{r.amount.toFixed(2)}</td><td>{r.balance.toFixed(2)}</td></tr>)}</tbody></table></div> : <p className="muted">No bond receipts, refunds or retained amounts have been recorded.</p>}
     </>}
   </section>;
 }
