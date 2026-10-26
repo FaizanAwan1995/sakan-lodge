@@ -1,3 +1,4 @@
+import RentInvoices from './RentInvoices.jsx';
 import StayHistory, { StaySummary } from './StayHistory.jsx';
 import BondSettlement from './BondSettlement.jsx';
 import AccountPayment from './AccountPayment.jsx';
@@ -67,7 +68,7 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
   return <section className="tenant-account">
     <button type="button" className="small" onClick={onRemoved}>← {backLabel}</button>
     <div className="between screen-heading"><div><h1>{person.name}</h1><p>{status} · {property?.name || 'Unassigned property'} · {room?.label || 'No room'}</p></div><button type="button" onClick={onEdit}>Edit details</button></div>
-    <div className="seg" aria-label="Tenant account sections">{['account','details','history','documents'].map(x=><button key={x} className={tab===x?'on':''} onClick={()=>setTab(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
+    <div className="seg" aria-label="Tenant account sections">{['account','details','history','invoices','documents'].map(x=><button key={x} className={tab===x?'on':''} onClick={()=>setTab(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
     {tab==='account' && <>
       <div className="account-metrics">
         <section className="card"><small>Outstanding</small><strong className={person.owed?'err':'ok'}>{fmt(person.owed)}</strong><small>{fmt(summary.overdue)} overdue · {fmt(summary.dueToday)} due today</small></section>
@@ -82,6 +83,7 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
       <BillingSchedule key={JSON.stringify(raw.billing_schedule)} person={raw} property={property} today={today} reload={reload}/>
       {charge && <AccountPayment person={person} db={db} today={today} reload={reload} initialKind="charge" onClose={()=>setCharge(false)}/>}
     </>}
+    {tab==='invoices' && <RentInvoices person={person}/>}
     {tab==='history' && <StayHistory person={person} db={db} today={today}/>}
     {settlement && <BondSettlement person={person} reload={reload} onClose={()=>setSettlement(false)}/>}
     {bondReceipt && <AccountPayment person={person} db={db} today={today} reload={reload} initialKind="bond" onClose={()=>setBondReceipt(false)}/>}
