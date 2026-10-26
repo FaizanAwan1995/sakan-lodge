@@ -1,3 +1,4 @@
+import {STUDENT_PATH,STUDENT_TITLE,STUDENT_DESCRIPTION,studentAccommodationBody} from './student-accommodation.js';
 import { renderSuburbGuide } from "./suburb-guides.js";
 import {
   escapeHtml as h,
@@ -93,7 +94,7 @@ function shell(
   description,
   path,
   body,
-  { noindex = false, structured } = {},
+  { noindex = false, structured, image } = {},
 ) {
   const canonical = ORIGIN + path;
   const schema = structured
@@ -109,7 +110,7 @@ function shell(
     '"><link rel="canonical" href="' +
     h(canonical) +
     '">' +
-    (noindex ? '<meta name="robots" content="noindex,follow">' : "") +
+    (noindex ? '<meta name="robots" content="noindex,follow">' : '<meta name="robots" content="index,follow,max-image-preview:large">') +
     '<meta property="og:type" content="website"><meta property="og:title" content="' +
     h(title) +
     '"><meta property="og:description" content="' +
@@ -117,8 +118,9 @@ function shell(
     '"><meta property="og:url" content="' +
     h(canonical) +
     '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css">' +
+    '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/sakan-logo-circle-main.png')+'">' +
     schema +
-    '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
+    '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
     '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/contact-palette.js" defer></script><script src="/general-enquiry.js" defer></script></body></html>'
   );
@@ -145,7 +147,7 @@ function crumbs(parts) {
     "</nav>"
   );
 }
-function photos(list, title) {
+function photos(list, title, eager = false) {
   return (
     '<div class="catalog-photos">' +
     (Array.isArray(list) ? list : [])
@@ -158,7 +160,7 @@ function photos(list, title) {
           h(title) +
           " — photo " +
           (i + 1) +
-          '" loading="lazy" width="640" height="420">',
+          '" loading="'+(eager&&i===0?'eager':'lazy')+'"'+(eager&&i===0?' fetchpriority="high"':'')+' width="640" height="420">',
       )
       .join("") +
     "</div>"
@@ -283,7 +285,7 @@ export function renderListing(route, cat, env = {}) {
               h(location) +
               "</a>.</p>") +
           "</section>" +
-          renderSuburbGuide(route.suburb),
+          renderSuburbGuide(route.suburb) + '<p><a href="/student-accommodation-adelaide/">Student accommodation guide: compare room costs, suburbs and move-in steps</a></p>',
       ),
     );
   }
@@ -369,7 +371,7 @@ export function renderListing(route, cat, env = {}) {
     property: property.slug,
     room: room.slug,
   });
-  const title = room.title + " — " + location;
+  const title = room.title + " — " + location + ", Adelaide | " + (room.capacity>1?"Shared room":"Private room");
   return html(
     shell(
       title,
@@ -391,7 +393,7 @@ export function renderListing(route, cat, env = {}) {
         "</h1><p>" +
         h(room.description) +
         "</p>" +
-        photos(room.photos, room.title) +
+        photos(room.photos, room.title, true) +
         '<p class="catalog-rate">' +
         (room.capacity > 1
           ? "Shared room · $185 per person/week · long-term only"
@@ -401,8 +403,10 @@ export function renderListing(route, cat, env = {}) {
         amenities(room.amenities) +
         roomForm(room, env),
       {
+        image: room.photos?.[0],
         structured: {
           "@context": "https://schema.org",
+          "@graph": [{"@type":"Accommodation","@id":ORIGIN+roomUrl+'#room',"url":ORIGIN+roomUrl,"name":room.title,"description":room.description,"image":(room.photos||[]).filter(x=>typeof x==='string'&&/^https:\/\//.test(x)),"address":{"@type":"PostalAddress","addressLocality":location,"addressRegion":"SA","addressCountry":"AU"},"occupancy":{"@type":"QuantitativeValue","maxValue":room.capacity},"containedInPlace":{"@type":"LodgingBusiness","name":property.name,"url":ORIGIN+propertyUrl}}, {
           "@type": "BreadcrumbList",
           itemListElement: [
             { name: "Home", item: ORIGIN + "/" },
@@ -410,7 +414,7 @@ export function renderListing(route, cat, env = {}) {
             { name: property.name, item: ORIGIN + propertyUrl },
             { name: room.title, item: ORIGIN + roomUrl },
           ].map((x, i) => ({ "@type": "ListItem", position: i + 1, ...x })),
-        },
+        }],},
       },
     ),
   );
@@ -418,6 +422,11 @@ export function renderListing(route, cat, env = {}) {
 export async function handlePublicSite(request, env) {
   const url = new URL(request.url),
     path = url.pathname;
+  if(path==='/student-accommodation-adelaide'||path===STUDENT_PATH){
+    if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
+    if(path!==STUDENT_PATH)return new Response(null,{status:308,headers:{location:ORIGIN+STUDENT_PATH+url.search}});
+    return html(shell(STUDENT_TITLE,STUDENT_DESCRIPTION,STUDENT_PATH,studentAccommodationBody,{structured:{'@context':'https://schema.org','@graph':[{'@type':'WebPage','@id':ORIGIN+STUDENT_PATH+'#page',url:ORIGIN+STUDENT_PATH,name:STUDENT_TITLE,description:STUDENT_DESCRIPTION,inLanguage:'en-AU',publisher:{'@id':ORIGIN+'/#business'}},{'@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'Home',item:ORIGIN+'/'},{'@type':'ListItem',position:2,name:'Student accommodation',item:ORIGIN+STUDENT_PATH}]}]}}));
+  }
   if (path === "/api/availability") {
     if (request.method !== "GET")
       return json({ error: "Method not allowed" }, 405);
@@ -522,21 +531,25 @@ export async function handlePublicSite(request, env) {
     if (path === "/sitemap.xml") {
       const urls = [
         "/",
+        STUDENT_PATH,
         "/privacy",
         "/terms",
         ...LOCATION_SLUGS.map((suburb) => publicPath({ suburb })),
       ];
+      const imageMap=new Map([['/',[ORIGIN+'/room-photos/shared-room-hero-balanced.webp']]]);
       for (const p of cat.properties) {
         const suburb = Object.keys(names).find((k) => names[k] === p.suburb);
         if (!suburb) continue;
         urls.push(publicPath({ suburb, property: p.slug }));
-        for (const r of cat.rooms.filter((r) => r.property_id === p.id))
-          urls.push(publicPath({ suburb, property: p.slug, room: r.slug }));
+        for (const r of cat.rooms.filter((r) => r.property_id === p.id)){
+          const roomPath=publicPath({ suburb, property: p.slug, room: r.slug });
+          urls.push(roomPath);imageMap.set(roomPath,(r.photos||[]).filter(x=>typeof x==='string'&&/^https:\/\/[^\s<>]+$/.test(x)).slice(0,20));
+        }
       }
       return new Response(
-        '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+        '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' +
           urls
-            .map((p) => "<url><loc>" + h(ORIGIN + p) + "</loc></url>")
+            .map((p) => "<url><loc>" + h(ORIGIN + p) + "</loc>"+(imageMap.get(p)||[]).map(image=>'<image:image><image:loc>'+h(image)+'</image:loc></image:image>').join('')+"</url>")
             .join("") +
           "</urlset>",
         {

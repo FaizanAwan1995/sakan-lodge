@@ -183,3 +183,5 @@ textarea:focus-visible {
   line-height: 1.55;
   margin-bottom: 0;
 }
+
+.student-table-wrap{overflow-x:auto;margin:20px 0}.student-table-wrap table{width:100%;border-collapse:collapse}.student-table-wrap th,.student-table-wrap td{padding:12px;border:1px solid #c9d5cd;text-align:left}.student-table-wrap caption{text-align:left;margin-bottom:12px;font-weight:600}.student-table-wrap thead{background:#edf3ee}
