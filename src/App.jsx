@@ -754,6 +754,7 @@ function PersonForm({ person, db, done }) {
       if (ok) done();
     }}>
       <h1>{person.id ? person.name : 'New resident'}</h1>{person.id && <p className="tenant-reference">Tenant ID <code>{tenantReference(person)}</code></p>}
+      {person.id && <><p className="muted">These are corrections to stored details. For a new rate or billing cycle, use Schedule a future rent change in the account. Corrections retain before-and-after values.</p><label>Reason for correction<input required minLength={5} value={reason} onChange={e=>setReason(e.target.value)} /></label></>}
       <label>Name</label><input value={f.name} onChange={set('name')} required />
       <label>Phone</label><input type="tel" value={f.phone} onChange={set('phone')} />
       <label>Email</label><input type="email" value={f.email || ''} onChange={set('email')} placeholder="tenant@example.com" />
