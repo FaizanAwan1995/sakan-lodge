@@ -1,3 +1,4 @@
+import {verifyRoomPhotos} from './room-photo-checks.js';
 import {verifyHistoricalReceipts} from './historical-receipt-checks.js';
 import {verifyRentInvoices} from './rent-invoice-checks.js';
 import {verifyStayHistory} from './stay-history-checks.js';
@@ -821,5 +822,7 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyRentInvoices({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261026023326_automatic_rent_invoices.sql'))});
   await db.exec(await read('../../supabase/migrations/20261026032904_historical_rent_receipts.sql'));
   await verifyHistoricalReceipts({t,sql,rpc,STAFF,OTHER});
+  await db.exec(await read('../../supabase/migrations/20261026082712_room_photo_upload.sql'));
+  await verifyRoomPhotos({t,sql,rpc,STAFF,OTHER});
   await db.close();
 });

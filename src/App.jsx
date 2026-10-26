@@ -1,3 +1,4 @@
+import RoomPhotos from './features/rooms/RoomPhotos.jsx';
 import {tenantDateError} from './tenant-dates.js';
 import { RoomHistory } from './features/tenants/StayHistory.jsx';
 import { historyMatches, roomResidents } from './stay-history.js';
@@ -641,12 +642,13 @@ function HouseForm({ p, done }) {
       </select>
       <button className="primary">{p.id ? 'Save property settings' : 'Add property'}</button>
       {p.id && <button type="button" className="small err" onClick={async () => { if (window.prompt(`Permanently delete ${p.name} and all linked records? Type DELETE ${p.name} to confirm:`) === `DELETE ${p.name}`) { const ok = await deleteRow('properties', p.id); if (ok) done(); } }}>Delete property</button>}
-      <button type="button" className="small" onClick={done}>Cancel</button>
+      <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
     </form>
   );
 }
 
 function RoomForm({ room, d, done }) {
+  const [photoBusy,setPhotoBusy]=useState(false);
   const [label, setLabel] = useState(room.label);
   const [cap, setCap] = useState(room.capacity);
   const occupied = room.id && d.people.some((p) => p.room_id === room.id);
@@ -659,6 +661,7 @@ function RoomForm({ room, d, done }) {
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
+      if(photoBusy)return;
       const ok = await save('rooms', { property_id: room.property_id, label, capacity: +cap, sort: room.sort ?? 99 }, room.id);
       if (ok) done();
     }}>
@@ -667,9 +670,10 @@ function RoomForm({ room, d, done }) {
       <label>Capacity (people)</label>
       <div className="seg">{[1, 2, 3].map((n) => <button type="button" key={n} className={+cap === n ? 'on' : ''} onClick={() => setCap(n)}>{n}</button>)}</div>
       {capacityError && <p className="err">{capacityError}</p>}
-      <button className="primary" disabled={Boolean(capacityError)}>Save room</button>
+      <RoomPhotos room={room} onBusy={setPhotoBusy}/>
+      <button className="primary" disabled={photoBusy||Boolean(capacityError)}>Save room</button>
       {room.id && !occupied && <button type="button" className="small err" onClick={async () => { if (confirm('Delete this room?')) { const ok = await deleteRow('rooms', room.id); if (ok) done(); } }}>Delete room</button>}
-      <button type="button" className="small" onClick={done}>Cancel</button>
+      <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
     </form>
   );
 }
@@ -693,7 +697,7 @@ function CheckoutForm({ person, today, done }) {
     {today < earliest && <p className="muted">This resident checked in today. A one-night stay ends {nice(earliest)}. The checkout date is the day they leave, not their last night.</p>}
     <label>Checkout date</label><input type="date" min={earliest} value={date} onChange={(e) => setDate(e.target.value)} required />
     <button className="primary" disabled={busy}>{busy ? 'Saving…' : scheduled ? 'Schedule checkout' : 'Confirm checkout'}</button>
-    <button type="button" className="small" onClick={done}>Cancel</button>
+    <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
   </form>;
 }
 
@@ -809,7 +813,7 @@ function PersonForm({ person, db, done }) {
       {person.id && <p className="muted">Bond recorded: {fmt(person.bond_paid || 0)} received · {fmt(person.bond_held || 0)} still held. Record refunds or retained amounts in the tenant account.</p>}
       {checkInError && <p className="err">{checkInError}</p>}
       <button className="primary" disabled={busy || Boolean(checkInError)}>{busy ? 'Saving…' : person.id ? 'Save resident details' : 'Confirm check in'}</button>
-      <button type="button" className="small" onClick={done}>Cancel</button>
+      <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
     </form>
   );
 }
@@ -949,7 +953,7 @@ function ElecBill({ db, d, today, done }) {
       <label>Bill total</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.amount} onChange={set('amount')} required />
       <p>Full bill is recorded as a business expense. Utilities are included; no resident surcharges are created.</p>
       <button className="primary" disabled={!ready}>Record bill expense</button>
-      <button type="button" className="small" onClick={done}>Cancel</button>
+      <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
     </form>
   );
 }

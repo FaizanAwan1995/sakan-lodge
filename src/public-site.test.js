@@ -345,3 +345,9 @@ test("private RPC forwards the exact staff JWT with a modern publishable API key
     globalThis.fetch = original;
   }
 });
+test('public room cards and room pages use the uploaded gallery and selected cover',async()=>{
+ const catalogue=structuredClone(cat);catalogue.rooms[0].photos=['https://example.test/uploaded-cover.jpg','https://example.test/second.jpg'];
+ const summary=await renderListing({kind:'property',suburb:'fulham',property:'house-1'},catalogue).text();
+ assert.ok(summary.includes('uploaded-cover.jpg'));assert.ok(!summary.includes('second.jpg'));
+ const detail=await renderListing({kind:'room',suburb:'fulham',property:'house-1',room:'room-1'},catalogue).text();assert.ok(detail.includes('uploaded-cover.jpg'));assert.ok(detail.includes('second.jpg'));
+});
