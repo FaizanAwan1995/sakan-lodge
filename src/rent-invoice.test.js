@@ -68,3 +68,12 @@ test('resend fetches and verifies the archived PDF without upload or allocation 
  },{archivedPath:`invoices/${id}/original.pdf`});
  assert.equal(globalThis.fetch,original);
 });
+
+test('historical PDF preview uses the staff receipt preview without issuing or sending email',async()=>{
+ const original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(url,options)=>{calls++;assert.match(String(url),/\/rpc\/staff_payment_receipt$/);const args=JSON.parse(options.body);assert.equal(args.p_action,'preview');assert.equal(args.p_payment,id);return Response.json({...invoice,number:'DRAFT'});};
+ try{
+  const response=await rentInvoiceApi(new Request('https://sakanlodge.com/api/rent-invoices/preview',{method:'POST',headers:{Origin:'https://sakanlodge.com',Authorization:'Bearer synthetic-staff-token','Content-Type':'application/json'},body:JSON.stringify({payment_id:id})}),{SUPABASE_URL:'https://database.example.test',SUPABASE_PUBLIC_KEY:'sb_publishable_test'});
+  assert.equal(response.status,200);assert.equal(response.headers.get('Content-Type'),'application/pdf');assert.match(new TextDecoder().decode((await response.arrayBuffer()).slice(0,5)),/%PDF-/);assert.equal(calls,1);
+ }finally{globalThis.fetch=original;}
+});

@@ -1,3 +1,4 @@
+import PaymentReceipt from './PaymentReceipt.jsx';
 import RentInvoices from './RentInvoices.jsx';
 import StayHistory, { StaySummary } from './StayHistory.jsx';
 import BondSettlement from './BondSettlement.jsx';
@@ -14,6 +15,7 @@ import { supabase, isLocalMode, removeTestTenant } from '../../store.js';
 import { fmt, nice } from '../../lib/formatters.js';
 
 export default function TenantAccount({ person, db, today, reload, onEdit, onSchedule, onPayment, onRemoved, backLabel = 'Rooms & residents' }) {
+  const [receipt,setReceipt]=useState(null);
   const [tab,setTab]=useState('account');
   const [charge,setCharge]=useState(false);
   const [settlement,setSettlement]=useState(false);
@@ -51,6 +53,8 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
   const summary=accountSummary(person,property,today);
   const raw=db.people.find(p=>p.id===person.id);
   const terms=billingTermsAt(person,today);
+  const rentPayments=db.payments.filter(p=>p.person_id===person.id&&(p.kind||'rent')==='rent'&&p.date<=today).sort((a,b)=>b.date.localeCompare(a.date)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const latest=rentPayments[0];
 
   async function remove(event) {
     event.preventDefault();
@@ -68,6 +72,7 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
   return <section className="tenant-account">
     <button type="button" className="small" onClick={onRemoved}>← {backLabel}</button>
     <div className="between screen-heading"><div><h1>{person.name}</h1><p>{status} · {property?.name || 'Unassigned property'} · {room?.label || 'No room'}</p></div><button type="button" onClick={onEdit}>Edit details</button></div>
+    <section className="card tenant-essential"><div className="between"><h2>Tenant overview</h2><span className="tenant-reference">{tenantReference(person)}</span></div><dl className="tenant-facts"><div><dt>Email</dt><dd>{person.email?<a href={`mailto:${person.email}`}>{person.email}</a>:<button className="link" onClick={onEdit}>Add email</button>}</dd></div><div><dt>Phone</dt><dd>{person.phone?<a href={`tel:${person.phone}`}>{person.phone}</a>:<button className="link" onClick={onEdit}>Add phone</button>}</dd></div><div><dt>Room & property</dt><dd>{property?.name||'Unassigned'} · {room?.label||'No room'}</dd></div><div><dt>Agreed rent</dt><dd>{person.stay_type==='long'?`${fmt(terms.weekly_rate)} / week · ${fmt(terms.weekly_rate*2)} / fortnight`:`${fmt(person.nightly_rate)} / night`}</dd></div><div><dt>Check-in</dt><dd>{nice(person.start_date)}</dd></div><div><dt>Departure</dt><dd>{occupancyEnd(person)?nice(occupancyEnd(person)):'Ongoing stay'}</dd></div><div><dt>Bond</dt><dd>{fmt(person.bond_held)} held · {fmt(person.bond)} expected</dd></div><div><dt>Last recorded rent payment</dt><dd>{latest?`${fmt(latest.amount)} · ${nice(latest.date)} · ${latest.method}`:'No recorded rent payment'}</dd></div></dl>{person.paid_up_to&&<p className="muted">Imported paid-through baseline: {nice(person.paid_up_to)}. Later recorded payments are listed separately below.</p>}{person.legacy_bond_declared>0&&<p className="muted">Bond marked paid in the old profile; original receipt needs reconciliation.</p>}<div className="account-actions">{latest&&<button className="primary" onClick={()=>setReceipt(latest)}>Email receipt for last payment</button>}<button onClick={()=>setTab('invoices')}>View invoices & delivery logs</button></div></section>
     <div className="seg" aria-label="Tenant account sections">{['account','details','history','invoices','documents'].map(x=><button key={x} className={tab===x?'on':''} onClick={()=>setTab(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
     {tab==='account' && <>
       <div className="account-metrics">
@@ -78,13 +83,14 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
       <div className="account-actions"><button className="primary" onClick={onPayment}>Record payment</button><button onClick={()=>setCharge(true)}>Add charge</button></div>
       <section className="card"><h2>Bond — separate from rent</h2><p>{fmt(person.bond_paid)} received · {fmt(person.bond_held)} held · {fmt(person.bond)} expected</p>{person.legacy_bond_declared>0 && <p className="err">Marked paid in the legacy profile, but receipt history is missing. Reconcile the original receipt before recording it; no receipt has been created automatically.</p>}{person.legacy_bond_declared>0 && <button onClick={()=>setBondReceipt(true)}>Record original bond receipt</button>}<button type="button" disabled={!(person.bond_held>0)} onClick={()=>setSettlement(true)}>Settle bond — apply rent & refund</button><p className="muted">Uses recorded bond receipts. An allocation reduces rent owed without recording new cash income.</p></section>
       <StaySummary person={person} today={today}/>
-      <AccountTransactions db={db} d={{people:[person]}} personId={person.id} today={today} reload={reload}/>
+      <AccountTransactions db={db} d={{people:[person]}} personId={person.id} today={today} reload={reload} onInvoices={()=>setTab('invoices')}/>
       <details className="card"><summary>Statement — charges, payments and running balance</summary><TenantStatements db={db} today={today} fixedPersonId={person.id}/></details>
       <BillingSchedule key={JSON.stringify(raw.billing_schedule)} person={raw} property={property} today={today} reload={reload}/>
       {charge && <AccountPayment person={person} db={db} today={today} reload={reload} initialKind="charge" onClose={()=>setCharge(false)}/>}
     </>}
-    {tab==='invoices' && <RentInvoices person={person}/>}
+    {tab==='invoices' && <><RentInvoices person={person}/><AccountTransactions db={db} d={{people:[person]}} personId={person.id} today={today} reload={reload} onInvoices={()=>setTab('invoices')}/></>}
     {tab==='history' && <StayHistory person={person} db={db} today={today}/>}
+    {receipt&&<PaymentReceipt key={receipt.id} payment={receipt} onClose={()=>setReceipt(null)} onInvoices={()=>setTab('invoices')}/>}
     {settlement && <BondSettlement person={person} reload={reload} onClose={()=>setSettlement(false)}/>}
     {bondReceipt && <AccountPayment person={person} db={db} today={today} reload={reload} initialKind="bond" onClose={()=>setBondReceipt(false)}/>}
     {tab==='details' && <>

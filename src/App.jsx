@@ -571,7 +571,7 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
                   return (
                     <div className="row resident-row" key={x.id}>
                       <button className="resident-row-main" onClick={() => openTenant(x.id)}>
-                        <span className="resident-details"><strong className="resident-name">{x.name}</strong>
+                        <span className="resident-details"><strong className="resident-name">{x.name}</strong><small className="resident-profile-link">View profile & receipts →</small>
                           {x.end_date > today && <small>Checkout scheduled: {nice(x.end_date)}</small>}
                           <small>{['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
                           <small>Bond received {fmt(x.bond_paid)} / {fmt(x.bond)} expected · <span className={x.legacy_bond_declared ? 'err' : bondToneClass}>{x.legacy_bond_declared ? 'Receipt history needs reconciliation' : bondStatusLabel(x.bond_status)}</span></small>
