@@ -1,3 +1,4 @@
+import {tenantDateError} from './tenant-dates.js';
 import { RoomHistory } from './features/tenants/StayHistory.jsx';
 import { historyMatches, roomResidents } from './stay-history.js';
 import AccountPayment from './features/tenants/AccountPayment.jsx';
@@ -725,6 +726,7 @@ function PersonForm({ person, db, done }) {
   const chooseStay = (stay_type) => setF({ ...f, stay_type, first_charge_amount: '', rent_cycle_anchor: stay_type === 'short_weekly' ? f.start_date : '' });
   const prop1 = weekly && prop && +f.weekly_rate > 0 && f.start_date >= L.LEDGER_START && !f.paid_up_to ? L.proposeFirstCharge(+f.weekly_rate, f.start_date, f.rent_cycle_anchor || prop.lease_anchor) : null;
   const checkInError = (() => {
+    const dateError=tenantDateError(f);if(dateError)return dateError;
     if (!f.room_id || !f.start_date) return '';
     const room = db.rooms.find((r) => r.id === f.room_id);
     if (!room) return 'Choose a valid room.';
@@ -772,7 +774,7 @@ function PersonForm({ person, db, done }) {
       </div>
       {weekly ? <><label>Weekly rent</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.weekly_rate} onChange={set('weekly_rate')} required /></>
         : <><label>Nightly rate</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.nightly_rate} onChange={set('nightly_rate')} required /></>}
-      <label>Move-in date</label><input type="date" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value, rent_cycle_anchor: f.rent_cycle_anchor ? e.target.value : '' })} required />
+      <label>Move-in date</label><input type="date" min="2000-01-01" max="2100-12-31" value={f.start_date} onChange={(e) => setF({ ...f, start_date: e.target.value, rent_cycle_anchor: f.rent_cycle_anchor ? e.target.value : '' })} required />
       <label>{long ? 'Move-out date (blank while resident)' : 'Check-out date'}</label><input type="date" min={dayAfter(f.start_date)} value={f.end_date} onChange={set('end_date')} required={!long} />
       {!long && f.start_date && f.end_date && f.end_date <= f.start_date && <p className="err">Check-out must be after check-in.</p>}
       <label>Paid up to (existing residents — charges start the day after)</label><input type="date" value={f.paid_up_to} onChange={set('paid_up_to')} />
