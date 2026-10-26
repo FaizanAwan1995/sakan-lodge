@@ -1,3 +1,5 @@
+import { derive, todayStr } from './ledger.js';
+import { settlementPlan } from './bond-settlement.js';
 import { createClient } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LEDGER_TABLES, loadLedgerSnapshot } from './ledger-data.js';
@@ -387,7 +389,7 @@ export async function updateTenantDetails(expected, changes, reason = '') {
       if (reason.trim().length < 5) throw new Error('Enter a reason for this change.');
       Object.assign(current, changes);
       auditLocal(db, `updated tenant ${current.name}`);
-      Object.assign(db.audit[0], {tenant_id:current.id, before_values:expected, after_values:{...current}, reason});
+      Object.assign(db.audit[0], {tenant_id:current.id,tenant_name:current.name,entity_table:'people',entity_id:current.id, before_values:expected, after_values:{...current}, reason});
       writeLocalDb(db);
       return true;
     }
@@ -455,4 +457,26 @@ export async function scheduleTenantBilling(expected, effective, weekly, anchor,
   auditLocal(db,`scheduled rent change for ${p.name}`);
   Object.assign(db.audit[0],{tenant_id:p.id,before_values:expected,after_values:{...p},reason});
   writeLocalDb(db);
+}
+
+export async function settleTenantBond(request, personId, data) {
+ if (!isLocalMode) {
+  const result=await supabase.rpc('settle_tenant_bond',{p_request:request,p_person:personId,p_data:data});
+  if(result.error)throw result.error;return result.data;
+ }
+ const db=readLocalDb();db.account_requests ||= {};
+ const payload=JSON.stringify({operation:'settle_bond',personId,data});
+ if(db.account_requests[request]){if(db.account_requests[request].payload!==payload)throw Error('Request key already used with different details');return db.account_requests[request].result;}
+ const person=derive(db,todayStr()).people.find(p=>p.id===personId);
+ if(!person)throw Error('Tenant not found');
+ if(person.owed!==data.expected_owed||person.bond_held!==data.expected_held)throw Error('Account balance changed. Refresh before settling.');
+ if((data.reason||'').trim().length<5)throw Error('Enter a settlement reason.');
+ const plan=settlementPlan(person,data.apply_amount,data.refund_amount);
+ const day=todayStr();
+ for(const [kind,amount] of [['bond_applied',plan.applied],['bond_refund',plan.refunded]])if(amount>0){
+  const row={id:newId(),person_id:person.id,property_id:person.property_id,date:day,amount,method:kind==='bond_applied'?'adjustment':data.method,kind,received_by:data.handled_by,note:data.reason,settlement_id:request,created_at:new Date().toISOString()};db.payments.push(row);
+ }
+ const result={...plan,date:day,settlement_id:request};
+ auditLocal(db,`bond_settled for ${person.name}`);Object.assign(db.audit[0],{tenant_id:person.id,tenant_name:person.name,entity_table:'bond_settlement',entity_id:request,before_values:{bond_held:person.bond_held,owed:person.owed},after_values:result,reason:data.reason});
+ db.account_requests[request]={payload,result};writeLocalDb(db);return result;
 }

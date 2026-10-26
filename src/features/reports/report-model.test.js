@@ -106,7 +106,7 @@ test('bond receipts, refunds and retained amounts remain outside every income re
   const r=run(db), s=tenantStatement(db,'one','2026-10-05');
   assert.equal(r.totals.rentReceived,0);
   assert.equal(r.totals.bondHeld,125);
-  assert.deepEqual(r.bondActivity,{received:200,refunded:50,retained:25});
+  assert.deepEqual(r.bondActivity,{received:200,refunded:50,retained:25,appliedToRent:0});
   assert.equal(s.bondHeld,125);
   assert.equal(s.balance,r.totals.arrears);
   assert.equal(s.bondTransactions.length,3);
@@ -114,7 +114,7 @@ test('bond receipts, refunds and retained amounts remain outside every income re
 test('bond liabilities carry across financial years independently of the selected activity', () => {
   const r=run(fixture({payments:[rent(200,'2027-06-30',{kind:'bond'}),rent(50,'2027-07-01',{kind:'bond_refund'}),rent(25,'2027-07-02',{kind:'bond_deducted'})]}),{start:'2027-07-01',end:'2027-07-03',asOf:'2027-07-03'});
   assert.equal(r.totals.bondHeld,125);
-  assert.deepEqual(r.bondActivity,{received:0,refunded:50,retained:25});
+  assert.deepEqual(r.bondActivity,{received:0,refunded:50,retained:25,appliedToRent:0});
 });
 test('bond over-refunds are reported for reconciliation without hiding the discrepancy', () => {
   const db=fixture({payments:[rent(50,undefined,{kind:'bond_refund'})]});

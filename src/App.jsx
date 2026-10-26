@@ -1,3 +1,5 @@
+import { RoomHistory } from './features/tenants/StayHistory.jsx';
+import { historyMatches, roomResidents } from './stay-history.js';
 import AccountPayment from './features/tenants/AccountPayment.jsx';
 import AccountTransactions from './features/tenants/AccountTransactions.jsx';
 import { residentStayOption, residentBillingRow } from './resident-billing.js';
@@ -491,8 +493,8 @@ function Today({ db, d, today, go, openTenant, quickPayment }) {
     <>
       <section className="card home-tenant-search"><label htmlFor="home-tenant-search">Find any tenant</label><input id="home-tenant-search" type="search" value={tenantSearch} onChange={e=>setTenantSearch(e.target.value)} placeholder="Name, phone, email or tenant ID" />
       <small>Includes current, upcoming and past tenants.</small>
-      {tenantSearch.trim() && d.people.filter(p=>tenantMatches(p,tenantSearch,'all',today)).map(p=><div className="tenant-action-row" key={p.id}><button className="tenant-account-link" onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {L.isActive(p,today)?p.start_date>today?'Upcoming':'Current':'Past tenant'}</small></span><b>{fmt(p.owed || p.credit)} {p.credit?'credit':'due'}</b></button><button className="small" onClick={()=>quickPayment(p.id)}>Record payment</button></div>)}
-      {tenantSearch.trim() && !d.people.some(p=>tenantMatches(p,tenantSearch,'all',today)) && <p>No tenants found.</p>}
+      {tenantSearch.trim() && d.people.filter(p=>historyMatches(p,tenantSearch,db.audit)).map(p=><div className="tenant-action-row" key={p.id}><button className="tenant-account-link" onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {L.isActive(p,today)?p.start_date>today?'Upcoming':'Current':'Past tenant'} · In {p.start_date}{p.end_date ? ` · Out ${p.end_date}` : ''}</small></span><b>{fmt(p.owed || p.credit)} {p.credit?'credit':'due'}</b></button><button className="small" onClick={()=>quickPayment(p.id)}>Record payment</button></div>)}
+      {tenantSearch.trim() && !d.people.some(p=>historyMatches(p,tenantSearch,db.audit)) && <p>No tenants found.</p>}
       </section>
       <h1 className="screen-title">Today</h1>
       {orderedSections.map((sectionId) => (
@@ -539,21 +541,23 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
   if (edit?.type === 'room') return <RoomForm room={edit.data} d={d} done={done} />;
   if (edit?.type === 'person') return <PersonForm person={edit.data} db={db} done={done} />;
   if (edit?.type === 'checkout') return <CheckoutForm person={edit.data} today={today} done={done} />;
-  const past = d.people.filter((p) => !L.isActive(p, today) && tenantMatches(p, query, status, today)).sort((a, b) => (b.end_date > a.end_date ? 1 : -1));
+  const effectiveStatus = query.trim() ? 'all' : status;
+  const matches = p => historyMatches(p,query,db.audit) && (effectiveStatus==='all' || tenantMatches(p,'',effectiveStatus,today));
+  const past = d.people.filter((p) => !L.isActive(p, today) && matches(p)).sort((a, b) => (b.end_date > a.end_date ? 1 : -1));
   return (
     <>
       <div className="between screen-heading"><h1>Rooms & residents</h1><div className="screen-actions"><button className="small" onClick={() => setEdit({ type: 'house', data: { name: '', lease_rent: '', lease_anchor: today, lease_start: today, lease_end: '', lease_first_amount: '', electricity_cap: 800 } })}>+ Property</button><button className="small" onClick={() => setEdit({ type: 'person', data: { property_id: db.properties[0]?.id, room_id: '', stay_type: 'long', start_date: today } })}>+ Check in</button></div></div>
-      <div className="tenant-filters card"><label>Find tenant<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, tenant ID, email or phone" /></label><label>Show<select value={status} onChange={e => setStatus(e.target.value)}><option value="Active">Active residents</option><option value="Upcoming">Upcoming arrivals</option><option value="Checked out">Past residents</option><option value="all">All tenants</option></select></label></div>
-      {[...db.properties].filter(p => status === 'Active' && !query || d.people.some(x => x.property_id === p.id && L.isActive(x, today) && tenantMatches(x, query, status, today))).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+      <div className="tenant-filters card"><label>Find tenant<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, tenant ID, email or phone" /></label>{query.trim() && <p>Search includes current, upcoming and past residents.</p>}<label>Show<select value={status} onChange={e => setStatus(e.target.value)}><option value="Active">Active residents</option><option value="Upcoming">Upcoming arrivals</option><option value="Checked out">Past residents</option><option value="all">All tenants</option></select></label></div>
+      {[...db.properties].filter(p => effectiveStatus === 'Active' && !query || db.rooms.some(r=>r.property_id===p.id && roomResidents(d.people,r.id,db.audit).some(matches))).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
         <section key={p.id} className="property-group">
           <h2><button className="link" onClick={() => setEdit({ type: 'house', data: p })}>{p.name} ⚙︎</button></h2>
           {sortRoomsByRentUrgency(
-            db.rooms.filter((r) => r.property_id === p.id && (query || status !== 'Active' ? d.people.some(x => x.room_id === r.id && tenantMatches(x, query, status, today) && L.isActive(x, today)) : true)),
+            db.rooms.filter((r) => r.property_id === p.id && (query || status !== 'Active' ? roomResidents(d.people,r.id,db.audit).some(matches) : true)),
             d.people,
           ).map((r) => {
             const assigned = d.people.filter((x) => x.room_id === r.id && L.isActive(x, today));
-            const occ = sortPeopleByRentUrgency(assigned.filter((x) => x.start_date <= today && tenantMatches(x, query, status, today)));
-            const future = assigned.filter((x) => x.start_date > today && tenantMatches(x, query, status, today));
+            const occ = sortPeopleByRentUrgency(assigned.filter((x) => x.start_date <= today && matches(x)));
+            const future = assigned.filter((x) => x.start_date > today && matches(x));
             const owed = sum(assigned.filter((x) => x.start_date <= today), (x) => x.owed);
             return (
               <div className="card" key={r.id}>
@@ -590,16 +594,17 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
                   );
                 })}
                 {assigned.length < r.capacity && <button className="small" onClick={() => setEdit({ type: 'person', data: { property_id: p.id, room_id: r.id, stay_type: 'long', start_date: today, bond_status: 'held' } })}>+ Check in</button>}
+                <RoomHistory room={r} people={d.people} db={db} today={today} openTenant={openTenant} query={query}/>
               </div>
             );
           })}
           <button className="small" onClick={() => setEdit({ type: 'room', data: { property_id: p.id, label: '', capacity: 1, sort: 99 } })}>+ Add room</button>
         </section>
       ))}
-      {d.people.filter(x => !x.room_id && L.isActive(x, today) && tenantMatches(x, query, status, today)).map(x => <button type="button" className="row" key={x.id} onClick={() => openTenant(x.id)}><span>{x.name}<small>No room assigned</small></span></button>)}
+      {d.people.filter(x => !x.room_id && L.isActive(x, today) && matches(x)).map(x => <button type="button" className="row" key={x.id} onClick={() => openTenant(x.id)}><span>{x.name}<small>No room assigned</small></span></button>)}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
         <div className="card" key={x.id}><button className="row" onClick={() => openTenant(x.id)}>
-          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · checked out {nice(x.checked_out_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(x.checked_out_at)) : x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
+          <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · {x.checked_out_at ? 'confirmed checkout' : 'scheduled checkout elapsed'} {nice(x.checked_out_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(x.checked_out_at)) : x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>
           {x.owed > 0 && <b className="err">{fmt(x.owed)}</b>}
         </button></div>))}</>}
     </>
@@ -619,7 +624,6 @@ function HouseForm({ p, done }) {
       if (ok) done();
     }}>
       <h1>{p.id ? `${p.name} settings` : 'Add property'}</h1>
-      {person.id && <><p className="muted">These are corrections to stored details. For a new rate or billing cycle, use Schedule a future rent change in the account. Corrections retain before-and-after values.</p><label>Reason for correction<input required minLength={5} value={reason} onChange={e=>setReason(e.target.value)} /></label></>}
       <label>Name</label><input value={f.name} onChange={set('name')} required />
       <label>Landlord rent per fortnight</label><input type="number" min="0.01" step="0.01" inputMode="decimal" value={f.lease_rent} onChange={set('lease_rent')} required />
       <label>A date landlord rent falls due (cycle runs every 14 days from it)</label><input type="date" value={f.lease_anchor} onChange={set('lease_anchor')} required />
@@ -750,7 +754,6 @@ function PersonForm({ person, db, done }) {
       if (ok) done();
     }}>
       <h1>{person.id ? person.name : 'New resident'}</h1>{person.id && <p className="tenant-reference">Tenant ID <code>{tenantReference(person)}</code></p>}
-      {person.id && <><p className="muted">These are corrections to stored details. For a new rate or billing cycle, use Schedule a future rent change in the account. Corrections retain before-and-after values.</p><label>Reason for correction<input required minLength={5} value={reason} onChange={e=>setReason(e.target.value)} /></label></>}
       <label>Name</label><input value={f.name} onChange={set('name')} required />
       <label>Phone</label><input type="tel" value={f.phone} onChange={set('phone')} />
       <label>Email</label><input type="email" value={f.email || ''} onChange={set('email')} placeholder="tenant@example.com" />
@@ -956,6 +959,8 @@ function Reports(props) {
 
 /* ---------------- Activity ---------------- */
 function Activity({ db, session, reload }) {
+  const [historyQuery,setHistoryQuery]=useState('');
+  const activity=db.audit.filter(a=>JSON.stringify([a.action,a.tenant_name,a.tenant_id,a.at,a.reason,a.before_values,a.after_values]).toLowerCase().includes(historyQuery.trim().toLowerCase()));
   const backup = () => {
     try {
       const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
@@ -988,8 +993,10 @@ function Activity({ db, session, reload }) {
       <div className="between"><h1>Activity</h1>{!isLocalMode && <button className="small" onClick={() => signOut()}>Sign out {session.user.email}</button>}</div>
       {isLocalMode && <div className="card"><h2>Local data backup</h2><p className="muted">Keep a copy of this browser ledger somewhere safe. A backup contains resident contact details and financial records. Restoring replaces the current browser data.</p><div className="backup-actions"><button type="button" className="small" onClick={backup}>Download backup</button><label className="small">Restore backup<input type="file" accept="application/json,.json" onChange={restore} /></label></div></div>}
       <ReservationActivity />
-      {db.audit.map((a) => (
-        <div className="card" key={a.id}><small className="muted">{new Date(a.at).toLocaleString('en-AU')} · {a.by}</small><div style={{ fontSize: 13, wordBreak: 'break-word' }}>{a.action}</div>{a.reason && <p>Reason: {a.reason}</p>}{(a.before_values || a.after_values) && <details><summary>Before & after</summary><div className="audit-values"><pre>{JSON.stringify(a.before_values,null,2)}</pre><pre>{JSON.stringify(a.after_values,null,2)}</pre></div></details>}</div>
+      <label>Search all activity<input type="search" value={historyQuery} onChange={e=>setHistoryQuery(e.target.value)} placeholder="Tenant, date, room ID or transaction reference"/></label>
+      <p className="muted">{activity.length} matching records. Automatic checkout logs show the scheduled end of occupancy, with the actual recording time retained.</p>
+      {activity.map((a) => (
+        <div className="card" key={a.id}><small className="muted">{new Date(a.at).toLocaleString('en-AU')} · {a.by}</small><div style={{ fontSize: 13, wordBreak: 'break-word' }}>{a.action==='scheduled_checkout_elapsed' ? `${a.tenant_name || 'Tenant'} · Automatic scheduled checkout · ${a.after_values?.end_date || ''}` : a.action}</div>{a.reason && <p>Reason: {a.reason}</p>}{(a.before_values || a.after_values) && <details><summary>Before & after</summary><div className="audit-values"><pre>{JSON.stringify(a.before_values,null,2)}</pre><pre>{JSON.stringify(a.after_values,null,2)}</pre></div></details>}</div>
       ))}
     </>
   );

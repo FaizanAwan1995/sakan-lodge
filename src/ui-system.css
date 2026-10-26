@@ -132,3 +132,6 @@ pre { max-width:100%; overflow:auto; font-size:13px; line-height:1.6; }
 @media(max-width:600px) { .tenant-filters { grid-template-columns:1fr; } .tenant-account .screen-heading button { width:100%; } }
 
 .review-admin-list{display:grid;gap:18px}.review-admin-card{min-width:0;padding:24px;border:1px solid #dce4da;border-radius:14px}.review-admin-card blockquote{margin:18px 0;padding-left:16px;border-left:3px solid #b48a45}.review-admin-card .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}.review-admin-card input[type=checkbox]{width:20px;height:20px;flex-shrink:0}.review-admin-card p{overflow-wrap:anywhere}
+
+/* Retained room and tenant history stays compact on phones. */
+.room-stay-history{margin-top:16px;border-top:1px solid #dbe4dd;padding-top:14px}.room-stay-history summary{cursor:pointer;font-weight:650}.stay-event{padding:14px 0;border-bottom:1px solid #dbe4dd;overflow-wrap:anywhere}.stay-event small{display:block}.tenant-account>.seg{flex-wrap:wrap}.tenant-account>.seg button{flex:1 1 110px}.room-stay-history .row{align-items:start}

@@ -12,7 +12,7 @@ export default function AccountPayment({ person, db, today, reload, onClose, ori
   const attempted = useRef(null);
   const [kind, setKind] = useState(original?.kind || initialKind);
   const [amount, setAmount] = useState(original?.amount ?? (initialKind === 'rent' && person.owed ? person.owed : ''));
-  const [date, setDate] = useState(original?.date || today);
+  const [date, setDate] = useState(original?.date || (initialKind==='bond' && person.legacy_bond_declared>0 ? '' : today));
   const [method, setMethod] = useState(original?.method === 'transfer' ? 'transfer' : 'cash');
   const [by, setBy] = useState(original?.received_by || getLocalActor() || localStorage.getItem('receivedBy') || 'Faizan');
   const [note, setNote] = useState(original?.note || '');
@@ -29,7 +29,7 @@ export default function AccountPayment({ person, db, today, reload, onClose, ori
   const data = {kind,amount:+amount,date,method,received_by:by,note};
   const payments = person.payments.filter(p=>p.id!==original?.id);
   const preview = balance(kind==='charge' ? [...person.charges,{due_date:date,amount:+amount}] : person.charges, kind==='charge' ? payments : [...payments,data],today);
-  const bondAfter = money(payments.filter(p=>p.date<=today).reduce((n,p)=>n+(p.kind==='bond'?+p.amount:['bond_refund','bond_deducted'].includes(p.kind)?-p.amount:0),0)+(date<=today?(kind==='bond'?+amount:['bond_refund','bond_deducted'].includes(kind)?-amount:0):0));
+  const bondAfter = money(payments.filter(p=>p.date<=today).reduce((n,p)=>n+(p.kind==='bond'?+p.amount:['bond_refund','bond_deducted','bond_applied'].includes(p.kind)?-p.amount:0),0)+(date<=today?(kind==='bond'?+amount:['bond_refund','bond_deducted','bond_applied'].includes(kind)?-amount:0):0));
   async function submit(event) {
     event.preventDefault();
     if(saving.current || saved) return;
@@ -51,6 +51,7 @@ export default function AccountPayment({ person, db, today, reload, onClose, ori
     <p><strong>{person.name}</strong> · {db.properties.find(p=>p.id===person.property_id)?.name} · {db.rooms.find(r=>r.id===person.room_id)?.label}</p>
     {saved ? <div role="status"><h3>Saved successfully</h3><p>{fmt(saved.amount)} · {nice(saved.date || saved.due_date)} · {kind.replaceAll('_',' ')}</p><p>The account and Home balances have been refreshed.</p><button className="primary" onClick={onClose}>Done</button></div> : <form onSubmit={submit}>
       <fieldset disabled={busy || Boolean(attempted.current)}>
+        {initialKind==='bond' && person.legacy_bond_declared>0 && <p>Reconcile the actual original receipt. Enter its received date and verified amount; the profile’s paid flag alone is not a receipt.</p>}
         <label>Transaction<select value={kind} onChange={e=>setKind(e.target.value)}>{(initialKind==='charge'?['charge']:['rent','bond','bond_refund','bond_deducted']).map(k=><option key={k} value={k}>{{rent:'Rent received',bond:'Bond received',bond_refund:'Bond refunded',bond_deducted:'Bond retained',charge:'Extra charge'}[k]}</option>)}</select></label>
         <div className="account-form-grid"><label>Amount ($)<input type="number" step="0.01" min="0.01" inputMode="decimal" required value={amount} onChange={e=>setAmount(e.target.value)} autoFocus /></label><label>Date<input type="date" required max={today} value={date} onChange={e=>setDate(e.target.value)} /></label></div>
         {kind!=='charge' && <div className="account-form-grid"><label>Method<select value={method} onChange={e=>setMethod(e.target.value)}><option value="cash">Cash</option><option value="transfer">Transfer</option></select></label><label>Received / handled by<select value={by} onChange={e=>setBy(e.target.value)}>{accountChoices().map(x=><option key={x}>{x}</option>)}</select></label></div>}

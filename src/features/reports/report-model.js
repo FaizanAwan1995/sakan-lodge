@@ -116,7 +116,7 @@ export function createLedgerReport(input, options = {}) {
   totals.operatingNet = L.money(totals.operatingNet - overhead);
   totals.receiptsLessCosts = L.money(totals.receiptsLessCosts - recordedOverhead);
   totals.forecastNet = L.money(totals.forecastNet - forecastOverhead);
-  const bondActivity = { received: total(entries, 'bond'), refunded: total(entries, 'bond_refund'), retained: total(entries, 'bond_deducted') };
+  const bondActivity = { received: total(entries, 'bond'), refunded: total(entries, 'bond_refund'), retained: total(entries, 'bond_deducted'), appliedToRent: total(entries, 'bond_applied') };
   const unreimbursed = total(db.expenses.filter((e) => e.paid_from === 'personal' && !e.reimbursed && e.date && e.date <= asOf), 'amount');
   const importedBalances = db.people.filter((p) => p.paid_up_to && p.paid_up_to >= start && p.start_date <= closingDate).length;
   const missingBondReceipts = closing.people.filter((p) => +p.bond > 0 && p.bond_paid === 0).length;
@@ -126,7 +126,7 @@ export function createLedgerReport(input, options = {}) {
     !L.landlordExpenses(properties.get(e.property_id) || {id:e.property_id,lease_rent:0,lease_anchor:asOf},closingDate).some((due) => due.date === e.date)).length;
   const bondIssues = db.people.filter((p) => {
     const tx = db.payments.filter((r) => r.person_id === p.id && r.date && r.date <= closingDate);
-    return L.money(tx.reduce((s, r) => s + (r.kind === 'bond' ? +r.amount : ['bond_refund','bond_deducted'].includes(r.kind) ? -r.amount : 0), 0)) < 0;
+    return L.money(tx.reduce((s, r) => s + (r.kind === 'bond' ? +r.amount : ['bond_refund','bond_deducted','bond_applied'].includes(r.kind) ? -r.amount : 0), 0)) < 0;
   }).length;
   return { mode, start, end, closingDate, rows, entries, totals, overhead, recordedOverhead, forecastOverhead, bondActivity, unreimbursed,
     quality: { importedBalances, noRecordedExpenses: !db.expenses.some((e) => e.date && e.date <= closingDate) && db.properties.length > 0, missingBondReceipts, legacyPaidBonds: legacyPaidBonds.length, legacyPaidBondAmount: total(legacyPaidBonds,'legacy_bond_declared'), unknownPropertyEntries, bondIssues, unmatchedLandlordCosts } };
@@ -134,10 +134,10 @@ export function createLedgerReport(input, options = {}) {
 
 export function reportTransactionRows(report) {
   const house = (id) => report.rows.find((r) => r.property.id === id)?.property.name || (id ? 'Unknown property' : 'Whole business');
-  return [['Type','Date','Property','Resident','Category','Amount AUD','Rent earned AUD','Other charges AUD','Rent received AUD','Operating costs AUD','Recorded costs AUD','Bond received AUD','Bond refunded AUD','Bond retained AUD','Method','Handled by','Note','Period start','Period end'],
+  return [['Type','Date','Property','Resident','Category','Amount AUD','Rent earned AUD','Other charges AUD','Rent received AUD','Operating costs AUD','Recorded costs AUD','Bond received AUD','Bond refunded AUD','Bond retained AUD','Bond applied to rent AUD','Method','Handled by','Note','Period start','Period end'],
     ...report.entries.map((e) => {
       const r = report.rows.find((row) => row.property.id === e.property_id)?.range || report;
-      return [e.kind,e.date,house(e.property_id),e.resident,e.category,e.amount,e.earnedRent || 0,e.otherEarned || 0,e.rentReceived || 0,e.operatingCost || 0,e.recordedCost || 0,e.bond || 0,e.bond_refund || 0,e.bond_deducted || 0,e.method,e.handledBy,e.note,r.start,r.end];
+      return [e.kind,e.date,house(e.property_id),e.resident,e.category,e.amount,e.earnedRent || 0,e.otherEarned || 0,e.rentReceived || 0,e.operatingCost || 0,e.recordedCost || 0,e.bond || 0,e.bond_refund || 0,e.bond_deducted || 0,e.bond_applied || 0,e.method,e.handledBy,e.note,r.start,r.end];
     })];
 }
 

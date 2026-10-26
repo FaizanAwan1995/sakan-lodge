@@ -65,7 +65,7 @@ export default function FinancialReports({ db, today }) {
       <section className="card">
         <h2>Balances at {nice(report.closingDate)}</h2>
         <p>Resident arrears {fmt(report.totals.arrears)} · resident credits {fmt(report.totals.credit)} · bond balance from recorded transactions {fmt(report.totals.bondHeld)}.</p>
-        <p>Bond activity in the selected periods: received {fmt(report.bondActivity.received)}, refunded {fmt(report.bondActivity.refunded)}, retained {fmt(report.bondActivity.retained)}. Bonds are kept outside operating income.</p>
+        <p>Bond activity in the selected periods: received {fmt(report.bondActivity.received)}, refunded {fmt(report.bondActivity.refunded)}, retained {fmt(report.bondActivity.retained)}, applied to rent {fmt(report.bondActivity.appliedToRent)}. Bonds are kept outside operating income.</p>
         <p>Currently unreimbursed personal spending, through {nice(today)}: {fmt(report.unreimbursed)}.</p>
       </section>
       <section className="card">
