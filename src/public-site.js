@@ -176,9 +176,9 @@ function amenities(list) {
 }
 const included =
   '<section aria-label="Bills, appliances and household arrangements"><p>Electricity, water, gas and internet included without additional charges.</p><p>Heaters are provided, and air-conditioners are available on request. Contact our team to arrange heating or cooling for your stay. Other appliances with high electricity consumption require prior approval from SAKAN Lodge administrators.</p><details><summary>Household arrangements and halal suitability</summary><p>Most of our properties are men-only. Women applying individually and couples can also enquire. Placement depends on a suitable property, household arrangement, room capacity and availability; our team will confirm these details with you before a stay is agreed.</p><p>We offer a halal-suitable living environment. Please discuss your household preferences with our team so we can confirm a suitable placement for your stay.</p></details></section>';
-function linkCard(title, path, desc) {
+function linkCard(title, path, desc, image = null) {
   return (
-    '<article class="catalog-card"><h2><a href="' +
+    '<article class="catalog-card">' + (image ? photos([image],title) : '') + '<h2><a href="' +
     h(path) +
     '">' +
     h(title) +
@@ -261,6 +261,7 @@ export function renderListing(route, cat, env = {}) {
                     r.capacity > 1
                       ? "Shared accommodation · $185/person/week · long-term only"
                       : "Private room · $255/week long-term · $300/week short-term",
+                r.photos?.[0],
                   ),
                 )
                 .join("") +
@@ -339,6 +340,7 @@ export function renderListing(route, cat, env = {}) {
                 r.capacity > 1
                   ? "Shared accommodation · $185/person/week · long-term only"
                   : "Private room · $255/week long-term · $300/week short-term",
+                r.photos?.[0],
               ),
             )
             .join("") +
