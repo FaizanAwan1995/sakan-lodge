@@ -38,7 +38,8 @@ async function handleRequest(request, env) {
     if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
     if (pathname === '/api/gmail/preview' || pathname === '/api/gmail/send') return gmailSend(request, env);
 
-    if (pathname === '/' || pathname === '/landing.html') {
+    if(pathname==='/landing.html')return Response.redirect(new URL('/'+url.search,url.origin),301);
+    if (pathname === '/') {
       const response = await fetchFromAssets(env, request, '/landing.html');
       if (response && response.status !== 404) {
         let reviews = [], reviewsUnavailable = false;
@@ -54,8 +55,8 @@ async function handleRequest(request, env) {
       }
 
       return new Response('<!doctype html><html><head><meta charset="utf-8"><title>SAKAN Lodge</title></head><body style="margin:0;background:#f3efe6;color:#1b1a17;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;"><main style="text-align:center;padding:2rem"><h1 style="font-size:2.5rem;letter-spacing:-0.05em;margin:0 0 1rem;">SAKAN Lodge</h1><p style="margin:0;color:#58534d;">The landing page is loading.</p></main></body></html>', {
-        status: 200,
-        headers: { 'content-type': 'text/html; charset=utf-8' },
+        status: 503,
+        headers: { 'content-type': 'text/html; charset=utf-8', 'retry-after':'300', 'cache-control':'no-store' },
       });
     }
 
