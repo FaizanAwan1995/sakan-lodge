@@ -38,6 +38,11 @@ export async function rentInvoiceApi(request,env){
  if(request.method!=='POST'||request.headers.get('Origin')!=='https://sakanlodge.com'||!/^Bearer \S+$/.test(authorization))return json({error:'Staff sign-in required'},403);
  try{
   const input=await limitedJson(request,1000);
+  if(new URL(request.url).pathname==='/api/rent-invoices/preview'){
+   const draft=await databaseRpc(env,'staff_payment_receipt',{p_payment:input.payment_id,p_action:'preview',p_start:input.start||null,p_end:input.end||null},authorization);
+   if(draft.existing)return json({error:'This payment already has an invoice. Open invoice history.'},409);
+   return new Response(await rentInvoicePdf(draft),{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="SAKAN-receipt-preview.pdf"','Cache-Control':'no-store'}});
+  }
   const invoice=await databaseRpc(env,'staff_rent_invoice_action',{p_id:input.id,p_action:'get'},authorization);
   if(!invoice.pdf_path)return json({error:'The invoice PDF is not yet prepared. Check invoice status.'},409);
   const response=await fetch(env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/authenticated/rent-invoices/'+invoice.pdf_path,{headers:{Authorization:authorization,apikey:env.SUPABASE_PUBLIC_KEY},signal:AbortSignal.timeout(10000)});

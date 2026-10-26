@@ -308,3 +308,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .pulse-show-more{width:100%;margin-top:10px}
 .pulse-empty{font-size:.85rem;color:var(--muted)}
 @media(max-width:480px){.property-pulse{padding:12px}.property-pulse .pulse-property-name{font-size:1.25rem}.property-pulse .pulse-metrics>span{padding:9px}.property-pulse .pulse-metrics b{font-size:1rem}.pulse-tenant-info strong{font-size:.95rem}}
+
+.tenant-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}.tenant-facts div{min-width:0}.tenant-facts dt{font-size:.85rem;color:var(--muted,#68766f);margin-bottom:4px}.tenant-facts dd{margin:0;font-weight:600;overflow-wrap:anywhere}.transaction-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.resident-profile-link{color:#185947;font-weight:650;margin-top:5px}.receipt-confirm{display:flex;align-items:start;gap:10px;margin:16px 0}.receipt-confirm input{width:auto;margin-top:4px;flex:none}
+@media(max-width:600px){.tenant-facts{grid-template-columns:1fr}.account-transaction{flex-wrap:wrap}.transaction-buttons{width:100%;justify-content:flex-start}.transaction-buttons button{flex:1}.tenant-essential .account-actions button{width:100%}}

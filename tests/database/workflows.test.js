@@ -1,3 +1,4 @@
+import {verifyHistoricalReceipts} from './historical-receipt-checks.js';
 import {verifyRentInvoices} from './rent-invoice-checks.js';
 import {verifyStayHistory} from './stay-history-checks.js';
 import {verifyTenantAccount} from './tenant-account-checks.js';
@@ -818,5 +819,7 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyTenantAccount({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261023080438_tenant_account_workflow.sql'))});
   await verifyStayHistory({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261026021823_stay_history_bond_settlement.sql'))});
   await verifyRentInvoices({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261026023326_automatic_rent_invoices.sql'))});
+  await db.exec(await read('../../supabase/migrations/20261026032904_historical_rent_receipts.sql'));
+  await verifyHistoricalReceipts({t,sql,rpc,STAFF,OTHER});
   await db.close();
 });
