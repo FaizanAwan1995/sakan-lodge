@@ -11,11 +11,21 @@ export async function processRentInvoices(env){
  const token=await invoiceGmailToken(env);let count=0;
  for(const id of ids){const attempt=crypto.randomUUID();let invoice,started=false;try{
   invoice=await worker(env,'prepare',id,attempt);if(invoice.skipped)continue;
-  const pdf=await rentInvoicePdf(invoice);const raw=invoiceMime(invoice,pdf);
-  const path=`invoices/${id}/${attempt}.pdf`;
-  const upload=await fetch(env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/rent-invoices/'+path,{method:'POST',headers:storageHeaders(env),body:pdf,signal:AbortSignal.timeout(15000)});
-  if(!upload.ok)throw Error('Invoice storage failed');
-  const sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',pdf))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  let pdf,path,sha;
+  if(invoice.pdf_path){
+   path=invoice.pdf_path;
+   const archived=await fetch(env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/authenticated/rent-invoices/'+path,{headers:storageHeaders(env),signal:AbortSignal.timeout(15000)});
+   if(!archived.ok)throw Error('Archived invoice unavailable');
+   pdf=new Uint8Array(await archived.arrayBuffer());
+   sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',pdf))].map(b=>b.toString(16).padStart(2,'0')).join('');
+   if(sha!==invoice.pdf_sha256)throw Error('Archived invoice integrity check failed');
+  }else{
+   pdf=await rentInvoicePdf(invoice);path=`invoices/${id}/${attempt}.pdf`;
+   const upload=await fetch(env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/rent-invoices/'+path,{method:'POST',headers:storageHeaders(env),body:pdf,signal:AbortSignal.timeout(15000)});
+   if(!upload.ok)throw Error('Invoice storage failed');
+   sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',pdf))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  const raw=invoiceMime(invoice,pdf,attempt);
   await worker(env,'begin_send',id,attempt,{path,sha256:sha});started=true;
   const messageId=await sendInvoiceMime(token,raw);
   await worker(env,'sent',id,attempt,{message_id:messageId});count++;

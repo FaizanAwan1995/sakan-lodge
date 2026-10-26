@@ -15,17 +15,18 @@ export async function invoiceGmailToken(env){
  if(!response.ok)throw Error('Reconnect Gmail before sending invoices');
  const token=await response.json();if(!token.access_token)throw Error('Gmail access unavailable');return token.access_token;
 }
-export function invoiceMime(invoice,pdf){
+export function invoiceMime(invoice,pdf,deliveryId=null){
  const s=invoice.snapshot,recipient=s.tenant_email;
  const cc=[...new Set(s.cc||[])].sort();
  if(!validEmail(recipient)||recipient.toLowerCase()===sender||!cc.includes(sender)||cc.some(e=>!validEmail(e))||cc.length!==3)throw Error('Invalid invoice recipients');
  if(!Number.isSafeInteger(Number(invoice.number))||Number(invoice.number)<82)throw Error('Invalid invoice number');
+ if(deliveryId!==null&&!/^[a-f0-9-]{36}$/i.test(deliveryId))throw Error('Invalid delivery identifier');
  const boundary='sakan-invoice-'+invoice.id;
  if(!/^[a-f0-9-]{36}$/i.test(invoice.id))throw Error('Invalid invoice identifier');
  const subject=`SAKAN Lodge - paid rent invoice #${invoice.number}`;
  const periods=s.lines.filter(l=>l.period_start).map(l=>`${l.period_start} to ${l.period_end}`).join('; ');
  const body=`Hello ${s.tenant_name},\n\nThank you. We have recorded your rent payment of AUD $${Number(s.payment.amount).toFixed(2)} received on ${s.payment.date}.\n\nInvoice: #${invoice.number}${invoice.replaces_number ? ` (replaces invoice #${invoice.replaces_number})` : ''}\nProperty: ${s.address}\nRoom: ${s.room || 'As agreed'}\n${periods ? 'Allocated periods: '+periods+'\n' : ''}Payment method: ${s.payment.method}\n\nYour paid invoice is attached. This confirms the amount received; a partial payment does not mark the whole rent period paid.\n\nKind regards,\nSAKAN Lodge\n${sender}\n0426 721 787`;
- const raw=[`From: SAKAN Lodge <${sender}>`,`To: ${recipient}`,`Cc: ${cc.join(',\r\n ')}`,`Subject: ${subject}`,`Message-ID: <rent-invoice-${invoice.id}@sakanlodge.com>`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',folded(encoded(body)),`--${boundary}`,`Content-Type: application/pdf; name="SAKAN-invoice-${invoice.number}.pdf"`,`Content-Disposition: attachment; filename="SAKAN-invoice-${invoice.number}.pdf"`,'Content-Transfer-Encoding: base64','',folded(base64(pdf)),`--${boundary}--`,''].join('\r\n');
+ const raw=[`From: SAKAN Lodge <${sender}>`,`To: ${recipient}`,`Cc: ${cc.join(',\r\n ')}`,`Subject: ${subject}`,`Message-ID: <rent-invoice-${invoice.id}${deliveryId?'-'+deliveryId:''}@sakanlodge.com>`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',folded(encoded(body)),`--${boundary}`,`Content-Type: application/pdf; name="SAKAN-invoice-${invoice.number}.pdf"`,`Content-Disposition: attachment; filename="SAKAN-invoice-${invoice.number}.pdf"`,'Content-Transfer-Encoding: base64','',folded(base64(pdf)),`--${boundary}--`,''].join('\r\n');
  return encoded(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 export async function sendInvoiceMime(token,raw){

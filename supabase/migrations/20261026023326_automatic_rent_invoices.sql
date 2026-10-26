@@ -114,9 +114,11 @@ begin
   select * into pay from public.payments where id=inv.payment_id;
   if sakan_private.invoice_payment(pay) is distinct from inv.snapshot->'payment' then raise exception 'Payment no longer matches invoice';end if;
   -- Only missing contact/address fields may be completed before first issue.
+  if inv.pdf_path is null then
   inv.snapshot:=jsonb_set(inv.snapshot,'{tenant_email}',coalesce((select to_jsonb(lower(trim(email))) from public.people where id=inv.person_id),'null'));
   inv.snapshot:=jsonb_set(inv.snapshot,'{cc}',(select coalesce(jsonb_agg(email order by email),'[]') from (select distinct lower(email) email from auth.users u join public.staff_access a on a.user_id=u.id where email_confirmed_at is not null union select 'sakanlodges@gmail.com') x));
   if nullif(trim(inv.snapshot->>'address'),'') is null then inv.snapshot:=jsonb_set(inv.snapshot,'{address}',coalesce((select to_jsonb(coalesce(nullif(trim(p.invoice_address),''),nullif(trim(d.premises_address),''))) from public.properties p left join public.contract_defaults d on d.property_id=p.id where p.id=inv.property_id),'null'));end if;
+  end if;
   if jsonb_array_length(inv.snapshot->'cc')<>3 then missing:='Both verified administrator copy addresses are required';
   elsif nullif(trim(inv.snapshot->>'address'),'') is null then missing:='Add the verified invoice address in property settings';
   elsif coalesce(inv.snapshot->>'tenant_email','') !~ '^[^[:space:]@,;<>]+@[^[:space:]@,;<>]+\.[^[:space:]@,;<>]+$' or inv.snapshot->>'tenant_email'='sakanlodges@gmail.com' then missing:='Add a valid tenant email before sending';end if;
@@ -128,7 +130,9 @@ begin
  if inv.attempt is distinct from p_attempt then raise exception 'Invoice claim changed';end if;
  if p_action='begin_send' then
   if inv.status<>'preparing' or inv.lease_until<now() then raise exception 'Invoice claim expired';end if;
-  if coalesce(p_data->>'path','') <> 'invoices/'||inv.id||'/'||p_attempt||'.pdf' or coalesce(p_data->>'sha256','') !~ '^[a-f0-9]{64}$' then raise exception 'Invalid immutable PDF reference';end if;
+  if inv.pdf_path is not null then
+   if p_data->>'path' is distinct from inv.pdf_path or p_data->>'sha256' is distinct from inv.pdf_sha256 then raise exception 'Archived invoice PDF must remain unchanged';end if;
+  elsif coalesce(p_data->>'path','') <> 'invoices/'||inv.id||'/'||p_attempt||'.pdf' or coalesce(p_data->>'sha256','') !~ '^[a-f0-9]{64}$' then raise exception 'Invalid immutable PDF reference';end if;
   update sakan_private.rent_invoices set status='sending',pdf_path=p_data->>'path',pdf_sha256=p_data->>'sha256',lease_until=now()+interval '10 minutes',updated_at=now() where id=inv.id returning * into inv;
  elsif p_action='sent' then
   if inv.status not in ('sending','uncertain') or nullif(p_data->>'message_id','') is null then raise exception 'Invoice cannot be marked sent';end if;
@@ -141,7 +145,7 @@ begin
   if inv.status<>'preparing' then raise exception 'Preparation is no longer active';end if;
   update sakan_private.rent_invoices set status='queued',next_attempt=now()+interval '5 minutes',last_error='Invoice preparation failed; check PDF, storage and Gmail configuration',lease_until=null,updated_at=now() where id=inv.id returning * into inv;
  else raise exception 'Unknown invoice worker action';end if;
- insert into public.audit("by",action,tenant_id,tenant_name,entity_table,entity_id) values('system','rent_invoice_'||p_action||' #'||inv.number,inv.person_id,inv.snapshot->>'tenant_name','rent_invoice',inv.id::text);
+ insert into public.audit("by",action,tenant_id,tenant_name,entity_table,entity_id,reason) values('system','rent_invoice_'||p_action||' #'||inv.number,inv.person_id,inv.snapshot->>'tenant_name','rent_invoice',inv.id::text,jsonb_build_object('to',inv.snapshot->>'tenant_email','cc',inv.snapshot->'cc','gmail_id',inv.gmail_id,'attempt',p_attempt)::text);
  return to_jsonb(inv);
 end $$;
 create function public.rent_invoice_worker(p_action text,p_id uuid default null,p_attempt uuid default null,p_data jsonb default '{}') returns jsonb language sql security invoker set search_path='' as $$select sakan_private.invoice_worker(p_action,p_id,p_attempt,p_data)$$;
@@ -151,7 +155,7 @@ grant execute on function sakan_private.invoice_worker(text,uuid,uuid,jsonb),pub
 create function sakan_private.staff_invoices(p_person uuid default null,p_offset integer default 0) returns jsonb language plpgsql stable security definer set search_path='' as $$
 begin
  perform sakan_private.require_staff();
- return (select coalesce(jsonb_agg(to_jsonb(x) order by number desc),'[]') from (select id,number,payment_id,person_id,snapshot,status,replaces_number,created_at,pdf_path,gmail_id,last_error,attempts from sakan_private.rent_invoices where p_person is null or person_id=p_person order by number desc limit 50 offset greatest(0,p_offset)) x);
+ return (select coalesce(jsonb_agg(to_jsonb(x) order by number desc),'[]') from (select i.id,i.number,i.payment_id,i.person_id,i.snapshot,i.status,i.replaces_number,i.created_at,i.pdf_path,i.gmail_id,i.last_error,i.attempts,(select coalesce(jsonb_agg(jsonb_build_object('at',a.at,'by',a."by",'action',a.action,'reason',a.reason) order by a.at,a.id),'[]') from public.audit a where a.entity_table='rent_invoice' and a.entity_id=i.id::text) events from sakan_private.rent_invoices i where p_person is null or i.person_id=p_person order by number desc limit 50 offset greatest(0,p_offset)) x);
 end $$;
 create function public.staff_rent_invoices(p_person uuid default null,p_offset integer default 0) returns jsonb language sql stable security invoker set search_path='' as $$select sakan_private.staff_invoices(p_person,p_offset)$$;
 create function sakan_private.staff_invoice_action(p_id uuid,p_action text,p_reason text default null,p_message text default null) returns jsonb language plpgsql security definer set search_path='' as $$
@@ -161,7 +165,10 @@ begin
  if not found then raise exception 'Invoice not found';end if;
  if p_action='get' then return to_jsonb(inv);end if;
  if length(trim(coalesce(p_reason,'')))<5 then raise exception 'Enter a reconciliation reason';end if;
- if p_action='retry_pending' and inv.status in ('needs_details','queued') then
+ if p_action='resend' and inv.status='sent' and inv.pdf_path is not null then
+  if inv.updated_at>now()-interval '1 minute' then raise exception 'Wait one minute before requesting another copy';end if;
+  update sakan_private.rent_invoices set status='queued',attempts=0,next_attempt=now(),last_error=null,updated_at=now() where id=p_id;
+ elsif p_action='retry_pending' and inv.status in ('needs_details','queued') then
   update sakan_private.rent_invoices set status='queued',attempts=0,next_attempt=now(),last_error=null,updated_at=now() where id=p_id;
  elsif p_action='confirmed_not_sent' and inv.status='uncertain' then
   update sakan_private.rent_invoices set status='queued',attempts=0,next_attempt=now(),last_error=null,updated_at=now() where id=p_id;

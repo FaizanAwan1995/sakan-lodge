@@ -44,9 +44,29 @@ export async function verifyRentInvoices({t,sql,rpc,STAFF,OTHER,applyMigration})
   await sql('set role authenticated');await sql("select set_config('request.jwt.claim.sub',$1,false)",[OTHER]);await assert.rejects(()=>rpc('staff_rent_invoice_action',[first.id,'confirmed_not_sent','Invalid nonstaff retry']),/Staff/);await sql('reset role');await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);
   await rpc('staff_rent_invoice_action',[first.id,'confirmed_sent','Checked Gmail Sent Mail','gmail-synthetic-id']);assert.equal((await readInvoice(82)).status,'sent');
  });
+ await t.test('staff resend keeps the same invoice, allocation and PDF, logs requests and blocks duplicates',async()=>{
+  await assert.rejects(()=>rpc('staff_rent_invoice_action',[first.id,'resend','Tenant requested a copy']),/Wait one minute/);
+  await sql("update sakan_private.rent_invoices set updated_at=now()-interval '2 minutes' where id=$1",[first.id]);
+  const original=await readInvoice(82),counter=(await sql('select last_number from sakan_private.invoice_counter')).rows[0];
+  await sql('set role authenticated');await sql("select set_config('request.jwt.claim.sub',$1,false)",[OTHER]);
+  await assert.rejects(()=>rpc('staff_rent_invoice_action',[first.id,'resend','Unauthorized request']),/Staff/);
+  await sql('reset role');await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);
+  await rpc('staff_rent_invoice_action',[first.id,'resend','Tenant requested same fortnight again']);
+  await assert.rejects(()=>rpc('staff_rent_invoice_action',[first.id,'resend','Duplicate click request']),/status changed/);
+  const key=randomUUID(),prepared=await work('prepare',first.id,key);
+  assert.deepEqual(prepared.snapshot,original.snapshot);assert.equal(prepared.pdf_path,original.pdf_path);
+  await assert.rejects(()=>work('begin_send',first.id,key,{path:`invoices/${first.id}/${key}.pdf`,sha256:'b'.repeat(64)}),/unchanged/);
+  await work('begin_send',first.id,key,{path:original.pdf_path,sha256:original.pdf_sha256});
+  await work('sent',first.id,key,{message_id:'gmail-resend-id'});
+  assert.deepEqual((await sql('select last_number from sakan_private.invoice_counter')).rows[0],counter);
+  assert.deepEqual((await readInvoice(82)).snapshot,original.snapshot);
+  const history=(await rpc('staff_rent_invoices',[person.id,0])).find(i=>Number(i.number)===82);
+  assert.ok(history.events.some(e=>e.action==='rent_invoice_resend #82'&&e.reason.includes('same fortnight')));
+  assert.ok(history.events.some(e=>e.action==='rent_invoice_sent #82'&&e.reason.includes('gmail-resend-id')));
+ });
  await t.test('intentional corrections retain the old invoice and create a new numbered replacement',async()=>{
   await rpc('account_transaction',[randomUUID(),person.id,{...data,amount:105},payment,'Corrected receipt amount']);
-  const old=await readInvoice(82),replacement=await readInvoice(84);assert.equal(old.status,'void');assert.equal(old.gmail_id,'gmail-synthetic-id');assert.equal(+old.snapshot.payment.amount,100);assert.equal(+replacement.snapshot.payment.amount,105);assert.equal(Number(replacement.replaces_number),82);
+  const old=await readInvoice(82),replacement=await readInvoice(84);assert.equal(old.status,'void');assert.equal(old.gmail_id,'gmail-resend-id');assert.equal(+old.snapshot.payment.amount,100);assert.equal(+replacement.snapshot.payment.amount,105);assert.equal(Number(replacement.replaces_number),82);
   await assert.rejects(()=>sql('delete from payments where id=$1',[payment.id]),/invoiced|foreign key/i);
  });
  await t.test('missing details hold delivery and staff can complete details without changing historical receipts',async()=>{
