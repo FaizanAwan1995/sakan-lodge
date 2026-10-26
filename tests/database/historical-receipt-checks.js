@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import pg from 'pg';
 export async function verifyHistoricalReceipts({t,sql,rpc,STAFF,OTHER}){
  await sql('reset role');await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);
  const today=(await sql("select (now() at time zone 'Australia/Adelaide')::date::text d")).rows[0].d;
@@ -42,4 +43,10 @@ export async function verifyHistoricalReceipts({t,sql,rpc,STAFF,OTHER}){
   const bond=(await sql("insert into payments(person_id,property_id,date,kind,amount,method,received_by) values($1,$2,$3,'bond',340,'cash','Faizan') returning id",[person,prop,today])).rows[0].id;
   await assert.rejects(()=>rpc('staff_payment_receipt',[bond]),/recorded rent payment/);
  });
+ await t.test('concurrent historical issue requests create one invoice and consume one number',{skip:!process.env.SAKAN_TEST_DATABASE_URL},async()=>{
+  const preview=await rpc('staff_payment_receipt',[first]);const n=await counter();
+  const clients=await Promise.all([0,1].map(async()=>{const c=new pg.Client({connectionString:process.env.SAKAN_TEST_DATABASE_URL});await c.connect();await c.query('set role authenticated');await c.query("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);return c;}));
+  try{const results=await Promise.all(clients.map(c=>c.query("select public.staff_payment_receipt($1,'issue',null,null,$2::jsonb) d",[first,JSON.stringify(preview.snapshot)])));assert.equal(results[0].rows[0].d.id,results[1].rows[0].d.id);assert.equal(await counter(),n+1);}finally{await Promise.all(clients.map(c=>c.end()));}
+ });
+
 }
