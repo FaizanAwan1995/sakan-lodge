@@ -27,6 +27,9 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    // Keep the conventional favicon URL usable for browsers and crawlers.
+    if(pathname==='/favicon.ico') return Response.redirect(new URL('/sakan-logo-circle-main.png', url).href,301);
+
     if(pathname==='/api/rent-invoices/pdf'||pathname==='/api/rent-invoices/preview')return rentInvoiceApi(request,env);
     if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);

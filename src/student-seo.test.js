@@ -24,3 +24,13 @@ test('sitemap includes the student guide and public room image URLs without ledg
 test('unavailable homepage assets return retryable 503 rather than an indexable loading placeholder',async()=>{
  const r=await worker.fetch(new Request('https://sakanlodge.com/'),{ASSETS:{fetch:async()=>new Response('missing',{status:404})}});assert.equal(r.status,503);assert.equal(r.headers.get('retry-after'),'300');
 });
+test('search branding uses the real square logo and conventional favicon resolves',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const home=readFileSync(new URL('../public/landing.html',import.meta.url),'utf8');
+ const schemas=[...home.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/sg)].map(m=>JSON.parse(m[1]));
+ assert.equal(schemas.find(s=>s['@type']==='WebSite').name,'SAKAN Lodge');
+ assert.ok(home.includes('sizes="540x540" href="/sakan-logo-circle-main.png"'));
+ const png=readFileSync(new URL('../public/sakan-logo-circle-main.png',import.meta.url));assert.equal(png.readUInt32BE(16),540);assert.equal(png.readUInt32BE(20),540);
+ const response=await worker.fetch(new Request('https://sakanlodge.com/favicon.ico'),{});assert.equal(response.status,301);assert.equal(response.headers.get('location'),'https://sakanlodge.com/sakan-logo-circle-main.png');
+ const guide=await (await handlePublicSite(new Request('https://sakanlodge.com'+STUDENT_PATH),{})).text();assert.ok(guide.includes('sizes="540x540" href="/sakan-logo-circle-main.png"'));
+});
