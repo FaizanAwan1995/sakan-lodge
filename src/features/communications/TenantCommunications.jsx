@@ -57,6 +57,7 @@ export default function TenantCommunications({ db, today }) {
     general: { subject: '', body: '' },
     inspection: { subject: 'Routine property inspection notice', body: 'Dear tenant,\n\nWe are writing to notify you of an upcoming routine property inspection. Inspection date and time: [ENTER DATE AND TIME].\n\nPlease contact Sakan Lodge if you have any questions.\n\nKind regards,\nSakan Lodge' },
     reminder: { subject: 'Reminder: upcoming routine property inspection', body: 'Dear tenant,\n\nThis is a reminder of the upcoming routine inspection at your property. Date and time: [ENTER DATE AND TIME].\n\nKind regards,\nSakan Lodge' },
+    rentReminder: { subject: 'A Friendly Reminder — Fortnightly Rent', body: 'Dear tenant,\n\nWe hope you are doing well.\n\nThis is a gentle reminder regarding your fortnightly rent payment. Please use the same payment method as before unless Sakan Lodge has advised you otherwise.\n\nIf you have already made your payment, thank you—please disregard this message. Feel free to contact us if you have any questions.\n\nKind regards,\nSakan Lodge Management' },
     receipt: { subject: 'Rent receipt — Sakan Lodge', body: 'Dear tenant,\n\nThank you for your rent payment.\n\nPayment date: [VERIFY PAYMENT DATE]\nAmount received: [VERIFY AMOUNT]\nPeriod covered: [VERIFY PERIOD]\n\nKind regards,\nSakan Lodge' },
     checkout: { subject: 'Tenancy checkout confirmation', body: 'Dear tenant,\n\nThis email confirms your tenancy checkout arrangements.\n\nCheckout date: [VERIFY DATE]\nKeys and room condition: [ADD DETAILS]\nBond settlement: [CONFIRM SEPARATELY]\n\nKind regards,\nSakan Lodge' },
     onboarding: { subject: 'Sakan Lodge — tenant onboarding details', body: 'Dear tenant,\n\nWelcome to Sakan Lodge. Please review the onboarding details and form, which will be provided separately.\n\n[FORM TEMPLATE TO BE ADDED]\n\nKind regards,\nSakan Lodge' },
@@ -198,6 +199,7 @@ export default function TenantCommunications({ db, today }) {
         <option value="general">General notice</option>
         <option value="inspection">Quarterly inspection notice</option>
         <option value="reminder">Inspection reminder</option>
+        <option value="rentReminder">Rent reminder</option>
         <option value="receipt">Rent receipt</option>
         <option value="checkout">Checkout confirmation</option>
         <option value="onboarding">Tenant onboarding (form pending)</option>
