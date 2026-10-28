@@ -26,6 +26,8 @@ async function fetchFromAssets(env, request, assetPath) {
 async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+    const aliases = {'/index.html': '/', '/privacy.html': '/privacy', '/privacy/': '/privacy', '/terms.html': '/terms', '/terms/': '/terms'};
+    if (aliases[pathname]) return Response.redirect(new URL(aliases[pathname] + url.search, url.origin), 301);
 
     // Keep the conventional favicon URL usable for browsers and crawlers.
     if(pathname==='/favicon.ico') return Response.redirect(new URL('/sakan-logo-circle-main.png', url).href,301);
@@ -100,6 +102,10 @@ async function handleRequest(request, env) {
       return assetResponse;
     }
 
+    // Public HTML must come from the explicit routes above. In particular,
+    // missing files must never inherit the staff SPA's successful HTML response.
+    if (pathname.endsWith('.html')) return new Response('Page not found', {status:404});
+
     if (
       pathname === '/favicon.ico' ||
       pathname === '/sakan-logo.jpg' ||
@@ -116,11 +122,11 @@ async function handleRequest(request, env) {
       pathname.startsWith('/shared-') ||
       pathname.startsWith('/private-')
     ) {
-      return env.ASSETS.fetch(request);
+      return publicAsset(request, env);
     }
 
     if (pathname.includes('.')) {
-      return env.ASSETS.fetch(request);
+      return publicAsset(request, env);
     }
 
     return new Response('Not found', {
@@ -129,12 +135,21 @@ async function handleRequest(request, env) {
     });
 }
 
+async function publicAsset(request, env) {
+  const response = await env.ASSETS.fetch(request);
+  if ((response.headers.get('content-type') || '').includes('text/html')) {
+    return new Response('File not found', {status:404, headers:{'content-type':'text/plain; charset=utf-8'}});
+  }
+  return response;
+}
+
 export default {
   async scheduled(controller,env,ctx){ctx.waitUntil(processRentInvoices(env).catch(()=>{console.error('Invoice queue processing unavailable; recorded payments remain saved.');}));},
   async fetch(request, env) {
     let response;
     try { response = await handleRequest(request, env); } catch { response = new Response('Service temporarily unavailable', {status:503,headers:{'cache-control':'no-store'}}); }
     const headers = new Headers(response.headers);
+    if (response.status === 404) headers.set('X-Robots-Tag', 'noindex');
     if (new URL(request.url).pathname.startsWith('/ledger') || new URL(request.url).pathname.startsWith('/api/')) headers.set('X-Robots-Tag','noindex, nofollow');
     headers.set('X-Content-Type-Options', 'nosniff');
     headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

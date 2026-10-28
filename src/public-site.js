@@ -147,6 +147,36 @@ function crumbs(parts) {
     "</nav>"
   );
 }
+function breadcrumbSchema(parts) {
+  return {
+    '@type': 'BreadcrumbList',
+    itemListElement: [{name: 'Home', path: '/'}, ...parts].map((part, i) => ({
+      '@type': 'ListItem', position: i + 1, name: part.name, item: ORIGIN + part.path,
+    })),
+  };
+}
+function collectionSchema(title, path, parts, entries) {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [{
+      '@type': 'CollectionPage', '@id': ORIGIN + path + '#page',
+      url: ORIGIN + path, name: title, inLanguage: 'en-AU',
+      isPartOf: {'@id': ORIGIN + '/#website'},
+      mainEntity: {
+        '@type': 'ItemList', numberOfItems: entries.length,
+        itemListElement: entries.map((entry, i) => ({
+          '@type': 'ListItem', position: i + 1, name: entry.name, url: ORIGIN + entry.path,
+        })),
+      },
+    }, breadcrumbSchema(parts)],
+  };
+}
+function exploreLinks(suburb) {
+  return '<section aria-label="More accommodation options"><h2>Compare Adelaide accommodation</h2><p><a href="/student-accommodation-adelaide/">Student accommodation guide: room costs, suburbs and move-in steps</a></p><ul>' +
+    LOCATION_SLUGS.filter(slug => slug !== suburb).map(slug =>
+      '<li><a href="' + publicPath({suburb: slug}) + '">Rooms for rent in ' + h(names[slug]) + '</a></li>',
+    ).join('') + '</ul><p><a href="/#rates">Compare shared and private room rates</a></p></section>';
+}
 function photos(list, title, eager = false) {
   return (
     '<div class="catalog-photos">' +
@@ -160,7 +190,7 @@ function photos(list, title, eager = false) {
           h(title) +
           " — photo " +
           (i + 1) +
-          '" loading="'+(eager&&i===0?'eager':'lazy')+'"'+(eager&&i===0?' fetchpriority="high"':'')+' width="640" height="420">',
+          '" decoding="async" loading="'+(eager&&i===0?'eager':'lazy')+'"'+(eager&&i===0?' fetchpriority="high"':'')+' width="640" height="420">',
       )
       .join("") +
     "</div>"
@@ -231,6 +261,9 @@ export function renderListing(route, cat, env = {}) {
   const properties = cat.properties.filter((p) => p.suburb === location);
   if (route.kind === "location") {
     const title = "Rooms for rent in " + location + ", Adelaide SA";
+    const entries = properties.length === 1
+      ? cat.rooms.filter(r => r.property_id === properties[0].id).map(r => ({name: r.title, path: publicPath({suburb: route.suburb, property: properties[0].slug, room: r.slug})}))
+      : properties.map(p => ({name: p.name, path: publicPath({suburb: route.suburb, property: p.slug})}));
     return html(
       shell(
         title,
@@ -285,7 +318,8 @@ export function renderListing(route, cat, env = {}) {
               h(location) +
               "</a>.</p>") +
           "</section>" +
-          renderSuburbGuide(route.suburb) + '<p><a href="/student-accommodation-adelaide/">Student accommodation guide: compare room costs, suburbs and move-in steps</a></p>',
+          renderSuburbGuide(route.suburb) + exploreLinks(route.suburb),
+        {structured: collectionSchema(title, base, [{name: location, path: base}], entries)},
       ),
     );
   }
@@ -313,7 +347,7 @@ export function renderListing(route, cat, env = {}) {
   if (route.kind === "property")
     return html(
       shell(
-        property.name + " — " + location,
+        property.name + " — Rooms in " + location + ", Adelaide",
         "Rooms at " +
           property.name +
           " in " +
@@ -322,7 +356,7 @@ export function renderListing(route, cat, env = {}) {
         propertyUrl,
         crumbs([{ name: location, url: base }, { name: property.name }]) +
           "<h1>" +
-          h(property.name) +
+          h(property.name + " — Rooms in " + location + ", Adelaide") +
           "</h1><p>" +
           h(property.description) +
           "</p>" +
@@ -349,7 +383,10 @@ export function renderListing(route, cat, env = {}) {
           "</div>" +
           (rooms.length
             ? ""
-            : "<p>No rooms are currently advertised at this property.</p>"),
+            : "<p>No rooms are currently advertised at this property.</p>") + exploreLinks(route.suburb),
+        {structured: collectionSchema(property.name + ' — Rooms in ' + location + ', Adelaide', propertyUrl,
+          [{name: location, path: base}, {name: property.name, path: propertyUrl}],
+          rooms.map(r => ({name: r.title, path: publicPath({suburb: route.suburb, property: property.slug, room: r.slug})})))},
       ),
     );
   const room = rooms.find((r) => r.slug === route.room);
@@ -389,11 +426,11 @@ export function renderListing(route, cat, env = {}) {
         { name: room.title },
       ]) +
         "<h1>" +
-        h(room.title) +
+        h(room.title + ' — ' + (room.capacity > 1 ? 'Shared room' : 'Private room') + ' in ' + location + ', Adelaide') +
         "</h1><p>" +
         h(room.description) +
         "</p>" +
-        photos(room.photos, room.title, true) +
+        photos(room.photos, room.title + ' in ' + location + ', Adelaide', true) +
         '<p class="catalog-rate">' +
         (room.capacity > 1
           ? "Shared room · $185 per person/week · long-term only"
@@ -401,7 +438,10 @@ export function renderListing(route, cat, env = {}) {
         "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>" +
         included +
         amenities(room.amenities) +
-        roomForm(room, env),
+        roomForm(room, env) +
+        '<section aria-label="Other rooms at this property"><h2>Explore rooms in ' + h(location) + '</h2><p><a href="' + h(propertyUrl) + '">View all advertised rooms at ' + h(property.name) + '</a></p>' +
+        (rooms.length > 1 ? '<ul>' + rooms.filter(r => r.id !== room.id).map(r => '<li><a href="' + h(publicPath({suburb: route.suburb, property: property.slug, room: r.slug})) + '">' + h(r.title) + '</a></li>').join('') + '</ul>' : '') +
+        '</section>' + exploreLinks(route.suburb),
       {
         image: room.photos?.[0],
         structured: {
@@ -521,10 +561,11 @@ export async function handlePublicSite(request, env) {
   if (!route && path !== "/sitemap.xml") return null;
   if (!["GET", "HEAD"].includes(request.method))
     return json({ error: "Method not allowed" }, 405);
-  if (route && !path.endsWith("/"))
+  const canonicalPath = route && publicPath(route);
+  if (route && path !== canonicalPath)
     return new Response(null, {
       status: 308,
-      headers: { location: ORIGIN + path + "/" + url.search },
+      headers: { location: ORIGIN + canonicalPath + url.search },
     });
   try {
     const cat = await databaseRpc(env, "public_catalog");
