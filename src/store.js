@@ -471,10 +471,11 @@ export async function settleTenantBond(request, personId, data) {
  if(!person)throw Error('Tenant not found');
  if(person.owed!==data.expected_owed||person.bond_held!==data.expected_held)throw Error('Account balance changed. Refresh before settling.');
  if((data.reason||'').trim().length<5)throw Error('Enter a settlement reason.');
- const plan=settlementPlan(person,data.apply_amount,data.refund_amount);
+ const plan=settlementPlan(person,data.apply_amount,data.refund_amount,data.retain_amount || 0);
  const day=todayStr();
- for(const [kind,amount] of [['bond_applied',plan.applied],['bond_refund',plan.refunded]])if(amount>0){
-  const row={id:newId(),person_id:person.id,property_id:person.property_id,date:day,amount,method:kind==='bond_applied'?'adjustment':data.method,kind,received_by:data.handled_by,note:data.reason,settlement_id:request,created_at:new Date().toISOString()};db.payments.push(row);
+ if(plan.retained>0 && (data.retain_reason || '').trim().length<5)throw Error('Enter a reason for the other bond deduction.');
+ for(const [kind,amount] of [['bond_applied',plan.applied],['bond_deducted',plan.retained],['bond_refund',plan.refunded]])if(amount>0){
+  const row={id:newId(),person_id:person.id,property_id:person.property_id,date:day,amount,method:kind==='bond_refund'?data.method:'adjustment',kind,received_by:data.handled_by,note:kind==='bond_deducted'?data.retain_reason.trim():data.reason,settlement_id:request,created_at:new Date().toISOString()};db.payments.push(row);
  }
  const result={...plan,date:day,settlement_id:request};
  auditLocal(db,`bond_settled for ${person.name}`);Object.assign(db.audit[0],{tenant_id:person.id,tenant_name:person.name,entity_table:'bond_settlement',entity_id:request,before_values:{bond_held:person.bond_held,owed:person.owed},after_values:result,reason:data.reason});

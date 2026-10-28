@@ -1,3 +1,4 @@
+import {verifyGuidedSettlement} from './guided-settlement-checks.js';
 import {verifyRoomPhotos} from './room-photo-checks.js';
 import {verifyHistoricalReceipts} from './historical-receipt-checks.js';
 import {verifyRentInvoices} from './rent-invoice-checks.js';
@@ -824,5 +825,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyHistoricalReceipts({t,sql,rpc,STAFF,OTHER});
   await db.exec(await read('../../supabase/migrations/20261026082712_room_photo_upload.sql'));
   await verifyRoomPhotos({t,sql,rpc,STAFF,OTHER});
+  await verifyGuidedSettlement({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261028225255_guided_bond_settlement.sql'))});
   await db.close();
 });

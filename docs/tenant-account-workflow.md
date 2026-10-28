@@ -20,8 +20,14 @@ Before any scheduled billing changes are used, the previous frontend can run wit
 Validation covers unchanged migration data, same-key retry behavior, optimistic payment/profile corrections, dated bond validation, future billing boundaries, staff-only functions, and PostgreSQL concurrent retry behavior in CI. Browser smoke testing uses an isolated, browser-local synthetic account; no real tenant transactions are entered for tests.
 
 
-### Deduct unpaid rent from bond
+### Guided bond settlement
 
-In **Record payment → Deducted from bond (rent / charges)** enter the unpaid amount and agreed deduction reason. The preview uses recorded bond receipts, subtracts the deduction, and shows the remaining bond to return. For $300 held and $85 owing, the result is $0 rent due and $215 remaining bond. Correct stay dates before settling final-week rent; do not add a second charge for rent already included in the account.
+Use **Settle & refund bond** from the tenant profile or payment dialog. New payment entry offers only Rent received and Bond received; historical entries and their audit records remain available. Legacy corrections keep their original transaction type.
 
-The remaining amount is not recorded as refunded unless the administrator selects the confirmation that it has been paid. That selection records both the deduction and remaining refund atomically. Without it, record the actual refund later. Deductions use the existing audited, idempotent bond settlement RPC and cannot exceed the recorded bond or outstanding charges. They appear in tenant statements, bond activity and CSV exports as bond applied to rent, separate from new rent cash receipts; bond held and arrears reduce accordingly.
+1. Review recorded bond held and pending rent / charges. Confirm whether to deduct the pending balance; the amount can be adjusted, up to the available bond and debt. Correct stay dates first; do not add final-week rent twice.
+2. Optionally add other deductions with their own reason. Only use this for items not already charged on the account.
+3. Review the automatic calculation and choose Refund later or Refund already paid. Confirm before saving. $300 held minus $85 rent gives $215 refundable; an additional $20 deduction leaves $195.
+
+Refund later records only deductions and leaves the remainder held. Refund already paid records the deductions and remaining refund atomically, with the administrator, payment method and reasons retained in Activity. A later refund does not deduct the same rent again. Staff-only permissions, cent precision, recorded-bond limits, stale-balance checks and request-key idempotency are enforced in the database. Existing clients that omit other deductions remain compatible.
+
+Tenant statements, bond activity and CSV exports distinguish rent applied from other retained amounts and paid refunds. Rent allocations reduce outstanding debt and bond liability without adding new cash receipts. No prior tenant or financial records are changed by the release.
