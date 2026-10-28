@@ -1,6 +1,6 @@
 import { d2n, money } from './ledger.js';
 import { occupancyEnd, tenantStatus } from './tenant-model.js';
-export const transactionLabel = kind => ({rent:'Rent received',bond:'Bond received',bond_refund:'Bond refunded',bond_deducted:'Bond retained',bond_applied:'Bond applied to rent'}[kind || 'rent'] || kind);
+export const transactionLabel = kind => ({rent:'Rent received',bond:'Bond received',bond_refund:'Bond refunded',bond_deducted:'Bond retained',bond_applied:'Deducted from bond (rent / charges)'}[kind || 'rent'] || kind);
 export function staySummary(person, today) {
   const end = occupancyEnd(person);
   const past = end <= today;

@@ -18,3 +18,10 @@ Apply the additive tenant_account_workflow migration before publishing the new f
 Before any scheduled billing changes are used, the previous frontend can run with the additive schema. After effective-dated changes are recorded, rollback must retain the new billing calculation support; an older client would not interpret scheduled rates. Do not drop audit columns, request records, or billing schedules during rollback.
 
 Validation covers unchanged migration data, same-key retry behavior, optimistic payment/profile corrections, dated bond validation, future billing boundaries, staff-only functions, and PostgreSQL concurrent retry behavior in CI. Browser smoke testing uses an isolated, browser-local synthetic account; no real tenant transactions are entered for tests.
+
+
+### Deduct unpaid rent from bond
+
+In **Record payment → Deducted from bond (rent / charges)** enter the unpaid amount and agreed deduction reason. The preview uses recorded bond receipts, subtracts the deduction, and shows the remaining bond to return. For $300 held and $85 owing, the result is $0 rent due and $215 remaining bond. Correct stay dates before settling final-week rent; do not add a second charge for rent already included in the account.
+
+The remaining amount is not recorded as refunded unless the administrator selects the confirmation that it has been paid. That selection records both the deduction and remaining refund atomically. Without it, record the actual refund later. Deductions use the existing audited, idempotent bond settlement RPC and cannot exceed the recorded bond or outstanding charges. They appear in tenant statements, bond activity and CSV exports as bond applied to rent, separate from new rent cash receipts; bond held and arrears reduce accordingly.

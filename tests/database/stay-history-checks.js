@@ -44,6 +44,19 @@ export async function verifyStayHistory({t,sql,rpc,STAFF,OTHER,applyMigration}) 
   await sql('reset role');await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);
   assert.equal((await sql('select count(*)::int n from payments where person_id=$1',[person])).rows[0].n,n);
  });
+ await t.test('deduction-only action leaves the refundable remainder held and never records an unpaid refund',async()=>{
+  await rpc('account_transaction',[randomUUID(),person,{...base,amount:300}]);
+  await rpc('account_transaction',[randomUUID(),person,{kind:'charge',amount:85,date:today},null,'Synthetic final week rent']);
+  const expected=await due(), key=randomUUID();
+  const input={...data,expected_held:300,expected_owed:expected,apply_amount:85,refund_amount:0};
+  const result=await rpc('settle_tenant_bond',[key,person,input]);
+  assert.equal(+result.bond_held,215);assert.equal(+result.refunded,0);assert.equal(+result.owed,expected-85);
+  assert.deepEqual(await rpc('settle_tenant_bond',[key,person,input]),result);
+  const rows=(await sql('select kind,amount,method from payments where settlement_id=$1',[key])).rows;
+  assert.equal(rows.length,1);assert.equal(rows[0].kind,'bond_applied');assert.equal(rows[0].method,'adjustment');
+  // Complete the actual refund separately, keeping later concurrency fixtures unchanged.
+  await rpc('settle_tenant_bond',[randomUUID(),person,{...data,expected_held:215,expected_owed:await due(),apply_amount:0,refund_amount:215}]);
+ });
  await t.test('automatic scheduled checkout logs once, preserves original dates and records later schedule corrections',async()=>{
   await sql('select sakan_private.record_elapsed_checkouts()');await sql('select sakan_private.record_elapsed_checkouts()');
   const logs=await sql("select * from audit where tenant_id=$1 and action='scheduled_checkout_elapsed'",[person]);assert.equal(logs.rows.length,1);assert.equal(logs.rows[0].by,'system');assert.match(logs.rows[0].reason,/not been confirmed/);
