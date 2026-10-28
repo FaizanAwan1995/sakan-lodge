@@ -11,3 +11,8 @@ test('checks surface a missing or altered report total instead of claiming the f
  const report=createLedgerReport(db,opts);report.totals.rentReceived+=1;assert.equal(reconcileReport(db,report).allMatch,false);
  const unknown={...db,payments:[...db.payments,{person_id:'p',property_id:'missing',kind:'rent',date:'2026-10-05',amount:50}]};const r=reconcileReport(unknown,createLedgerReport(unknown,opts));assert.equal(r.checks[0].difference,-50);
 });
+
+test('scheduled auto expense rows are not mistaken for recorded expense receipts',()=>{
+ const source={...db,expenses:[...db.expenses,{property_id:'h',category:'Landlord rent',date:'2026-10-02',amount:100,auto:true}]};
+ assert.equal(reconcileReport(source,createLedgerReport(source,opts)).allMatch,true);
+});

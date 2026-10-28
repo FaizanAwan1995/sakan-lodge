@@ -7,7 +7,7 @@ export function reconcileReport(db,report){
  const inPeriod=(row,date)=>{const range=periods.get(row.property_id || people.get(row.person_id)?.property_id) || report;return date&&date>=range.start&&date<=range.end&&date<=report.closingDate;};
  const payments=db.payments || [], dated=payments.filter(p=>p.date&&p.date<=report.closingDate);
  const rent=sum(payments.filter(p=>(p.kind || 'rent')==='rent'&&inPeriod(p,p.date)));
- const cost=sum((db.expenses || []).filter(e=>inPeriod(e,e.date)));
+ const cost=sum((db.expenses || []).filter(e=>!e.auto&&inPeriod(e,e.date)));
  const held=rows=>money(rows.reduce((n,p)=>n+(p.kind==='bond'?Number(p.amount):['bond_refund','bond_deducted','bond_applied'].includes(p.kind)?-Number(p.amount):0),0));
  const movements=dated.filter(p=>p.date>=report.start),total=kind=>sum(movements.filter(p=>p.kind===kind));
  const bond={opening:held(dated.filter(p=>p.date<report.start)),received:total('bond'),refunded:total('bond_refund'),retained:total('bond_deducted'),applied:total('bond_applied'),closing:held(dated)};
