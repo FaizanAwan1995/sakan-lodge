@@ -3,6 +3,8 @@ import * as L from '../../ledger.js';
 import { fmt, nice } from '../../lib/formatters.js';
 import { csvRows } from './finance-utils.js';
 import { createLedgerReport, reportTransactionRows, reportForecastRows } from './report-model.js';
+import { reconcileReport } from './report-reconciliation.js';
+import AdminCollections from './AdminCollections.jsx';
 import TenantStatements from './TenantStatements.jsx';
 
 function download(rows, filename) {
@@ -17,6 +19,7 @@ function download(rows, filename) {
 }
 
 export default function FinancialReports({ db, today }) {
+  const [view,setView]=useState('property');
   const [mode, setMode] = useState('upcomingFortnight');
   const [fy, setFy] = useState(L.fyEndYear(today));
   const [month, setMonth] = useState(today.slice(0, 7));
@@ -29,11 +32,14 @@ export default function FinancialReports({ db, today }) {
     const [year, number] = cursor.split('-').map(Number);
     cursor = new Date(Date.UTC(year, number - 2, 1)).toISOString().slice(0, 7);
   }
-  let report, error;
-  try { report = createLedgerReport(db, { asOf: today, mode, fy, month, start, end }); }
+  let report, reconciliation, error;
+  try { report = createLedgerReport(db, { asOf: today, mode, fy, month, start, end }); reconciliation = reconcileReport(db,report); }
   catch (problem) { error = problem.message; }
   return <>
-    <h1>Property reports</h1>
+    <h1>Reports</h1>
+    <div className="seg" aria-label="Report view"><button type="button" className={view==='property'?'on':''} onClick={()=>setView('property')}>Property reports</button><button type="button" className={view==='admins'?'on':''} onClick={()=>setView('admins')}>Admin collections</button></div>
+    {view==='admins' ? <AdminCollections db={db} today={today} download={download}/> : <>
+    <h2>Property reports</h2>
     <div className="report-controls">
       <div className="seg">{[['fy','Financial year'],['month','Monthly'],['lastFortnight','Previous rent cycle'],['upcomingFortnight','Upcoming fortnight'],['custom','Date range']].map(([value,label]) =>
         <button type="button" key={value} className={mode === value ? 'on' : ''} onClick={() => setMode(value)}>{label}</button>)}</div>
@@ -77,6 +83,13 @@ export default function FinancialReports({ db, today }) {
           <tr><th>Total</th><th>{fmt(report.totals.forecastRent)}</th><th>{fmt(report.totals.forecastOtherEarned)}</th><th>{fmt(report.totals.landlord)}</th><th>{fmt(report.totals.forecastUtilities)}</th><th>{fmt(L.money(report.totals.otherForecastCosts + report.forecastOverhead))}</th><th>{fmt(report.totals.forecastNet)}</th></tr>
         </tbody></table></div>
       </section>
+      {reconciliation&&<section className="card" aria-label="Recorded report checks"><h2>Recorded transaction checks</h2>
+        <p className={reconciliation.allMatch?'ok':'err'}>{reconciliation.allMatch?'Recorded totals reconcile with source transactions and tenant statements.':'A discrepancy needs review before relying on these figures.'}</p>
+        <div style={{overflowX:'auto'}}><table><thead><tr><th>Check</th><th>Source records</th><th>Report</th><th>Difference</th></tr></thead><tbody>{reconciliation.checks.map(c=><tr key={c.label}><th scope="row">{c.label}</th><td>{fmt(c.source)}</td><td>{fmt(c.reported)}</td><td className={c.difference?'err':''}>{fmt(c.difference)}</td></tr>)}</tbody></table></div>
+        <p>Tenant statement balance differences: {reconciliation.statementMismatches}.</p>
+        {report.start>report.closingDate ? <p>No bond movements yet in the selected future period. Bond held at {nice(report.closingDate)}: {fmt(reconciliation.bond.closing)}.</p> : <p>Bond movement across {nice(report.start)} – {nice(report.closingDate)}: opening {fmt(reconciliation.bond.opening)} + received {fmt(reconciliation.bond.received)} − refunded {fmt(reconciliation.bond.refunded)} − rent allocations {fmt(reconciliation.bond.applied)} − other deductions {fmt(reconciliation.bond.retained)} = closing {fmt(reconciliation.bond.closing)}.</p>}
+        <p className="muted">These checks validate the recorded data. Missing historical receipts and expenses still need reconciliation with source records.</p>
+      </section>}
       <section className="card" aria-label="Report reconciliation notes">
         <h2>Reconciliation</h2>
         {report.quality.importedBalances > 0 && <p>{report.quality.importedBalances} resident(s) have imported paid-through balances in this period. Earlier cash receipts cannot be reconstructed from those balances; reconcile historical payments before treating received totals as complete.</p>}
@@ -93,5 +106,6 @@ export default function FinancialReports({ db, today }) {
       </div>
     </>}
     <TenantStatements db={db} today={today} />
+    </>}
   </>;
 }

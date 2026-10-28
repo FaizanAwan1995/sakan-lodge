@@ -42,3 +42,14 @@ GitHub CI passed 125 application/backup checks, all 45 PostgreSQL checks and two
 - Import and approve the prepared private template after owner review. Structured nightly-rate approval is now implemented; signed rates, bonds and resident names govern confirmation/check-in. Automatic weekly-to-nightly conversion remains blocked; existing nightly ledger records are unchanged.
 - Review unmatched/off-cycle landlord costs before treating their operating allocation as settled.
 - Complete authenticated desktop/mobile and downloaded-CSV acceptance. Real-world completeness and browser behavior are not established by calculation tests alone.
+
+
+## Admin collection view and source checks
+
+Reports now has Property reports and Admin collections views. Admin collections has independent inclusive From/To dates plus recorded handler and payment-mode filters. It totals actual rent and bond cash/transfer receipts; bond refunds are outgoing and shown separately, with net receipts after refunds. Joint-account entries stay separate from individual admins. Missing or unknown handlers stay in Other / unassigned. Historical adjustments, bond applied to rent and retained bond allocations are excluded from new collections, even when an old allocation has a transfer method. Unverified payment modes and undated transactions remain flagged rather than assigned or treated as collected money. Refund-only selections can have negative net receipts; that is not negative income.
+
+Admin summary and transaction CSVs use the selected filters. Transactions include IDs, recorded handler, tenant/property, amounts received/refunded and exclusions, allowing source reconciliation. Handler means the recorded receiver/processor, not verified ownership of a destination bank account. Net receipts do not include expenses and are not bank balances or profit.
+
+Property reports now cross-check recorded rent totals and recorded expense totals against source rows, closing bond against the transaction ledger, and tenant statement balances against account balances. Bond opening balances and movements explain differences between current bond held and receipts in the selected period. Per-property cycle receipt checks use each property's own range; the bond movement explanation uses the explicitly shown common dates. Future periods do not imply receipts before their start.
+
+The live 29 October 2026 snapshot audit matched all 24 account balances to database balances and tenant statements, matched source rent totals and CSV totals over four date ranges, and passed source checks across financial-year, monthly, previous-cycle, upcoming-cycle and custom views. This is a recorded-data arithmetic check, not evidence of historical completeness: no expense receipts were present, paid-through baselines do not reconstruct earlier rent cash receipts, and three profiles had no recorded bond receipt. Historical records were not changed by the reporting update.
