@@ -38,3 +38,23 @@ test('settlement preview rejects excess amounts, fractional cents and invalid am
  const p={bond_held:300,owed:85};assert.deepEqual(settlementPlan(p,85,215),{applied:85,refunded:215,bond_held:0,owed:0});
  for(const [a,r] of [[86,214],[85,216],[-1,300],[0,0],[NaN,1],[0.001,1],[Infinity,1]])assert.throws(()=>settlementPlan(p,a,r));
 });
+
+test('final-week rent deducted from bond leaves a pending refund until money is returned',()=>{
+ const base={...db,people:[{...person,paid_up_to:null}],payments:[{id:'bond',person_id:'p',property_id:'h',kind:'bond',date:'2026-09-23',amount:300,method:'transfer'}]};
+ const before=derive(base,today).people[0];
+ assert.deepEqual(settlementPlan({...before,owed:85},85,0),{applied:85,refunded:0,bond_held:215,owed:0});
+ const deducted={...base,payments:[...base.payments,{id:'deduction',person_id:'p',property_id:'h',kind:'bond_applied',date:today,amount:85,method:'adjustment',settlement_id:'deduction-only'}]};
+ const after=derive(deducted,today).people[0];
+ assert.equal(after.bond_held,215);assert.equal(after.bond_refunded,0);assert.equal(after.owed,before.owed-85);
+ const statement=tenantStatement(deducted,'p',today);assert.equal(statement.bondHeld,215);assert.equal(statement.balance,after.owed);
+ const options={start:'2026-09-01',end:today,asOf:today};
+ const report=createLedgerReport(deducted,options), original=createLedgerReport(base,options);
+ assert.deepEqual(report.bondActivity,{received:300,refunded:0,retained:0,appliedToRent:85});
+ assert.equal(report.totals.bondHeld,215);assert.equal(report.totals.arrears,original.totals.arrears-85);
+ assert.equal(report.totals.rentReceived,original.totals.rentReceived);assert.equal(report.totals.operatingNet,original.totals.operatingNet);
+ const csv=reportTransactionRows(report),row=csv.find(r=>r[0]==='bond_applied');
+ assert.equal(row[csv[0].indexOf('Bond applied to rent AUD')],85);assert.equal(row[csv[0].indexOf('Rent received AUD')],0);
+ const refunded={...deducted,payments:[...deducted.payments,{person_id:'p',property_id:'h',kind:'bond_refund',date:today,amount:215,method:'transfer'}]};
+ assert.equal(derive(refunded,today).people[0].bond_held,0);
+ assert.equal(createLedgerReport(refunded,options).bondActivity.refunded,215);
+});
