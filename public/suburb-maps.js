@@ -1,29 +1,33 @@
 (function(root){
  'use strict';
  function initSuburbMaps(doc){
-  const maps=[];
+  const maps=[],visible=new Set();
+  function syncContacts(){doc.body?.classList.toggle('suburb-map-in-view',visible.size>0);}
   for(const panel of doc.querySelectorAll('[data-suburb-map]')){
    if(panel.dataset.mapEnhanced)continue;
    panel.dataset.mapEnhanced='true';
-   const frame=panel.querySelector('iframe'),toggle=panel.querySelector('[data-map-toggle]'),help=panel.querySelector('[data-map-help]'),loading=panel.querySelector('[data-map-loading]');
-   if(!frame||!toggle)continue;
-   const inactive='Select Explore map to zoom and drag. Scroll normally to browse rooms.';
-   let timer;
-   function deactivate(focus=false){panel.dataset.mapActive='false';frame.tabIndex=-1;frame.setAttribute('inert','');frame.setAttribute('aria-hidden','true');toggle.setAttribute('aria-pressed','false');toggle.textContent='Explore map';help.textContent=inactive;if(focus)toggle.focus();}
-   function ready(){if(timer)root.clearTimeout(timer);if(loading)loading.hidden=true;panel.dataset.mapLoaded='true';}
-   toggle.hidden=false;deactivate();
-   toggle.addEventListener('click',()=>{
-    if(panel.dataset.mapActive==='true'){deactivate();return;}
-    for(const other of maps)other.deactivate();
-    panel.dataset.mapActive='true';frame.tabIndex=0;frame.removeAttribute('inert');frame.removeAttribute('aria-hidden');toggle.setAttribute('aria-pressed','true');toggle.textContent='Back to page';help.textContent='Map active — zoom, drag or explore place labels. Select Back to page to continue scrolling.';
+   const frame=panel.querySelector('iframe'),status=panel.querySelector('[data-map-status]'),links=[...panel.querySelectorAll('[data-map-view]')];
+   if(!frame)continue;
+   // The iframe is interactive immediately. Never put inert, pointer blocking,
+   // or a touch-catching overlay over Google's own gesture controls.
+   frame.removeAttribute('inert');frame.removeAttribute('aria-hidden');frame.tabIndex=0;
+   const name=panel.dataset.suburbName || 'this suburb';
+   for(const link of links)link.addEventListener('click',event=>{
+    const src=link.getAttribute('href');
+    if(!src || !/^https:\/\/maps\.google\.com\/maps\?/.test(src))return;
+    event.preventDefault();
+    for(const other of links)other.removeAttribute('aria-current');
+    link.setAttribute('aria-current','true');
+    frame.title=`${link.dataset.mapView} — ${name}, South Australia`;
+    frame.setAttribute('src',src);
+    if(status)status.textContent=link.dataset.mapView==='Overview'?`Showing ${name} satellite overview.`:`Showing ${link.dataset.mapView.toLowerCase()} for ${name} in this map.`;
    });
-   panel.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel.dataset.mapActive==='true'){event.preventDefault();deactivate(true);}});
-   frame.addEventListener('load',ready);
-   frame.addEventListener('error',()=>{ready();help.textContent='Map unavailable here. Use Open Google Maps below to explore this suburb.';});
-   // A lazy frame can remain outside the viewport; avoid suggesting a network error prematurely.
-   const startLoading=()=>{if(panel.dataset.mapLoaded==='true')return;if(loading)loading.hidden=false;timer=root.setTimeout(()=>{if(loading)loading.hidden=true;if(panel.dataset.mapActive!=='true')help.textContent='Taking a little longer? You can still open Google Maps below.';},12000);};
-   if(root.IntersectionObserver){const observer=new root.IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){startLoading();observer.disconnect();}},{rootMargin:'100px'});observer.observe(panel);}else startLoading();
-   maps.push({deactivate});
+   // Keep floating WhatsApp/Messenger/enquiry controls clear of map gestures and controls.
+   if(root.IntersectionObserver){
+    const observer=new root.IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting)visible.add(panel);else visible.delete(panel);}syncContacts();},{threshold:0});
+    observer.observe(panel);
+   }
+   maps.push({panel,frame});
   }
   return maps;
  }
