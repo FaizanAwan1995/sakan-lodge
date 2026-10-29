@@ -99,3 +99,24 @@ body{overflow-wrap:break-word}
 .sakan-property-pin{position:absolute;transform:translate(-50%,calc(-100% - 10px));border:2px solid #fff;border-radius:7px;padding:7px 10px;background:#173d32;color:white;font:700 12px/1.3 system-ui,sans-serif;box-shadow:0 2px 8px #0005;white-space:nowrap;cursor:pointer}.sakan-property-pin::after{content:'';position:absolute;left:calc(50% - 7px);bottom:-12px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:11px solid #173d32;filter:drop-shadow(0 2px 1px #0004)}.sakan-property-pin:focus-visible{outline:3px solid #f6c85f;outline-offset:3px}.suburb-map .suburb-map-property{display:flex;align-items:center;gap:8px;width:fit-content;max-width:calc(100% - 28px);min-height:44px;margin:10px 14px 0;padding:10px 14px;border:1px solid #cbd8c6;border-radius:20px;background:#fff;color:#173d32;font-family:inherit;font-size:.73rem;font-weight:700;line-height:1.5;cursor:pointer}
 
 .sakan-house-label{display:inline-flex;align-items:center;gap:7px}.sakan-house-label svg{display:block;width:18px;min-width:18px;max-width:18px;height:18px;min-height:18px;max-height:18px;flex:0 0 18px}.sakan-house-label strong{font:inherit;font-weight:700}
+
+/* Keep discovery tools available without dominating the suburb cards. */
+.location-grid{align-items:start}
+.suburb-map .suburb-map-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px;background:#f5f8f3;border-bottom:1px solid #dce5da}
+.suburb-map .suburb-map-controls button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:none;min-width:0;min-height:44px;margin:0;padding:9px 10px;border:1px solid #cbd8c6;border-radius:10px;background:#fff;color:#173d32;font-family:inherit;font-size:.76rem;font-weight:700;line-height:1.4;cursor:pointer}
+.suburb-map .suburb-map-controls .suburb-map-toggle{background:#e5eddf;border-color:#d3dfcc;font-family:inherit;font-size:.76rem;font-weight:700}
+.suburb-map-toggle svg{width:16px;height:16px;flex:0 0 16px;transition:transform .15s ease}.suburb-map-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.suburb-map-controls button:focus-visible,.suburb-map-info summary:focus-visible{outline:3px solid #ad853a;outline-offset:2px}
+.suburb-map-tools[hidden]{display:none}.suburb-map-tools{padding:4px 0 0;border-bottom:1px solid #dce5da;background:#fff}
+.suburb-map .suburb-map-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:10px 14px}
+.suburb-map .suburb-map-actions button{min-width:0;min-height:40px;padding:7px 4px;font-size:.69rem!important;border-radius:8px;background:#f5f8f3}
+.suburb-map .suburb-map-actions button[aria-pressed="true"]{background:#173d32;color:#fff}
+.suburb-map .suburb-map-actions button:last-child{grid-column:span 2}
+.suburb-map .suburb-map-status{font-size:.69rem;font-weight:500;padding:1px 14px 8px;color:#526458}
+.suburb-map .suburb-map-results ul{max-height:190px;margin-bottom:0;scrollbar-width:thin;scrollbar-color:#b9c8b3 transparent}
+.suburb-map .suburb-map-results li{padding:8px 0}.suburb-map .suburb-map-results button{font-size:.73rem!important;line-height:1.4}.suburb-map .suburb-map-results small{font-size:.63rem}
+.suburb-map-info{margin:0;padding:10px 14px;border-top:1px solid #edf0e9}.suburb-map-info summary{font-size:.65rem;color:#68756a;cursor:pointer;padding:4px 0;list-style-position:inside}
+.suburb-map .suburb-map-info p{padding:8px 0 0;margin:0;border:0;font-size:.65rem}.suburb-map .suburb-map-info .suburb-map-note{padding-bottom:4px}
+.location-card .location-body{padding-top:15px}.location-card .location-highlights{font-size:.76rem;margin-bottom:8px;padding-bottom:10px}
+@media(max-width:680px){.suburb-map-window,.area-map-live .suburb-map-window{height:300px}.suburb-map-toolbar{min-height:38px;padding:7px 14px}.suburb-map .suburb-map-controls button{font-size:.78rem}.suburb-map .suburb-map-status{font-size:.72rem}.suburb-map .suburb-map-actions button{font-size:.72rem!important}.suburb-map .suburb-map-results button{font-size:.76rem!important}.location-card .location-body{padding-bottom:20px}}
+@media(prefers-reduced-motion:reduce){.suburb-map-toggle svg{transition:none}}

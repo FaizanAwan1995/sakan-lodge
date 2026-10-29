@@ -49,6 +49,10 @@
    if(!canvas)continue;
    const name=panel.dataset.suburbName,center=JSON.parse(panel.dataset.mapCenter),property=JSON.parse(panel.dataset.mapProperty);
    function houseLabel(){const label=text('span','');label.className='sakan-house-label';const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');for(const [key,value] of Object.entries({width:'18',height:'18',focusable:'false',viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'1.8','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))svg.setAttribute(key,value);const path=doc.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d','m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z');svg.appendChild(path);label.append(svg,text('strong',property.name));return label;}
+   const toolsPanel=panel.querySelector('[data-map-tools]'),toolsToggle=panel.querySelector('[data-map-tools-toggle]');
+   function setToolsOpen(open){if(!toolsPanel||!toolsToggle)return;toolsPanel.hidden=!open;toolsToggle.setAttribute('aria-expanded',String(open));}
+   toolsToggle?.addEventListener('click',()=>setToolsOpen(toolsPanel.hidden));
+   toolsPanel?.addEventListener('keydown',event=>{if(event.key==='Escape'){setToolsOpen(false);toolsToggle.focus();}});
    let origin;
    let api,map,info,initializing,boundaryPoints=[],overlays=[],lastView='Overview',failed=false;
    function setStatus(value){status.textContent=value;}
@@ -108,12 +112,12 @@
       for(const attribution of place.attributions || []){const note=text('small',''),label=text('a',attribution.provider || '');if(/^https:\/\//.test(attribution.providerURI || '')){label.href=attribution.providerURI;label.target='_blank';label.rel='noopener noreferrer';}note.append(label);if(label.textContent)item.append(note);}list.append(item);
      }results.append(list);
     },
-    error(view){failed=true;panel.removeAttribute('aria-busy');buttons.forEach(b=>b.removeAttribute('data-map-pending'));retry.hidden=false;setStatus(map?`Couldn’t load ${view.toLowerCase()}. Your map is still available. Try again.`:'The map couldn’t load. Check your connection and try again.');}
+    error(view){setToolsOpen(true);failed=true;panel.removeAttribute('aria-busy');buttons.forEach(b=>b.removeAttribute('data-map-pending'));retry.hidden=false;setStatus(map?`Couldn’t load ${view.toLowerCase()}. Your map is still available. Try again.`:'The map couldn’t load. Check your connection and try again.');}
    });
    for(const button of buttons)button.addEventListener('click',()=>{void controller.select(button.dataset.mapView);});
    panel.querySelector('[data-map-property-focus]')?.addEventListener('click',()=>{void load().then(()=>{lastView='Property';map.moveCamera({center:origin,zoom:16});info.setContent(houseLabel());info.setPosition(origin);info.open({map,shouldFocus:false});}).catch(()=>controller.select('Overview'));});
    retry.addEventListener('click',()=>{void controller.select(lastView);});
-   doc.addEventListener('sakan-map-auth-error',()=>{failed=true;setStatus('The map is temporarily unavailable. Please try again later.');retry.hidden=false;});
+   doc.addEventListener('sakan-map-auth-error',()=>{setToolsOpen(true);failed=true;setStatus('The map is temporarily unavailable. Please try again later.');retry.hidden=false;});
    if(root.IntersectionObserver){const observer=new root.IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){visible.add(panel);if(!initializing&&!failed)void controller.select('Overview');}else visible.delete(panel);}doc.body?.classList.toggle('suburb-map-in-view',visible.size>0);},{threshold:.05});observer.observe(panel);}else void controller.select('Overview');
    controllers.push(controller);
   }return controllers;
