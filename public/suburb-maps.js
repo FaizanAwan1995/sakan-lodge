@@ -51,7 +51,8 @@
    function clear(){info?.close();for(const overlay of overlays)overlay.setMap(null);overlays=[];results.replaceChildren();}
    function boundsFor(points){const bounds=new api.LatLngBounds();bounds.extend(center);for(const point of points)bounds.extend(point);map.fitBounds(bounds,36);api.event.addListenerOnce(map,'idle',()=>{if(map.getZoom()>16)map.setZoom(16);});}
    function showPlace(place){map.panTo(place.location);map.setZoom(16);const content=text('div','');content.append(text('strong',place.displayName || 'Nearby place'),text('p',place.formattedAddress || ''));info.setContent(content);info.setPosition(place.location);info.open({map,shouldFocus:false});}
-   function dot(point,title,color='#173d32',radius=35){const circle=new api.Circle({map,center:point,radius,strokeColor:'#fff',strokeWeight:2,fillColor:color,fillOpacity:.95});if(title)circle.addListener('click',()=>{info.setContent(text('strong',title));info.setPosition(point);info.open({map,shouldFocus:false});});overlays.push(circle);return circle;}
+   function markerRadius(point,pixels){return pixels*156543.03392*Math.cos(point.lat*Math.PI/180)/Math.pow(2,map.getZoom());}
+   function dot(point,title,color='#173d32',pixels=8){const literal=typeof point.lat==='function'?{lat:point.lat(),lng:point.lng()}:point;const circle=new api.Circle({map,center:point,radius:markerRadius(literal,pixels),strokeColor:'#fff',strokeWeight:2,fillColor:color,fillOpacity:.95});circle.sakanMarker={point:literal,pixels};if(title)circle.addListener('click',()=>{info.setContent(text('strong',title));info.setPosition(point);info.open({map,shouldFocus:false});});overlays.push(circle);return circle;}
    async function load(){
     if(map)return;if(initializing)return initializing;
     initializing=(async()=>{
@@ -59,6 +60,7 @@
      canvas.replaceChildren();
      map=new GoogleMap(canvas,{center,zoom:14,minZoom:10,maxZoom:18,mapTypeId:'hybrid',renderingType:'RASTER',gestureHandling:'greedy',tilt:0,streetViewControl:false,mapTypeControl:false,rotateControl:false,fullscreenControl:true,zoomControl:true,clickableIcons:false});
      info=new InfoWindow();
+     map.addListener('zoom_changed',()=>{for(const overlay of overlays){const marker=overlay.sakanMarker;if(marker)overlay.setRadius(markerRadius(marker.point,marker.pixels));}});
      await deadline(new Promise(resolve=>api.event.addListenerOnce(map,'tilesloaded',resolve)));
     })().catch(error=>{map=null;initializing=null;throw error;});return initializing;
    }
@@ -68,11 +70,11 @@
     async route(){const {Route}=await api.importLibrary('routes');const response=await deadline(Route.computeRoutes({origin:center,destination:{lat:-34.9285,lng:138.6007},travelMode:'DRIVING',fields:['path','distanceMeters','durationMillis','warnings']}));if(!response.routes?.length)throw new Error('no-route');return response.routes[0];},
     paint(view,data){
      clear();panel.removeAttribute('aria-busy');buttons.forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.mapView===view));b.removeAttribute('data-map-pending');});
-     dot(center,`${name} suburb centre`,'#b58b3c',55);
+     dot(center,`${name} suburb centre`,'#b58b3c',10);
      if(view==='Overview'){map.setCenter(center);map.setZoom(14);setStatus(`Explore ${name} in satellite view.`);return;}
      if(view==='CBD route'){
       for(const line of data.createPolylines({polylineOptions:{strokeColor:'#2769c9',strokeOpacity:1,strokeWeight:5}})){line.setMap(map);overlays.push(line);}
-      boundsFor(data.path || []);dot({lat:-34.9285,lng:138.6007},'Adelaide CBD','#2769c9',65);
+      boundsFor(data.path || []);dot({lat:-34.9285,lng:138.6007},'Adelaide CBD','#2769c9',10);
       const km=(data.distanceMeters/1000).toFixed(1),minutes=Math.round(data.durationMillis/60000);
       setStatus(`Driving to Adelaide CBD: ${km} km · approximately ${minutes} min.`);results.append(text('p','Indicative driving route from the suburb centre. Travel time varies; this is not a public transport timetable.'));
       for(const warning of data.warnings || [])results.append(text('p',warning));return;

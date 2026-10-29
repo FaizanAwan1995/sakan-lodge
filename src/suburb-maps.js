@@ -1,9 +1,9 @@
 import {escapeHtml as h} from './public-routes.js';
 
 const suburbs={
- fulham:{name:'Fulham',center:{lat:-34.9259,lng:138.5137},area:'Adelaide’s western suburbs',eyebrow:'Coast & city connections',highlights:'Henley Beach area · River Torrens trails'},
- clapham:{name:'Clapham',center:{lat:-34.9917,lng:138.6000},area:'Adelaide’s inner south',eyebrow:'Foothills & local life',highlights:'Belair rail line · Surrounding woodland trails'},
- 'oaklands-park':{name:'Oaklands Park',center:{lat:-35.0061,lng:138.5453},area:'Adelaide’s southern suburbs',eyebrow:'Shopping, rail & recreation',highlights:'Westfield Marion · Oaklands rail connections'},
+ fulham:{name:'Fulham',center:{lat:-34.928296,lng:138.511307},area:'Adelaide’s western suburbs',eyebrow:'Coast & city connections',highlights:'Henley Beach area · River Torrens trails'},
+ clapham:{name:'Clapham',center:{lat:-34.992081,lng:138.606741},area:'Adelaide’s inner south',eyebrow:'Foothills & local life',highlights:'Belair rail line · Surrounding woodland trails'},
+ 'oaklands-park':{name:'Oaklands Park',center:{lat:-35.008239,lng:138.544382},area:'Adelaide’s southern suburbs',eyebrow:'Shopping, rail & recreation',highlights:'Westfield Marion · Oaklands rail connections'},
 };
 const embedded=params=>'https://maps.google.com/maps?'+new URLSearchParams({...params,t:'k',output:'embed',hl:'en'});
 export function suburbMapLinks(slug){
