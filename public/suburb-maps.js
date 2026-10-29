@@ -52,8 +52,8 @@
    let api,map,info,initializing,boundaryPoints=[],overlays=[],lastView='Overview',failed=false;
    function setStatus(value){status.textContent=value;}
    function clear(){info?.close();for(const overlay of overlays)overlay.setMap(null);overlays=[];results.replaceChildren();}
-   function boundsFor(points,maxZoom=16){const bounds=new api.LatLngBounds();bounds.extend(origin);for(const point of points)bounds.extend(point);map.fitBounds(bounds,36);api.event.addListenerOnce(map,'idle',()=>{if(map.getZoom()>maxZoom)map.setZoom(maxZoom);});}
-   function showPlace(place){map.panTo(place.location);map.setZoom(16);const content=text('div','');content.append(text('strong',place.displayName || 'Nearby place'),text('p',place.formattedAddress || ''));info.setContent(content);info.setPosition(place.location);info.open({map,shouldFocus:false});}
+   function boundsFor(points){const bounds=new api.LatLngBounds();bounds.extend(origin);for(const point of points)bounds.extend(point);map.fitBounds(bounds,36);}
+   function showPlace(place){map.moveCamera({center:place.location,zoom:16});const content=text('div','');content.append(text('strong',place.displayName || 'Nearby place'),text('p',place.formattedAddress || ''));info.setContent(content);info.setPosition(place.location);info.open({map,shouldFocus:false});}
    function markerRadius(point,pixels){return pixels*156543.03392*Math.cos(point.lat*Math.PI/180)/Math.pow(2,map.getZoom());}
    function dot(point,title,color='#173d32',pixels=8){const literal=typeof point.lat==='function'?{lat:point.lat(),lng:point.lng()}:point;const circle=new api.Circle({map,center:point,radius:markerRadius(literal,pixels),strokeColor:'#fff',strokeWeight:2,fillColor:color,fillOpacity:.95});circle.sakanMarker={point:literal,pixels};if(title)circle.addListener('click',()=>{info.setContent(text('strong',title));info.setPosition(point);info.open({map,shouldFocus:false});});overlays.push(circle);return circle;}
    async function load(){
@@ -110,7 +110,7 @@
     error(view){failed=true;panel.removeAttribute('aria-busy');buttons.forEach(b=>b.removeAttribute('data-map-pending'));retry.hidden=false;setStatus(map?`Couldn’t load ${view.toLowerCase()}. Your map is still available. Try again.`:'The map couldn’t load. Check your connection and try again.');}
    });
    for(const button of buttons)button.addEventListener('click',()=>{void controller.select(button.dataset.mapView);});
-   panel.querySelector('[data-map-property-focus]')?.addEventListener('click',()=>{void load().then(()=>{map.panTo(origin);map.setZoom(16);info.setContent(text('strong',property.name));info.setPosition(origin);info.open({map,shouldFocus:false});}).catch(()=>controller.select('Overview'));});
+   panel.querySelector('[data-map-property-focus]')?.addEventListener('click',()=>{void load().then(()=>{lastView='Property';map.moveCamera({center:origin,zoom:16});info.setContent(text('strong',property.name));info.setPosition(origin);info.open({map,shouldFocus:false});}).catch(()=>controller.select('Overview'));});
    retry.addEventListener('click',()=>{void controller.select(lastView);});
    doc.addEventListener('sakan-map-auth-error',()=>{failed=true;setStatus('The map is temporarily unavailable. Please try again later.');retry.hidden=false;});
    if(root.IntersectionObserver){const observer=new root.IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){visible.add(panel);if(!initializing&&!failed)void controller.select('Overview');}else visible.delete(panel);}doc.body?.classList.toggle('suburb-map-in-view',visible.size>0);},{threshold:.05});observer.observe(panel);}else void controller.select('Overview');
