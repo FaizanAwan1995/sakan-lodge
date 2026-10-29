@@ -31,6 +31,13 @@ async function handleRequest(request, env) {
     if(pathname==='/favicon.ico') return Response.redirect(new URL('/sakan-logo-circle-main.png', url).href,301);
 
     if(pathname==='/api/rent-invoices/pdf'||pathname==='/api/rent-invoices/preview')return rentInvoiceApi(request,env);
+    if(pathname==='/api/public/maps-config') {
+      if(request.method!=='GET')return new Response('Method not allowed',{status:405,headers:{allow:'GET'}});
+      // This deliberately publishes only the website-restricted browser key.
+      // Never substitute any server, Gmail, Supabase or unrestricted key here.
+      const key=String(env.GOOGLE_MAPS_BROWSER_KEY || '').trim();
+      return Response.json({key:/^AIza[\w-]{30,50}$/.test(key)?key:null},{headers:{'cache-control':'no-store'}});
+    }
     if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);
     if(pathname==='/api/reservations/email')return reservationEmail(request,env);
