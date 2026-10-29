@@ -21,7 +21,9 @@ test('all three suburb guides render without vacancies, with matching local maps
   const text=await renderListing({kind:'location',suburb:slug},{properties:[],rooms:[]}).text();
   assert.ok(text.includes('No rooms are currently advertised'));
   assert.ok(text.includes('Life around '+g.name));
-  assert.ok(text.includes('src="'+g.image+'"'));
+  assert.ok(text.includes('data-suburb-map="'+slug+'"'));
+  assert.ok(text.includes('Interactive Google Map of '+g.name));
+  assert.ok(!text.includes('src="'+g.image+'"'));
   assert.ok(fs.existsSync(new URL('../public'+g.image,import.meta.url)));
   assert.equal(g.features.length,4);
   assert.ok(text.includes('aria-hidden="true" focusable="false"'));
