@@ -3,37 +3,34 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {renderSuburbMap,renderSuburbLocationCards,suburbMapLinks} from './suburb-maps.js';
-
-test('satellite overview, nearby searches and CBD routes all use embedded Google Maps',()=>{
+function controller(adapter){const context={module:{exports:{}}};context.globalThis=context;vm.runInNewContext(fs.readFileSync(new URL('../public/suburb-maps.js',import.meta.url),'utf8'),context);return context.module.exports.createViewController(adapter);}
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
+const flush=()=>new Promise(resolve=>setImmediate(resolve));
+test('native satellite widgets have accessible category controls and no eager Google iframes',()=>{
  for(const [slug,name] of [['fulham','Fulham'],['clapham','Clapham'],['oaklands-park','Oaklands Park']]){
-  const m=suburbMapLinks(slug),overview=new URL(m.embed),route=new URL(m.directions);
-  assert.equal(overview.searchParams.get('q'),`${name}, South Australia, Australia`);assert.equal(overview.searchParams.get('z'),'14');
-  assert.equal(route.searchParams.get('saddr'),`${name}, South Australia, Australia`);assert.equal(route.searchParams.get('daddr'),'Adelaide CBD, South Australia, Australia');
-  for(const url of [m.embed,m.directions,...m.nearby.map(([,u])=>u)]){const u=new URL(url);assert.equal(u.hostname,'maps.google.com');assert.equal(u.searchParams.get('output'),'embed');assert.equal(u.searchParams.get('t'),'k');}
-  for(const [,url] of m.nearby)assert.ok(new URL(url).searchParams.get('q').includes(`${name}, South Australia`));
-  const html=renderSuburbMap(slug);assert.ok(html.includes('loading="lazy"'));assert.ok(html.includes(`name="suburb-map-${slug}"`));assert.ok(html.includes(`title="Interactive satellite map of ${name}`));
-  assert.equal((html.match(new RegExp(`target="suburb-map-${slug}"`,'g'))||[]).length,5);assert.ok(!html.includes('target="_blank"'));assert.ok(!html.includes('data-map-toggle'));assert.ok(!html.includes('inert'));assert.ok(html.includes('Suburb overview, not a property address'));
+  const m=suburbMapLinks(slug),html=renderSuburbMap(slug);assert.ok(m.center.lat<-34&&m.center.lat>-36);assert.ok(m.center.lng>138&&m.center.lng<139);
+  assert.ok(html.includes(`aria-label="Interactive satellite map of ${name}`));assert.ok(!html.includes('<iframe'));assert.ok(!html.includes('maps.googleapis.com'));assert.equal((html.match(/data-map-view=/g)||[]).length,5);assert.ok(html.includes('data-map-results'));assert.ok(html.includes('data-map-retry hidden'));assert.ok(html.includes('Suburb overview, not a property address'));
  }
  assert.equal(renderSuburbMap('unknown'),'');assert.equal(suburbMapLinks('<script>'),null);
-});
-test('suburb titles sit above live widgets and room navigation remains distinct and crawlable',()=>{
  const html=fs.readFileSync(new URL('../public/landing.html',import.meta.url),'utf8');assert.ok(html.includes(renderSuburbLocationCards()));
- assert.equal((html.match(/data-suburb-map=/g)||[]).length,3);
  for(const [slug,name] of [['fulham','Fulham'],['clapham','Clapham'],['oaklands-park','Oaklands Park']]){assert.ok(html.indexOf(`<h3>${name}</h3>`)<html.indexOf(`data-suburb-map="${slug}"`));assert.ok(html.includes(`href="/locations/${slug}/"`));}
- assert.ok(!html.includes('Explore map</button>'));assert.ok(!html.includes('src="/suburbs/fulham-map.webp"'));
- const css=fs.readFileSync(new URL('../public/site-ui.css',import.meta.url),'utf8');assert.ok(!css.includes('iframe{pointer-events:none}'));assert.ok(css.includes('.suburb-map-in-view #floating-contact'));
 });
-test('nearby actions change the iframe without leaving the page or blocking touch interaction',()=>{
- const source=fs.readFileSync(new URL('../public/suburb-maps.js',import.meta.url),'utf8');
- const element=()=>({dataset:{},attrs:{},handlers:{},setAttribute(k,v){this.attrs[k]=v;},getAttribute(k){return this.attrs[k];},removeAttribute(k){delete this.attrs[k];},addEventListener(k,f){this.handlers[k]=f;}});
- const panel=element(),frame=element(),status=element();panel.dataset.suburbName='Fulham';frame.attrs.inert='';frame.attrs['aria-hidden']='true';
- const links=['Overview','Transport','Groceries','Parks','CBD route'].map((label,i)=>{const e=element();e.dataset.mapView=label;e.attrs.href=i===4?suburbMapLinks('fulham').directions:i===0?suburbMapLinks('fulham').embed:suburbMapLinks('fulham').nearby[i-1][1];return e;});
- panel.querySelector=s=>s==='iframe'?frame:status;panel.querySelectorAll=()=>links;
- const toggles=[],observers=[],doc={querySelectorAll:()=>[panel],body:{classList:{toggle:(...args)=>toggles.push(args)}}};
- const context={module:{exports:{}},IntersectionObserver:class{constructor(cb){this.cb=cb;observers.push(this);}observe(p){this.panel=p;}}};context.globalThis=context;vm.runInNewContext(source,context);
- const {initSuburbMaps}=context.module.exports;initSuburbMaps(doc);assert.equal(frame.tabIndex,0);assert.equal(frame.attrs.inert,undefined);assert.equal(frame.attrs['aria-hidden'],undefined);
- let prevented=false;links[1].handlers.click({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal(frame.attrs.src,links[1].attrs.href);assert.equal(links[1].attrs['aria-current'],'true');assert.match(status.textContent,/transport for Fulham in this map/);
- links[4].handlers.click({preventDefault(){}});assert.equal(frame.attrs.src,links[4].attrs.href);assert.equal(links[1].attrs['aria-current'],undefined);
- observers[0].cb([{isIntersecting:true}]);assert.deepEqual(toggles.at(-1),['suburb-map-in-view',true]);observers[0].cb([{isIntersecting:false}]);assert.deepEqual(toggles.at(-1),['suburb-map-in-view',false]);
- assert.equal(initSuburbMaps(doc).length,0);
+test('category changes keep the map and deduplicate nearby and route requests per page session',async()=>{
+ const loaded=[],paints=[],calls=[];const c=controller({load:async()=>loaded.push(true),loading:()=>{},error:e=>assert.fail(e),paint:(...a)=>paints.push(a),nearby:async view=>{calls.push(view);return ['result'];},route:async()=>{calls.push('route');return {path:[]};}});
+ await c.select('Overview');assert.equal(calls.length,0);
+ await c.select('Parks');await c.select('Overview');await c.select('Parks');assert.deepEqual(calls,['Parks']);assert.deepEqual(paints.at(-1),['Parks',['result']]);
+ await c.select('CBD route');await c.select('CBD route');assert.deepEqual(calls,['Parks','route']);
+});
+test('late results and failures cannot replace a newer selection',async()=>{
+ const park=deferred(),transport=deferred(),paint=[],errors=[];
+ const c=controller({load:async()=>{},loading:()=>{},paint:(view,data)=>paint.push([view,data]),error:(...a)=>errors.push(a),nearby:view=>view==='Parks'?park.promise:transport.promise});
+ const first=c.select('Transport');await flush();const second=c.select('Parks');await flush();park.resolve(['park']);await second;transport.reject(new Error('late failure'));await first;assert.equal(paint.length,1);assert.deepEqual(paint[0],['Parks',['park']]);assert.equal(errors.length,0);
+});
+test('failure is explicit, can be retried and never announces a successful result',async()=>{
+ const events=[];let count=0;const c=controller({load:async()=>{},loading:v=>events.push(['loading',v]),paint:v=>events.push(['paint',v]),error:v=>events.push(['error',v]),nearby:async()=>{if(++count===1)throw new Error('quota');return [];}});
+ await c.select('Parks');assert.deepEqual(events,[['loading','Parks'],['error','Parks']]);await c.select('Parks');assert.deepEqual(events.at(-1),['paint','Parks']);assert.equal(count,2);
+});
+test('repeated clicks while a request is running share the same request',async()=>{
+ const pending=deferred();let calls=0;const painted=[];const c=controller({load:async()=>{},loading:()=>{},paint:v=>painted.push(v),error:()=>assert.fail(),nearby:()=>{calls++;return pending.promise;}});
+ const one=c.select('Parks');await flush();const two=c.select('Parks');await flush();assert.equal(calls,1);pending.resolve([]);await Promise.all([one,two]);assert.deepEqual(painted,['Parks']);
 });
