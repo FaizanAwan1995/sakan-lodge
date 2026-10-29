@@ -17,3 +17,27 @@ export async function prepareRoomPhoto(file){
   if(!blob||blob.size>5*1024*1024)throw Error('Unable to prepare this photo. Choose a smaller JPG.');return blob;
  }finally{clearTimeout(timer);img.onload=null;img.onerror=null;URL.revokeObjectURL(url);}
 }
+
+/** Save each photo separately, carrying the server revision between writes. */
+export async function uploadRoomPhotoBatch({items,profile,prepare=prepareRoomPhoto,upload,save,onProgress=()=>{},onSaved=()=>{}}){
+ const queue=items.map(item=>({...item,state:item.state || 'queued'}));let current=profile,needsReload=false;
+ const update=(item,state,error='')=>{item.state=state;item.error=error;onProgress(queue.map(row=>({...row})));};
+ for(const item of queue){
+  if(item.state==='saved')continue;
+  if(item.url&&(current?.photos || []).includes(item.url)){update(item,'saved');continue;}
+  if((current?.photos || []).length>=MAX_ROOM_PHOTOS){update(item,'failed','The room gallery is full (20 photos). Remove a photo before retrying.');continue;}
+  let stage='preparing';
+  try{
+   if(!item.url){update(item,'preparing');const blob=await prepare(item.file);stage='uploading';update(item,'uploading');item.url=await upload(blob,item);}
+   stage='saving';update(item,'saving');
+   current=await save([...(current?.photos || []),item.url],current?.revision ?? null);
+   update(item,'saved');onSaved(current);
+  }catch(e){
+   update(item,'failed',e.message || 'Unable to save this photo.');
+   // A failed gallery response may have committed, or another admin may have edited.
+   // Reload before retrying; the retained URL lets us recognise an already-saved photo.
+   if(stage==='saving'){needsReload=true;break;}
+  }
+ }
+ return {profile:current,items:queue,needsReload};
+}

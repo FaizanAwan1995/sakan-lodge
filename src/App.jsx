@@ -672,7 +672,7 @@ function RoomForm({ room, d, done }) {
       {capacityError && <p className="err">{capacityError}</p>}
       <RoomPhotos room={room} onBusy={setPhotoBusy}/>
       <button className="primary" disabled={photoBusy||Boolean(capacityError)}>Save room</button>
-      {room.id && !occupied && <button type="button" className="small err" onClick={async () => { if (confirm('Delete this room?')) { const ok = await deleteRow('rooms', room.id); if (ok) done(); } }}>Delete room</button>}
+      {room.id && !occupied && <button type="button" className="small err" disabled={photoBusy} onClick={async () => { if (confirm('Delete this room?')) { const ok = await deleteRow('rooms', room.id); if (ok) done(); } }}>Delete room</button>}
       <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
     </form>
   );
