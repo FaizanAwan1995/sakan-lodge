@@ -39,7 +39,7 @@ test('suburb outlines match the correct locality and property labels contain no 
  const data=JSON.parse(fs.readFileSync(new URL('../public/suburb-boundaries.geojson',import.meta.url),'utf8'));
  assert.equal(data.features.length,3);
  function inside(point,ring){let result=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i],[xj,yj]=ring[j];if(((yi>point.lat)!==(yj>point.lat))&&(point.lng<(xj-xi)*(point.lat-yi)/(yj-yi)+xi))result=!result;}return result;}
- for(const [slug,label] of [['fulham','Noor House'],['clapham','Sukoon House'],['oaklands-park','Aman House']]){
+ for(const [slug,label] of [['fulham','Sakan Fulham'],['clapham','Sakan Clapham'],['oaklands-park','Sakan Oaklands Park']]){
   const m=suburbMapLinks(slug),feature=data.features.find(f=>f.properties.suburb===m.name.toUpperCase());assert.ok(feature);assert.equal(feature.geometry.type,'Polygon');const ring=feature.geometry.coordinates[0];assert.deepEqual(ring[0],ring.at(-1));assert.ok(ring.length>30);assert.ok(inside(m.center,ring),label+' suburb centre must be inside its suburb');assert.deepEqual(Object.keys(m.property),['name']);assert.equal(m.property.name,label);const html=renderSuburbMap(slug);assert.ok(html.includes('Locate '+label));assert.ok(html.includes('data-map-boundary hidden'));assert.ok(html.includes('Suburb boundaries: Government of South Australia'));
  }
 });
