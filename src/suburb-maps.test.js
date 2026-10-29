@@ -9,7 +9,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 test('native satellite widgets have accessible category controls and no eager Google iframes',()=>{
  for(const [slug,name] of [['fulham','Fulham'],['clapham','Clapham'],['oaklands-park','Oaklands Park']]){
   const m=suburbMapLinks(slug),html=renderSuburbMap(slug);assert.ok(m.center.lat<-34&&m.center.lat>-36);assert.ok(m.center.lng>138&&m.center.lng<139);
-  assert.ok(html.includes(`aria-label="Interactive satellite map of ${name}`));assert.ok(!html.includes('<iframe'));assert.ok(!html.includes('maps.googleapis.com'));assert.equal((html.match(/data-map-view=/g)||[]).length,5);assert.ok(html.includes('data-map-results'));assert.ok(html.includes('data-map-retry hidden'));assert.ok(html.includes('Suburb overview, not a property address'));
+  assert.ok(html.includes(`aria-label="Interactive satellite map of ${name}`));assert.ok(!html.includes('<iframe'));assert.ok(!html.includes('maps.googleapis.com'));assert.equal((html.match(/data-map-view=/g)||[]).length,5);assert.ok(html.includes('data-map-results'));assert.ok(html.includes('data-map-retry hidden'));assert.ok(html.includes('Property pins show house names only'));
  }
  assert.equal(renderSuburbMap('unknown'),'');assert.equal(suburbMapLinks('<script>'),null);
  const html=fs.readFileSync(new URL('../public/landing.html',import.meta.url),'utf8');assert.ok(html.includes(renderSuburbLocationCards()));
@@ -33,4 +33,13 @@ test('failure is explicit, can be retried and never announces a successful resul
 test('repeated clicks while a request is running share the same request',async()=>{
  const pending=deferred();let calls=0;const painted=[];const c=controller({load:async()=>{},loading:()=>{},paint:v=>painted.push(v),error:()=>assert.fail(),nearby:()=>{calls++;return pending.promise;}});
  const one=c.select('Parks');await flush();const two=c.select('Parks');await flush();assert.equal(calls,1);pending.resolve([]);await Promise.all([one,two]);assert.deepEqual(painted,['Parks']);
+});
+
+test('suburb outlines match the correct locality and property labels contain no address or coordinate data',()=>{
+ const data=JSON.parse(fs.readFileSync(new URL('../public/suburb-boundaries.geojson',import.meta.url),'utf8'));
+ assert.equal(data.features.length,3);
+ function inside(point,ring){let result=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i],[xj,yj]=ring[j];if(((yi>point.lat)!==(yj>point.lat))&&(point.lng<(xj-xi)*(point.lat-yi)/(yj-yi)+xi))result=!result;}return result;}
+ for(const [slug,label] of [['fulham','Noor House'],['clapham','Sukoon House'],['oaklands-park','Aman House']]){
+  const m=suburbMapLinks(slug),feature=data.features.find(f=>f.properties.suburb===m.name.toUpperCase());assert.ok(feature);assert.equal(feature.geometry.type,'Polygon');const ring=feature.geometry.coordinates[0];assert.deepEqual(ring[0],ring.at(-1));assert.ok(ring.length>30);assert.ok(inside(m.center,ring),label+' suburb centre must be inside its suburb');assert.deepEqual(Object.keys(m.property),['name']);assert.equal(m.property.name,label);const html=renderSuburbMap(slug);assert.ok(html.includes('Locate '+label));assert.ok(html.includes('data-map-boundary hidden'));assert.ok(html.includes('Suburb boundaries: Government of South Australia'));
+ }
 });

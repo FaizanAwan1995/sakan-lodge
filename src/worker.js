@@ -1,3 +1,4 @@
+import {publicMapProperties} from './public-map-config.js';
 import { rentInvoiceApi, processRentInvoices } from './rent-invoice-api.js';
 import { reviewsApi, reviewsEnabled } from './reviews-api.js';
 import { renderReviewSection } from './reviews.js';
@@ -36,7 +37,7 @@ async function handleRequest(request, env) {
       // This deliberately publishes only the website-restricted browser key.
       // Never substitute any server, Gmail, Supabase or unrestricted key here.
       const key=String(env.GOOGLE_MAPS_BROWSER_KEY || '').trim();
-      return Response.json({key:/^AIza[\w-]{30,50}$/.test(key)?key:null},{headers:{'cache-control':'no-store'}});
+      return Response.json({key:/^AIza[\w-]{30,50}$/.test(key)?key:null,properties:publicMapProperties(env.PUBLIC_PROPERTY_MAP_POINTS)},{headers:{'cache-control':'no-store'}});
     }
     if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);
