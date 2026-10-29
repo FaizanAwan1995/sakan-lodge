@@ -9,7 +9,7 @@ const embedded=params=>'https://maps.google.com/maps?'+new URLSearchParams({...p
 export function suburbMapLinks(slug){
  const g=suburbs[slug];if(!g)return null;
  const place=`${g.name}, South Australia, Australia`;
- const embed=embedded({q:place,z:'12'});
+ const embed=embedded({q:place,z:'14'});
  return {name:g.name,embed,directions:embedded({saddr:place,daddr:'Adelaide CBD, South Australia, Australia'}),nearby:[['Transport',embedded({q:`public transport near ${place}`,z:'13'})],['Groceries',embedded({q:`supermarkets near ${place}`,z:'13'})],['Parks',embedded({q:`parks near ${place}`,z:'13'})]]};
 }
 export function renderSuburbMap(slug){
