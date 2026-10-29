@@ -7,7 +7,7 @@ import {renderSuburbMap,renderSuburbLocationCards,suburbMapLinks} from './suburb
 test('satellite overview, nearby searches and CBD routes all use embedded Google Maps',()=>{
  for(const [slug,name] of [['fulham','Fulham'],['clapham','Clapham'],['oaklands-park','Oaklands Park']]){
   const m=suburbMapLinks(slug),overview=new URL(m.embed),route=new URL(m.directions);
-  assert.equal(overview.searchParams.get('q'),`${name}, South Australia, Australia`);
+  assert.equal(overview.searchParams.get('q'),`${name}, South Australia, Australia`);assert.equal(overview.searchParams.get('z'),'14');
   assert.equal(route.searchParams.get('saddr'),`${name}, South Australia, Australia`);assert.equal(route.searchParams.get('daddr'),'Adelaide CBD, South Australia, Australia');
   for(const url of [m.embed,m.directions,...m.nearby.map(([,u])=>u)]){const u=new URL(url);assert.equal(u.hostname,'maps.google.com');assert.equal(u.searchParams.get('output'),'embed');assert.equal(u.searchParams.get('t'),'k');}
   for(const [,url] of m.nearby)assert.ok(new URL(url).searchParams.get('q').includes(`${name}, South Australia`));
