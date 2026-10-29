@@ -45,3 +45,8 @@ This is a source requirement record, not permission to activate untested custome
 - Preserve historical resident and financial records through every migration and test.
 - Do not publish unverified descriptions/photos/amenities or automatically treat an old marketing image as a verified room photo.
 - Keep customer requests off until database, browser and service acceptance is complete. Source/CI success is not proof of production activation.
+
+
+## Room photo batch uploads
+
+The main Add photos control allows selecting multiple images; Add one photo and Choose from Files remain fallback routes. Each prepared JPEG is attached to the gallery independently, carrying forward the returned profile revision. A bad image or storage failure does not discard the other files. Failed and queued files remain visible with Retry remaining photos and Clear unsaved selection. After an uncertain or stale gallery save, retry reloads the gallery and reuses uploaded URLs, avoiding duplicate attachments while preserving other admin edits. The 20-photo limit, staff permissions and public-listing approval/readiness rules remain unchanged. No real room photos are uploaded by automated tests. Native iPhone picker behaviour remains device-dependent and begins before the web uploader receives files.
