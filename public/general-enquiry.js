@@ -8,12 +8,12 @@
  let key=crypto.randomUUID(),signature='',token='',widget,busy=false,received=false,started=false;
  const state=()=>{submit.disabled=busy||received||!token;};state();
  async function start(){
-  if(started)return;started=true;status.textContent='Loading secure enquiry form…';
+  if(started){if(widget!==undefined&&!token&&window.turnstile)window.turnstile.reset(widget);return;}started=true;status.textContent='Loading secure enquiry form…';
   try{
    const response=await fetch('/api/enquiries');const config=await response.json();if(!response.ok||!config.enabled||!config.site_key)throw Error('Enquiries are temporarily unavailable. Email sakanlodges@gmail.com or contact us on WhatsApp.');
    if(!window.turnstile)await new Promise((resolve,reject)=>{
     let script=document.querySelector('script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
-    const timeout=setTimeout(()=>reject(Error('Verification could not load. Please close and reopen this form.')),15000);
+    const timeout=setTimeout(()=>reject(Error('Verification could not load. Please refresh the page and try again.')),15000);
     const done=()=>{clearTimeout(timeout);resolve();};
     if(script){script.addEventListener('load',done,{once:true});script.addEventListener('error',reject,{once:true});if(window.turnstile)done();}
     else{script=document.createElement('script');script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';script.async=true;script.onload=done;script.onerror=reject;document.head.append(script);}
@@ -21,7 +21,8 @@
    widget=window.turnstile.render(verification,{sitekey:config.site_key,action:'enquiry',size:'flexible',callback:value=>{token=value;state();if(!busy&&!received)status.textContent='';},'expired-callback':()=>{token='';state();},'error-callback':()=>{token='';state();status.textContent='Verification failed. Please close and reopen the form to retry.';}});
   }catch(error){started=false;status.textContent=error.message||'Unable to load verification. Please contact us by email or WhatsApp.';}
  }
- enquire.addEventListener('click',()=>{if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open','');if(received){f.reset();received=false;key=crypto.randomUUID();signature='';submit.textContent='Send enquiry';token='';if(window.turnstile&&widget!==undefined)window.turnstile.reset(widget);state();}start();});
+ enquire.addEventListener('click',()=>{if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open','');start();});
+ d.addEventListener('close',()=>{if(received){f.reset();received=false;key=crypto.randomUUID();signature='';submit.textContent='Send enquiry';token='';state();}});
  document.getElementById('close-enquiry')?.addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close();});
  f.addEventListener('submit',async e=>{
   e.preventDefault();if(busy||received||!token||!f.reportValidity())return;
