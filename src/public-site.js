@@ -1,4 +1,4 @@
-import {SEGMENTS,segmentPath,renderSegmentPage,householdNotice} from './accommodation-segments.js';
+import {SEGMENTS,segmentPath,renderSegmentPage,householdNotice,segmentPhotoUrls} from './accommodation-segments.js';
 import {STUDENT_PATH,STUDENT_TITLE,STUDENT_DESCRIPTION,studentAccommodationBody} from './student-accommodation.js';
 import { renderSuburbGuide } from "./suburb-guides.js";
 import {
@@ -118,7 +118,7 @@ function shell(
     h(description) +
     '"><meta property="og:url" content="' +
     h(canonical) +
-    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261030-6">' +
+    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261031-1">' +
     '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/room-photos/shared-room-hero-balanced.webp')+'">' +
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
@@ -420,6 +420,7 @@ export function renderListing(route, cat, env = {}) {
     ),
   );
 }
+export async function loadSegmentPhotos(env){try{return await databaseRpc(env,'public_segment_photos');}catch{return {};}}
 export async function handlePublicSite(request, env) {
   const url = new URL(request.url),
     path = url.pathname;
@@ -428,7 +429,8 @@ export async function handlePublicSite(request, env) {
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
     const key=segmentMatch[1],canonical=segmentPath(key),s=SEGMENTS[key];
     if(path!==canonical)return new Response(null,{status:308,headers:{location:ORIGIN+canonical+url.search}});
-    return html(shell(s.label+(key==='couples'?'’':'’s')+' Accommodation in Adelaide',s.description,canonical,renderSegmentPage(key)));
+    const galleries=await loadSegmentPhotos(env);
+    return html(shell(s.label+(key==='couples'?'’':'’s')+' Accommodation in Adelaide',s.description,canonical,renderSegmentPage(key,galleries),{image:segmentPhotoUrls(key,galleries)[0]}));
   }
   if(path==='/student-accommodation-adelaide'||path===STUDENT_PATH){
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
