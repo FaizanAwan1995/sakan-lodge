@@ -118,7 +118,7 @@ function shell(
     h(description) +
     '"><meta property="og:url" content="' +
     h(canonical) +
-    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261030-5">' +
+    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261030-6">' +
     '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/room-photos/shared-room-hero-balanced.webp')+'">' +
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
@@ -178,7 +178,7 @@ function amenities(list) {
   );
 }
 const included =
-  '<section aria-label="Bills, appliances and household arrangements"><p>Electricity, water, gas and internet included without additional charges.</p><p>Heaters are provided, and air-conditioners are available on request. Contact our team to arrange heating or cooling for your stay. Other appliances with high electricity consumption require prior approval from SAKAN Lodge administrators.</p><details><summary>Household arrangements and halal suitability</summary><p>Explore men-only household options, women-only accommodation being introduced at Sakan Fulham, and enquiries for couples. Our team confirms the household arrangement, move-in date, room capacity and availability before a stay is agreed.</p><p>We offer a halal-suitable living environment. Please discuss your household preferences with our team so we can confirm a suitable placement for your stay.</p></details></section>';
+  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
 function linkCard(title, path, desc, image = null) {
   return (
     '<article class="catalog-card">' + (image ? photos([image],title) : '') + '<h2><a href="' +
@@ -242,7 +242,7 @@ export function renderListing(route, cat, env = {}) {
         crumbs([{ name: location }]) +
           "<h1>" +
           h(title) +
-          "</h1><p>Looking for a room while studying, working or moving as a couple? Explore accommodation in " + h(location) + ", Adelaide, South Australia for university students, working professionals and couples. Check your journey to your campus or workplace from the property.</p><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays. Couples should enquire for two occupants so our team can confirm a suitable room and sleeping arrangement. Single-occupancy private rooms are for one person.</p>" +
+          "</h1><p>View rooms and check availability for your dates.</p>" +
           householdNotice(route.suburb) + included +
           '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
           h(location) +
