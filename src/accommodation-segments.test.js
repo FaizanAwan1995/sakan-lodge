@@ -14,7 +14,7 @@ test('each accommodation path renders without depending on database availability
 });
 test('women are directed to Fulham with the transition explicit; couples suitability is not assumed',()=>{
  const women=renderSegmentPage('women'),men=renderSegmentPage('men'),couples=renderSegmentPage('couples');
- assert.ok(women.includes('href="/locations/fulham/#available-heading"'));assert.ok(!women.includes('href="/locations/clapham/#available-heading"'));assert.ok(women.includes('transitioning the household'));assert.ok(!men.includes('href="/locations/fulham/#available-heading"'));assert.ok(couples.includes('capacity alone does not confirm couples suitability'));assert.ok(couples.includes('single-occupancy private rooms are for one person'));assert.equal(renderSegmentPage('unknown'),'');
+ assert.ok(women.includes('href="/locations/fulham/#available-heading"'));assert.ok(!women.includes('href="/locations/clapham/#available-heading"'));assert.ok(women.includes('transitioning the household'));assert.ok(!men.includes('href="/locations/fulham/#available-heading"'));assert.ok(couples.includes('Sakan Fulham · Granny flat'));assert.ok(!couples.includes('data-suburb-map="clapham"'));assert.ok(!couples.includes('data-suburb-map="oaklands-park"'));assert.ok(couples.includes('Enquire about the granny flat'));assert.equal(renderSegmentPage('unknown'),'');
  assert.ok(fs.readFileSync(new URL('../public/landing.html',import.meta.url),'utf8').includes(renderSegmentChoices()));
 });
 test('Fulham listing keeps the existing booking form and shows household transition notice',async()=>{
@@ -23,9 +23,9 @@ test('Fulham listing keeps the existing booking form and shows household transit
 });
 
 test('segment maps match their suburbs and link straight to available rooms',()=>{
- for(const [key,slugs] of Object.entries({women:['fulham'],men:['clapham','oaklands-park'],couples:['clapham','oaklands-park']})){
+ for(const [key,slugs] of Object.entries({women:['fulham'],men:['clapham','oaklands-park'],couples:['fulham']})){
   const body=renderSegmentPage(key);assert.equal((body.match(/data-suburb-map=/g)||[]).length,slugs.length);
-  for(const slug of slugs){assert.ok(body.includes(`data-suburb-map="${slug}"`));assert.ok(body.includes(`href="/locations/${slug}/#available-heading"`));}
+  for(const slug of slugs){assert.ok(body.includes(`data-suburb-map="${slug}"`));if(key!=='couples')assert.ok(body.includes(`href="/locations/${slug}/#available-heading"`));}
   assert.equal((body.match(/data-map-view=/g)||[]).length,slugs.length*5);assert.ok(body.indexOf('id="stay-rooms"')<body.indexOf('class="stay-values"'));assert.ok(body.includes('data-enquiry-location='));
  }
 });
