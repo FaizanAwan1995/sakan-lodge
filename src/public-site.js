@@ -250,7 +250,7 @@ export function renderListing(route, cat, env = {}) {
           (properties.length === 1
             ? '<p class="property-label">' +
               h(properties[0].name) +
-              '</p><div class="catalog-grid">' +
+              '</p>' + (properties[0].photos?.length ? '<details class="property-gallery"><summary>View property photos</summary>'+photos(properties[0].photos,properties[0].name)+'</details>' : '') + '<div class="catalog-grid">' +
               cat.rooms
                 .filter((r) => r.property_id === properties[0].id)
                 .map((r) =>
