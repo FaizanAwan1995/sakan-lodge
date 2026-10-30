@@ -8,7 +8,7 @@ async function fixture(){
  const document={getElementById:id=>ids[id],createElement:()=>{const n=node();created.push(n);return n;}};
  const fields={full_name:'Synthetic Guest',email:'guest@example.test',phone:'0400000000',location:'Fulham',accommodation:'Private room',occupants:'2',message:'Granny flat'};
  const context={document,window:{turnstile:{render(el,options){widget=options;return 1;},reset(){resets++;}}},crypto,AbortSignal,setTimeout,clearTimeout,FormData:class{get(key){return fields[key]||'';}[Symbol.iterator](){return Object.entries({...fields,'cf-turnstile-response':crypto.randomUUID()})[Symbol.iterator]();}},fetch:async(url,options)=>{
-  if(!options)return {ok:true,json:async()=>({enabled:true,site_key:'public'})};calls.push(options);if(fail)throw Error('Network timeout');return {ok:true,json:async()=>({received:true,reference:'ENQ-DEMO',message:'Received'})};
+  if(!options?.method)return {ok:true,json:async()=>({enabled:true,site_key:'public'})};calls.push(options);if(fail)throw Error('Network timeout');return {ok:true,json:async()=>({received:true,reference:'ENQ-DEMO',message:'Received'})};
  }};
  vm.runInNewContext(script,context);await open.events.click();await new Promise(resolve=>setImmediate(resolve));
  return {form,dialog,button,open,widget:()=>widget,calls,status:created[0],setFail:value=>fail=value,resets:()=>resets,submit:()=>form.events.submit({preventDefault(){}})};

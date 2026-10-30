@@ -1,3 +1,4 @@
+import {legacyLedgerPath} from './ledger-routing.js';
 import { enquiriesApi } from './enquiries-api.js';
 import { processIncomingAlerts } from './incoming-alerts.js';
 import {publicMapProperties} from './public-map-config.js';
@@ -31,6 +32,11 @@ async function fetchFromAssets(env, request, assetPath) {
 async function handleRequest(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    if(['GET','HEAD'].includes(request.method)) {
+      const target=pathname==='/ledger'?'/ledger/':legacyLedgerPath(pathname);
+      if(target)return new Response(null,{status:308,headers:{location:new URL(target+url.search,url.origin).href,'cache-control':'no-store','X-Robots-Tag':'noindex, nofollow'}});
+    }
 
     // Keep the conventional favicon URL usable for browsers and crawlers.
     if(pathname==='/favicon.ico') return Response.redirect(new URL('/sakan-logo-circle-main.png', url).href,301);
@@ -104,14 +110,15 @@ async function handleRequest(request, env) {
     }
 
     if (pathname === '/ledger' || pathname.startsWith('/ledger/')) {
-      const rewritten = new URL(request.url);
-      rewritten.pathname = normalizeLedgerPath(pathname);
-
-      const assetResponse = await env.ASSETS.fetch(new Request(rewritten, request));
-      if (assetResponse.status === 404) {
-        return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
-      }
-      return assetResponse;
+      if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{allow:'GET, HEAD'}});
+      const assetPath=normalizeLedgerPath(pathname);
+      // Every navigation gets the SPA shell even when a restored mobile tab omits
+      // browser navigation headers. Asset files still retain real 404 responses.
+      const documentPath=!assetPath.includes('.');
+      const response=await env.ASSETS.fetch(new Request(new URL(documentPath?'/index.html':assetPath,request.url),request));
+      if(!documentPath)return response;
+      if(response.status!==200)return new Response('Ledger is temporarily unavailable. Please reload.',{status:503,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+      return new Response(response.body,{status:200,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
     }
 
     if (

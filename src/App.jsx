@@ -1,3 +1,5 @@
+import {startSessionResume} from './session-resume.js';
+import {readLedgerVisit,saveLedgerVisit} from './ledger-routing.js';
 import WebsitePhotos from './features/website/WebsitePhotos.jsx';
 import IncomingAlerts from './features/notifications/IncomingAlerts.jsx';
 import RoomPhotos from './features/rooms/RoomPhotos.jsx';
@@ -38,6 +40,8 @@ const dayAfter = (s) => { if (!s) return undefined; const d = new Date(`${s}T00:
 
 export default function App() {
   const [session, setSession] = useState(undefined);
+  const [sessionIssue,setSessionIssue]=useState(null);
+  const resume=useRef(null);
   const [selectedUser, setSelectedUser] = useState(() => isLocalMode ? getLocalActor() : null);
   const [showUserChooser, setShowUserChooser] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
@@ -68,36 +72,23 @@ export default function App() {
       return;
     }
 
-    let active = true;
-    let unsubscribe = null;
-
-    const setup = async () => {
-      try {
-        if (!supabase) {
-          if (active) setSession(null);
-          return;
-        }
-        const { data: initial } = await supabase.auth.getSession();
-        if (!active) return;
-        setSession(initial.session ?? null);
-        const { data } = supabase.auth.onAuthStateChange((_e, s) => {
-          if (active) setSession(s ?? null);
-        });
-        unsubscribe = () => data.subscription.unsubscribe();
-      } catch (error) {
-        console.error('Session bootstrap failed:', error);
-        if (active) setSession(null);
-      }
-    };
-
-    setup();
-    return () => {
-      active = false;
-      if (typeof unsubscribe === 'function') unsubscribe();
-    };
+    if(!supabase){setSession(null);return;}
+    const controller=startSessionResume({auth:supabase.auth,onSession:setSession,onError:setSessionIssue,window,document});
+    resume.current=controller;
+    return ()=>{controller.stop();resume.current=null;};
   }, []);
 
-  if (session === undefined) return <div className="pad">Loading…</div>;
+  useEffect(()=>{
+    if(!session?.user?.id)return;
+    const remember=()=>saveLedgerVisit(localStorage,session.user.id,location.pathname,location.search,window.scrollY);
+    const onHidden=()=>{if(document.visibilityState==='hidden')remember();};
+    // Record the page immediately; capture its scroll when it is suspended.
+    if(location.pathname!=='/'&&location.pathname!=='/signin')saveLedgerVisit(localStorage,session.user.id,location.pathname,location.search,location.state?.restoreScroll||0);
+    window.addEventListener('pagehide',remember);document.addEventListener('visibilitychange',onHidden);
+    return ()=>{window.removeEventListener('pagehide',remember);document.removeEventListener('visibilitychange',onHidden);};
+  },[session?.user?.id,location.pathname,location.search]);
+
+  if (session === undefined) return <div className="pad" role="status">{sessionIssue||'Resuming your Ledger session…'}{sessionIssue&&<button type="button" onClick={()=>resume.current?.check()}>Try again</button>}</div>;
   if (showUserChooser || (isLocalMode && (!selectedUser || location.pathname === '/signin'))) {
     return (
       <Routes>
@@ -132,9 +123,10 @@ export default function App() {
   const accountName = session.user.user_metadata?.ledger_name || TEAM.find((name) => session.user.email?.toLowerCase().startsWith(name.toLowerCase())) || session.user.email;
   return (
     <ErrorBoundary>
+      {sessionIssue&&<div className="pad" role="status">{sessionIssue} <button type="button" onClick={()=>resume.current?.check()}>Reconnect</button></div>}
       <Routes>
-        <Route path="/" element={<Navigate to="/home" replace />} />
-        <Route path="/signin" element={<Navigate to="/home" replace />} />
+        <Route path="/" element={<ResumeLedger userId={session.user.id}/>} />
+        <Route path="/signin" element={<ResumeLedger userId={session.user.id}/>} />
         <Route path="/home" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
           setLocalActor(null);
           setSelectedUser(null);
@@ -257,6 +249,11 @@ function Login({ selectedUser, onBack }) {
       <button type="button" className="chooser-back" onClick={onBack}>Choose a different user</button>
     </form>
   );
+}
+
+function ResumeLedger({userId}){
+  const saved=readLedgerVisit(localStorage,userId);
+  return <Navigate to={saved?saved.pathname+saved.search:'/home'} state={{restoreScroll:saved?.scroll||0}} replace/>;
 }
 
 function Main({ session, accountName, headerVisible, onSwitchLocal }) {

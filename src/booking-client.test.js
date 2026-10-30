@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../public/booking.js', import.meta.url), 'utf8');
 
-function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, token = 'synthetic-challenge'} = {}) {
+function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, token = 'synthetic-challenge',postFails=false,abortAvailability=false} = {}) {
   const formEvents = {}, checkEvents = {}, calls = [];
   const values = {
     arrival_date: '2030-01-01', departure_date: '2030-03-01',
@@ -45,14 +45,16 @@ function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, to
   }
   vm.runInNewContext(source, {
     document: {querySelector: (selector) => elements[selector]},
-    Intl, Date, crypto, URLSearchParams,
+    Intl, Date, crypto, URLSearchParams, AbortSignal,
     FormData: MockFormData,
     window: {turnstile: {reset() {}}},
     fetch: async (url, options) => {
       calls.push({url, options});
       if (url === '/api/reservations') {
+        if(postFails && calls.filter(c=>c.url==='/api/reservations').length===1)throw Object.assign(Error('Timeout'),{name:'TimeoutError'});
         return {ok: true, json: async () => ({code: 'SAKAN-TEST'})};
       }
+      if(abortAvailability)throw Object.assign(Error('Timeout'),{name:'TimeoutError'});
       return {
         ok: !fails,
         json: async () => fails ? {error: 'Unable to verify availability'} :
@@ -145,7 +147,7 @@ test('available room offers a working date-prefilled email request when online s
   const calls=[];
   vm.runInNewContext(source,{
     document:{querySelector(selector){return nodes[selector]||null;}},
-    Intl,Date,crypto,URLSearchParams,
+    Intl,Date,crypto,URLSearchParams,AbortSignal,
     fetch:async(url)=>{
       calls.push(url);
       return {ok:true,json:async()=>({spaces:1,weekly_rate:255,offer_type:'private',requests_enabled:false})};
@@ -179,10 +181,16 @@ test('no enquiry button shown when all spaces are occupied', async()=>{
   const nodes={'#reservation-form':form,'#availability-result':result,
     '#check-availability':check,'#enquiry-next-step':nextStep,'#email-reservation':email};
   vm.runInNewContext(source,{
-    document:{querySelector:s=>nodes[s]||null},Intl,Date,crypto,URLSearchParams,
+    document:{querySelector:s=>nodes[s]||null},Intl,Date,crypto,URLSearchParams,AbortSignal,
     fetch:async()=>({ok:true,json:async()=>({spaces:0,weekly_rate:255,requests_enabled:false})})
   });
   await checkHandlers.click();
   assert.equal(nextStep.hidden,true);
   assert.equal(email.href,'');
+});
+
+test('availability timeout restores controls and reservation retry ignores renewed verification tokens',async()=>{
+ const timeout=setup({abortAvailability:true});await timeout.checkEvents.click();assert.equal(timeout.check.disabled,false);assert.match(timeout.result.textContent,/timed out/);
+ const retry=setup({postFails:true});await retry.formEvents.submit({preventDefault(){}});assert.equal(retry.submit.disabled,false);assert.match(retry.message.textContent,/retry with the same details/);
+ retry.values['cf-turnstile-response']='new-token';retry.formEvents.input();await retry.formEvents.submit({preventDefault(){}});const posts=retry.calls.filter(c=>c.url==='/api/reservations');assert.equal(posts.length,2);assert.equal(posts[0].options.headers['Idempotency-Key'],posts[1].options.headers['Idempotency-Key']);assert.ok(posts[1].options.signal);assert.match(retry.message.textContent,/SAKAN-TEST/);
 });
