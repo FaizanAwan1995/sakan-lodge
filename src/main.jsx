@@ -1,3 +1,4 @@
+import {ledgerBasename} from './ledger-routing.js';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -8,7 +9,7 @@ import { startMonitoring } from './monitoring.js';
 
 startMonitoring();
 
-const routerBase = import.meta.env.VITE_ROUTER_BASENAME || (window.location.pathname.startsWith('/ledger/') ? '/ledger/' : '/');
+const routerBase = import.meta.env.VITE_ROUTER_BASENAME || ledgerBasename(window.location.pathname);
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter basename={routerBase}>

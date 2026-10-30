@@ -20,3 +20,8 @@ test('snapshot permission and network failures preserve errors for the ledger er
 test('missing snapshot migration fails with an actionable message and never falls back to partial tables',async()=>{
   await assert.rejects(()=>loadLedgerSnapshot({rpc:async()=>({data:null,error:{code:'PGRST202'}})}),/database update is pending/);
 });
+
+test('snapshot fetch has a bounded wait and propagates timeout to the retry screen',async()=>{
+ let signal;const failure={message:'TimeoutError: request timed out'};
+ await assert.rejects(()=>loadLedgerSnapshot({rpc:()=>({abortSignal(value){signal=value;return Promise.resolve({data:null,error:failure});}})}),error=>error===failure);assert.ok(signal instanceof AbortSignal);
+});

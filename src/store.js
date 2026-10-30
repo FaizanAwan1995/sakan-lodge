@@ -17,7 +17,7 @@ const configured = Boolean(
 
 /** No credentials means a private, browser-only preview; configured builds use Supabase. */
 export const isLocalMode = !configured;
-export const supabase = configured ? createClient(projectUrl, publicKey) : null;
+export const supabase = configured ? createClient(projectUrl, publicKey, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
 
 const TABLES = LEDGER_TABLES;
 const LOCAL_KEY = 'sakan-lodge-local-db-v1';

@@ -2,7 +2,8 @@ export const LEDGER_TABLES = ['properties', 'rooms', 'people', 'charges', 'payme
 
 /** One database snapshot avoids partial pages and mixed concurrent table loads. */
 export async function loadLedgerSnapshot(client) {
-  const { data, error } = await client.rpc('ledger_snapshot');
+  const request = client.rpc('ledger_snapshot');
+  const { data, error } = await (typeof request.abortSignal === 'function' ? request.abortSignal(AbortSignal.timeout(15000)) : request);
   if (error) {
     if (['PGRST202','42883'].includes(error.code))
       throw new Error('The ledger database update is pending. Complete the tested migration before deploying this release. Existing records are preserved.');

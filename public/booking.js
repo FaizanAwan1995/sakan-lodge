@@ -18,7 +18,7 @@
     requestKey = crypto.randomUUID(),
     sending = false;
   const fingerprint = () =>
-    JSON.stringify(Object.fromEntries(new FormData(form)));
+    JSON.stringify(Object.fromEntries([...new FormData(form)].filter(([key])=>key!=="cf-turnstile-response")));
   const dates = () =>
     [
       form.elements.arrival_date.value,
@@ -63,6 +63,7 @@
             arrival: arrival.value,
             departure: departure.value,
           }),
+        {signal:AbortSignal.timeout(15000)},
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Availability could not be verified.");
@@ -117,7 +118,7 @@
       return hasSpaces && data.requests_enabled === true;
     } catch (e) {
       result.textContent =
-        e.message || "Unable to verify availability. Please contact our team.";
+        (e.name === "TimeoutError" || e.name === "AbortError") ? "Availability check timed out. Please try again." : e.message || "Unable to verify availability. Please contact our team.";
       return false;
     } finally {
       check.disabled = false;
@@ -163,6 +164,7 @@
           "Idempotency-Key": requestKey,
         },
         body: JSON.stringify(data),
+        signal: AbortSignal.timeout(20000),
       });
       const output = await response.json();
       if (!response.ok) throw new Error(output.error);
@@ -178,7 +180,7 @@
         .forEach((el) => (el.disabled = true));
     } catch (e) {
       message.textContent =
-        e.message ||
+        (e.name === "TimeoutError" || e.name === "AbortError") ? "Receipt could not be confirmed in time. Please retry with the same details." : e.message ||
         "Unable to confirm receipt. Please retry with the same details.";
       window.turnstile?.reset();
     } finally {
