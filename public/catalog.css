@@ -84,7 +84,7 @@
 .catalog-main textarea {
   min-height: 100px;
 }
-.catalog-main button {
+.catalog-main form button {
   padding: 13px 22px;
   margin: 18px 0;
   border: 1px solid #725320;
@@ -94,7 +94,7 @@
   font: inherit;
   cursor: pointer;
 }
-.catalog-main button:disabled {
+.catalog-main form button:disabled {
   opacity: 0.55;
   cursor: default;
 }
