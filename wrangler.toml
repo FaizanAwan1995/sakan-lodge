@@ -38,10 +38,12 @@ name = "GMAIL_OAUTH_STATE"
 class_name = "GmailOAuthState"
 
 [vars]
+INCOMING_ALERT_EMAILS_ENABLED = "true"
 RENT_INVOICE_EMAILS_ENABLED = "true"
 
 [triggers]
 crons = ["* * * * *"]
 
 [previews.vars]
+INCOMING_ALERT_EMAILS_ENABLED = "false"
 RENT_INVOICE_EMAILS_ENABLED = "false"
