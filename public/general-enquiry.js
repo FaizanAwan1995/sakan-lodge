@@ -18,6 +18,7 @@
     if(script){script.addEventListener('load',done,{once:true});script.addEventListener('error',reject,{once:true});if(window.turnstile)done();}
     else{script=document.createElement('script');script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';script.async=true;script.onload=done;script.onerror=reject;document.head.append(script);}
    });
+   status.textContent='Complete verification, then send your enquiry.';
    widget=window.turnstile.render(verification,{sitekey:config.site_key,action:'enquiry',size:'flexible',callback:value=>{token=value;state();if(!busy&&!received)status.textContent='';},'expired-callback':()=>{token='';state();},'error-callback':()=>{token='';state();status.textContent='Verification failed. Please close and reopen the form to retry.';}});
   }catch(error){started=false;status.textContent=error.message||'Unable to load verification. Please contact us by email or WhatsApp.';}
  }
@@ -26,7 +27,7 @@
  document.getElementById('close-enquiry')?.addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close();});
  f.addEventListener('submit',async e=>{
   e.preventDefault();if(busy||received||!token||!f.reportValidity())return;
-  const data=Object.fromEntries(new FormData(f));const next=JSON.stringify(data);if(signature&&signature!==next)key=crypto.randomUUID();signature=next;
+  const fields=new FormData(f);const data=Object.fromEntries(['full_name','email','phone','location','accommodation','move_in','occupants','message'].map(key=>[key,fields.get(key)||'']));const next=JSON.stringify(data);if(signature&&signature!==next)key=crypto.randomUUID();signature=next;
   busy=true;state();status.textContent='Sending your enquiry…';
   try{
    const response=await fetch('/api/enquiries',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify({...data,turnstile_token:token}),signal:AbortSignal.timeout(20000)});const result=await response.json();
