@@ -1,3 +1,4 @@
+import {SEGMENTS,segmentPath,renderSegmentPage,householdNotice} from './accommodation-segments.js';
 import {STUDENT_PATH,STUDENT_TITLE,STUDENT_DESCRIPTION,studentAccommodationBody} from './student-accommodation.js';
 import { renderSuburbGuide } from "./suburb-guides.js";
 import {
@@ -117,12 +118,12 @@ function shell(
     h(description) +
     '"><meta property="og:url" content="' +
     h(canonical) +
-    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261030-2">' +
+    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261030-3">' +
     '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/room-photos/shared-room-hero-balanced.webp')+'">' +
     schema +
-    '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
+    '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js" defer></script><script src="/general-enquiry.js" defer></script></body></html>'
+    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js" defer></script><script src="/general-enquiry.js" defer></script><script src="/accommodation-segments.js?v=20261030-1" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
@@ -177,7 +178,7 @@ function amenities(list) {
   );
 }
 const included =
-  '<section aria-label="Bills, appliances and household arrangements"><p>Electricity, water, gas and internet included without additional charges.</p><p>Heaters are provided, and air-conditioners are available on request. Contact our team to arrange heating or cooling for your stay. Other appliances with high electricity consumption require prior approval from SAKAN Lodge administrators.</p><details><summary>Household arrangements and halal suitability</summary><p>Most of our properties are men-only. Women applying individually and couples can also enquire. Placement depends on a suitable property, household arrangement, room capacity and availability; our team will confirm these details with you before a stay is agreed.</p><p>We offer a halal-suitable living environment. Please discuss your household preferences with our team so we can confirm a suitable placement for your stay.</p></details></section>';
+  '<section aria-label="Bills, appliances and household arrangements"><p>Electricity, water, gas and internet included without additional charges.</p><p>Heaters are provided, and air-conditioners are available on request. Contact our team to arrange heating or cooling for your stay. Other appliances with high electricity consumption require prior approval from SAKAN Lodge administrators.</p><details><summary>Household arrangements and halal suitability</summary><p>Explore men-only household options, women-only accommodation being introduced at Sakan Fulham, and enquiries for couples. Our team confirms the household arrangement, move-in date, room capacity and availability before a stay is agreed.</p><p>We offer a halal-suitable living environment. Please discuss your household preferences with our team so we can confirm a suitable placement for your stay.</p></details></section>';
 function linkCard(title, path, desc, image = null) {
   return (
     '<article class="catalog-card">' + (image ? photos([image],title) : '') + '<h2><a href="' +
@@ -242,7 +243,7 @@ export function renderListing(route, cat, env = {}) {
           "<h1>" +
           h(title) +
           "</h1><p>Looking for a room while studying, working or moving as a couple? Explore accommodation in " + h(location) + ", Adelaide, South Australia for university students, working professionals and couples. Check your journey to your campus or workplace from the property.</p><p>Shared rooms: $185 per person/week, for two calendar months or longer. Private rooms: $255/week long-term, or $300/week for shorter stays. Couples should enquire for two occupants so our team can confirm a suitable room and sleeping arrangement. Single-occupancy private rooms are for one person.</p>" +
-          included +
+          householdNotice(route.suburb) + included +
           '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
           h(location) +
           "</h2>" +
@@ -328,7 +329,7 @@ export function renderListing(route, cat, env = {}) {
           "</p>" +
           photos(property.photos, property.name) +
           amenities(property.amenities) +
-          included +
+          householdNotice(route.suburb) + included +
           '<div class="catalog-grid">' +
           rooms
             .map((r) =>
@@ -399,7 +400,7 @@ export function renderListing(route, cat, env = {}) {
           ? "Shared room · $185 per person/week · long-term only"
           : "Private room · $255/week long-term · $300/week short-term") +
         "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>" +
-        included +
+        householdNotice(route.suburb) + included +
         amenities(room.amenities) +
         roomForm(room, env),
       {
@@ -422,6 +423,13 @@ export function renderListing(route, cat, env = {}) {
 export async function handlePublicSite(request, env) {
   const url = new URL(request.url),
     path = url.pathname;
+  const segmentMatch=path.match(/^\/accommodation\/(men|women|couples)\/?$/);
+  if(segmentMatch){
+    if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
+    const key=segmentMatch[1],canonical=segmentPath(key),s=SEGMENTS[key];
+    if(path!==canonical)return new Response(null,{status:308,headers:{location:ORIGIN+canonical+url.search}});
+    return html(shell(s.label+(key==='couples'?'’':'’s')+' Accommodation in Adelaide',s.description,canonical,renderSegmentPage(key)));
+  }
   if(path==='/student-accommodation-adelaide'||path===STUDENT_PATH){
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
     if(path!==STUDENT_PATH)return new Response(null,{status:308,headers:{location:ORIGIN+STUDENT_PATH+url.search}});
@@ -532,6 +540,7 @@ export async function handlePublicSite(request, env) {
       const urls = [
         "/",
         STUDENT_PATH,
+        ...Object.keys(SEGMENTS).map(segmentPath),
         "/privacy",
         "/terms",
         ...LOCATION_SLUGS.map((suburb) => publicPath({ suburb })),
