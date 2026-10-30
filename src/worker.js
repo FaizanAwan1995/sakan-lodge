@@ -4,6 +4,8 @@ import {publicMapProperties} from './public-map-config.js';
 import { rentInvoiceApi, processRentInvoices } from './rent-invoice-api.js';
 import { reviewsApi, reviewsEnabled } from './reviews-api.js';
 import { renderReviewSection } from './reviews.js';
+import { renderSegmentChoices } from './accommodation-segments.js';
+import { loadSegmentPhotos } from './public-site.js';
 import { databaseRpc } from './public-site.js';
 import { bookingContractApi } from './booking-contract-api.js';
 export { GmailOAuthState } from './gmail-oauth-state.js';
@@ -57,8 +59,9 @@ async function handleRequest(request, env) {
       const response = await fetchFromAssets(env, request, '/landing.html');
       if (response && response.status !== 404) {
         let reviews = [], reviewsUnavailable = false;
-        try { reviews = await databaseRpc(env, 'published_testimonials'); } catch { reviewsUnavailable = true; }
-        const page = (await response.text()).replace('<!--SAKAN_REVIEWS-->', renderReviewSection(Array.isArray(reviews) ? reviews : [], { siteKey: env.TURNSTILE_SITE_KEY, enabled: reviewsEnabled(env), unavailable: reviewsUnavailable }));
+        const [reviewResult,galleries]=await Promise.all([databaseRpc(env,'published_testimonials').then(value=>({value})).catch(()=>({unavailable:true})),loadSegmentPhotos(env)]);
+        reviews=reviewResult.value||[];reviewsUnavailable=!!reviewResult.unavailable;
+        const page = (await response.text()).replace(/<section class="section stay-paths"[\s\S]*?<\/section>/,renderSegmentChoices(galleries)).replace('<!--SAKAN_REVIEWS-->', renderReviewSection(Array.isArray(reviews) ? reviews : [], { siteKey: env.TURNSTILE_SITE_KEY, enabled: reviewsEnabled(env), unavailable: reviewsUnavailable }));
         return new Response(page, {
           status: response.status,
           headers: {

@@ -1,3 +1,4 @@
+import WebsitePhotos from './features/website/WebsitePhotos.jsx';
 import IncomingAlerts from './features/notifications/IncomingAlerts.jsx';
 import RoomPhotos from './features/rooms/RoomPhotos.jsx';
 import {tenantDateError} from './tenant-dates.js';
@@ -146,6 +147,7 @@ export default function App() {
         }} />} />
         <Route path="/reservations" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate('/signin', { replace: true }); }} />} />
         <Route path="/communications" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
+        <Route path="/website-photos" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
         <Route path="/reviews" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
         <Route path="/rooms" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
           setLocalActor(null);
@@ -284,7 +286,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
     setPayFor(pid ?? null); const route = t === 'today' ? '/home' : t==='rent' ? '/reports?view=transactions' : `/${t}`;
     navigate(route); window.scrollTo(0, 0);
   } };
-  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['activity', 'Activity']];
+  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['website-photos', 'Website photos'], ['activity', 'Activity']];
   return (
     <>
       <IncomingAlerts key={session.user.id} userId={session.user.id} />
@@ -322,6 +324,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {tab === 'communications' && <TenantCommunications db={db} today={today} />}
         {tab === 'reservations' && <Reservations db={db} reload={reload} />}
         {tab === 'reviews' && <Reviews />}
+        {tab === 'website-photos' && <WebsitePhotos db={db} />}
         {tab === 'activity' && <Activity {...ctx} />}
       </main>
     </>
