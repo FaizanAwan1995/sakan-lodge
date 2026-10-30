@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { reservationTenants, tenantReference, tenantStatus } from '../../tenant-model.js';
 import { todayStr } from '../../ledger.js';
 import FinalBooking from "./FinalBooking.jsx";
@@ -25,6 +25,8 @@ async function rpc(name, args) {
   return data;
 }
 export default function Reservations({ db, reload }) {
+  const location = useLocation();
+  const deepLink = useRef(null);
   const detailVersion = useRef(0);
   const selectedRef = useRef(null);
   const [stale, setStale] = useState(false);
@@ -100,6 +102,11 @@ export default function Reservations({ db, reload }) {
       window.removeEventListener("online", sync);
     };
   }, []);
+  useEffect(() => {
+    const id=new URLSearchParams(location.search).get('reservation');
+    const row=rows.find(r=>r.id===id);
+    if(row && deepLink.current!==id) { deepLink.current=id; open(row).catch(e=>setError(e.message)); }
+  },[location.search,rows]);
   async function run(fn) {
     setBusy(true);
     setError("");

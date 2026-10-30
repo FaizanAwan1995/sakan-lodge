@@ -1,3 +1,5 @@
+import { enquiriesApi } from './enquiries-api.js';
+import { processIncomingAlerts } from './incoming-alerts.js';
 import {publicMapProperties} from './public-map-config.js';
 import { rentInvoiceApi, processRentInvoices } from './rent-invoice-api.js';
 import { reviewsApi, reviewsEnabled } from './reviews-api.js';
@@ -39,6 +41,7 @@ async function handleRequest(request, env) {
       const key=String(env.GOOGLE_MAPS_BROWSER_KEY || '').trim();
       return Response.json({key:/^AIza[\w-]{30,50}$/.test(key)?key:null,properties:publicMapProperties(env.PUBLIC_PROPERTY_MAP_POINTS)},{headers:{'cache-control':'no-store'}});
     }
+    if(pathname==='/api/enquiries')return enquiriesApi(request,env);
     if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);
     if(pathname==='/api/reservations/email')return reservationEmail(request,env);
@@ -138,7 +141,7 @@ async function handleRequest(request, env) {
 }
 
 export default {
-  async scheduled(controller,env,ctx){ctx.waitUntil(processRentInvoices(env).catch(()=>{console.error('Invoice queue processing unavailable; recorded payments remain saved.');}));},
+  async scheduled(controller,env,ctx){ctx.waitUntil(processIncomingAlerts(env).catch(()=>{console.error('Incoming alert delivery unavailable; submissions remain saved.');}));ctx.waitUntil(processRentInvoices(env).catch(()=>{console.error('Invoice queue processing unavailable; recorded payments remain saved.');}));},
   async fetch(request, env) {
     let response;
     try { response = await handleRequest(request, env); } catch { response = new Response('Service temporarily unavailable', {status:503,headers:{'cache-control':'no-store'}}); }

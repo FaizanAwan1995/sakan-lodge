@@ -1,3 +1,4 @@
+import IncomingAlerts from './features/notifications/IncomingAlerts.jsx';
 import RoomPhotos from './features/rooms/RoomPhotos.jsx';
 import {tenantDateError} from './tenant-dates.js';
 import { RoomHistory } from './features/tenants/StayHistory.jsx';
@@ -286,6 +287,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['activity', 'Activity']];
   return (
     <>
+      <IncomingAlerts key={session.user.id} userId={session.user.id} />
       <a className="ledger-skip-link" href="#main-content">Skip to content</a>
       <header className={`topbar ${headerVisible ? 'visible' : 'hidden'}`}>
         <div className="topbar-inner">
