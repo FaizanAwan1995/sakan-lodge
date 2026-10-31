@@ -1,3 +1,4 @@
+import {verifyPastFortnights} from './past-fortnight-checks.js';
 import {verifyGuidedSettlement} from './guided-settlement-checks.js';
 import {verifyRoomPhotos} from './room-photo-checks.js';
 import {verifyHistoricalReceipts} from './historical-receipt-checks.js';
@@ -823,6 +824,8 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyRentInvoices({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261026023326_automatic_rent_invoices.sql'))});
   await db.exec(await read('../../supabase/migrations/20261026032904_historical_rent_receipts.sql'));
   await verifyHistoricalReceipts({t,sql,rpc,STAFF,OTHER});
+  await db.exec(await read('../../supabase/migrations/20261031080255_past_fortnight_invoices.sql'));
+  await verifyPastFortnights({t,sql,rpc,STAFF,OTHER});
   await db.exec(await read('../../supabase/migrations/20261026082712_room_photo_upload.sql'));
   await verifyRoomPhotos({t,sql,rpc,STAFF,OTHER});
   await verifyGuidedSettlement({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261028225255_guided_bond_settlement.sql'))});

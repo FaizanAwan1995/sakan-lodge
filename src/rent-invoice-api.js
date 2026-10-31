@@ -39,7 +39,7 @@ export async function rentInvoiceApi(request,env){
  try{
   const input=await limitedJson(request,1000);
   if(new URL(request.url).pathname==='/api/rent-invoices/preview'){
-   const draft=await databaseRpc(env,'staff_payment_receipt',{p_payment:input.payment_id,p_action:'preview',p_start:input.start||null,p_end:input.end||null},authorization);
+   const draft=input.person_id?await databaseRpc(env,'staff_past_fortnight_invoice',{p_person:input.person_id,p_start:input.start,p_amount:input.amount,p_reason:input.reason,p_action:'preview'},authorization):await databaseRpc(env,'staff_payment_receipt',{p_payment:input.payment_id,p_action:'preview',p_start:input.start||null,p_end:input.end||null},authorization);
    if(draft.existing)return json({error:'This payment already has an invoice. Open invoice history.'},409);
    return new Response(await rentInvoicePdf(draft),{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="SAKAN-receipt-preview.pdf"','Cache-Control':'no-store'}});
   }
