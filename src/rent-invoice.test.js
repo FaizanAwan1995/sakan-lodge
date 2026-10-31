@@ -77,3 +77,11 @@ test('historical PDF preview uses the staff receipt preview without issuing or s
   assert.equal(response.status,200);assert.equal(response.headers.get('Content-Type'),'application/pdf');assert.match(new TextDecoder().decode((await response.arrayBuffer()).slice(0,5)),/%PDF-/);assert.equal(calls,1);
  }finally{globalThis.fetch=original;}
 });
+
+test('admin-confirmed invoice renders and email does not invent receipt date or payment method',async()=>{
+ const historical={...invoice,snapshot:{...invoice.snapshot,admin_confirmed_period:true,payment:{...invoice.snapshot.payment,method:'admin_confirmed'}}};
+ assert.equal((await PDFDocument.load(await rentInvoicePdf(historical))).getPageCount(),1);
+ const mime=Buffer.from(invoiceMime(historical,await rentInvoicePdf(historical)),'base64url').toString();
+ const body=Buffer.from(mime.split('Content-Transfer-Encoding: base64\r\n\r\n')[1].split('\r\n--')[0].replaceAll('\r\n',''),'base64').toString();
+ assert.match(body,/does not request another payment/);assert.doesNotMatch(body,/received on|Payment method:/);
+});
