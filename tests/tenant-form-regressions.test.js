@@ -26,5 +26,5 @@ test('resident details form never uses room-photo busy state', () => {
 
 test('room photo form retains its own photoBusy state', () => {
   const form = between('function RoomForm(', 'function CheckoutForm(');
-  assert.match(form, /const \[photoBusy,\s*setPhotoBusy\] = useState\(false\)/);
+  assert.match(form, /const \[photoBusy,\s*setPhotoBusy\]\s*=\s*useState\(false\)/);
 });
