@@ -699,7 +699,7 @@ function CheckoutForm({ person, today, done }) {
     {today < earliest && <p className="muted">This resident checked in today. A one-night stay ends {nice(earliest)}. The checkout date is the day they leave, not their last night.</p>}
     <label>Checkout date</label><input type="date" min={earliest} value={date} onChange={(e) => setDate(e.target.value)} required />
     <button className="primary" disabled={busy}>{busy ? 'Saving…' : scheduled ? 'Schedule checkout' : 'Confirm checkout'}</button>
-    <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
+    <button type="button" className="small" disabled={busy} onClick={done}>Cancel</button>
   </form>;
 }
 
