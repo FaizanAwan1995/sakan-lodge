@@ -688,7 +688,7 @@ function CheckoutForm({ person, today, done }) {
   return <form onSubmit={async (e) => {
     e.preventDefault();
     setBusy(true);
-    const ok = await updateTenantDetails(person, { end_date: date });
+    const ok = await updateTenantDetails(person, { end_date: date }, `Scheduled departure for ${date}`);
     setBusy(false);
     if (ok) { alert(scheduled ? `Checkout scheduled for ${nice(date)}. ${person.name} remains active until that date. An unpaid balance does not block checkout.` : `${person.name} has checked out and moved to Past residents. The financial history is retained.`); done(); }
   }}>
@@ -815,7 +815,7 @@ function PersonForm({ person, db, done }) {
       {person.id && <p className="muted">Bond recorded: {fmt(person.bond_paid || 0)} received · {fmt(person.bond_held || 0)} still held. Record refunds or retained amounts in the tenant account.</p>}
       {checkInError && <p className="err">{checkInError}</p>}
       <button className="primary" disabled={busy || Boolean(checkInError)}>{busy ? 'Saving…' : person.id ? 'Save resident details' : 'Confirm check in'}</button>
-      <button type="button" className="small" disabled={photoBusy} onClick={done}>Cancel</button>
+      <button type="button" className="small" disabled={busy} onClick={done}>Cancel</button>
     </form>
   );
 }
