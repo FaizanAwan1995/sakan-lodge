@@ -47,6 +47,6 @@ export async function rentInvoiceApi(request,env){
   if(!invoice.pdf_path)return json({error:'The invoice PDF is not yet prepared. Check invoice status.'},409);
   const response=await fetch(env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/authenticated/rent-invoices/'+invoice.pdf_path,{headers:{Authorization:authorization,apikey:env.SUPABASE_PUBLIC_KEY},signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw Error('Private PDF unavailable');
-  return new Response(response.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="SAKAN-invoice-${invoice.number}.pdf"`,'Cache-Control':'no-store'}});
+  return new Response(response.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="SAKAN-${invoice.snapshot?.document_type==='bond_receipt'?'bond-receipt':'invoice'}-${invoice.number}.pdf"`,'Cache-Control':'no-store'}});
  }catch{return json({error:'Unable to open this invoice. Refresh and check staff access.'},403);}
 }
