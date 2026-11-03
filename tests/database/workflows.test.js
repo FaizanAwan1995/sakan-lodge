@@ -745,9 +745,9 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
         phone: "0400000000",
         arrival_date: dates.checkout,
         departure_date: person.end_date,
-        spaces_requested: 2,
+        spaces_requested: 1,
       };
-      // A shared request needs two calendar months. Extend the test interval accordingly.
+      // Hold the single released bed for two calendar months; the original resident cannot extend into it.
       data.departure_date = (
         await sql(
           "select ($1::date+interval '2 months')::date::text end_date",
