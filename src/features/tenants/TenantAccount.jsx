@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import AdminTenantActions from '../reservations/AdminTenantActions.jsx';
 import TenantStatements from '../reports/TenantStatements.jsx';
 import { tenantReference, tenantStatus, occupancyEnd } from '../../tenant-model.js';
-import { supabase, isLocalMode, removeTestTenant } from '../../store.js';
+import { supabase, isLocalMode, removeTestTenant, updateTenantDetails } from '../../store.js';
 import { fmt, nice } from '../../lib/formatters.js';
 
 export default function TenantAccount({ person, db, today, reload, onEdit, onSchedule, onPayment, onRemoved, backLabel = 'Rooms & residents' }) {
@@ -22,6 +22,10 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
   const [charge,setCharge]=useState(false);
   const [settlement,setSettlement]=useState(false);
   const [bondReceipt,setBondReceipt]=useState(false);
+  const [bondEdit,setBondEdit]=useState(false);
+  const [bondAmount,setBondAmount]=useState(String(person.bond ?? 0));
+  const [bondReason,setBondReason]=useState('');
+  const [bondBusy,setBondBusy]=useState(false);
   const [copied,setCopied]=useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +62,20 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
   const rentPayments=db.payments.filter(p=>p.person_id===person.id&&(p.kind||'rent')==='rent'&&p.date<=today).sort((a,b)=>b.date.localeCompare(a.date)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const latest=rentPayments[0];
 
+  async function saveBondAmount(event){
+    event.preventDefault();
+    const next=Number(bondAmount);
+    if(!Number.isFinite(next)||next<0||bondReason.trim().length<5)return;
+    if(next<Number(person.bond_paid||0)-Number(person.bond_refunded||0)-Number(person.bond_deducted||0)-Number(person.bond_applied||0)){
+      setError('Expected bond cannot be reduced below the outstanding recorded bond liability. Review the transactions first.');return;
+    }
+    setBondBusy(true);setError('');
+    try{
+      const ok=await updateTenantDetails(raw,{bond:next},bondReason.trim());
+      if(ok){await reload();setBondEdit(false);setBondReason('');}
+    }catch(e){setError(e.message||'Unable to update expected bond.');}
+    finally{setBondBusy(false);}
+  }
   async function remove(event) {
     event.preventDefault();
     if (busy || reason.trim().length < 5) return;
@@ -83,7 +101,15 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
         <section className="card"><small>Next rent charge</small><strong>{summary.next?fmt(summary.next.amount):'—'}</strong><small>{summary.next?nice(summary.next.due_date):'No further scheduled rent'}</small></section>
       </div>
       <div className="account-actions"><button className="primary" onClick={onPayment}>Record payment</button><button onClick={()=>setCharge(true)}>Add charge</button></div>
-      <section className="card"><h2>Bond — separate from rent</h2><p>{fmt(person.bond_paid)} received · {fmt(person.bond_applied)} deducted for rent / charges · {fmt(person.bond_deducted)} other deductions · {fmt(person.bond_refunded)} refunded · {fmt(person.bond_held)} held</p>{person.legacy_bond_declared>0 && <p className="muted">Marked paid in the legacy profile, but receipt history is missing. Reconcile the original receipt before recording it; no receipt has been created automatically.</p>}{person.legacy_bond_declared>0 && <button onClick={()=>setBondReceipt(true)}>Record original bond receipt</button>}<button type="button" disabled={!(person.bond_held>0)} onClick={()=>setSettlement(true)}>Settle &amp; refund bond</button><p className="muted">Review pending rent, deduct agreed amounts and calculate the remaining refund in one place.</p></section>
+      <section className="card">
+        <div className="between"><h2>Bond · manage from tenant profile</h2><button className="small" type="button" onClick={()=>{setBondAmount(String(person.bond??0));setBondEdit(v=>!v);}}>Edit expected bond</button></div>
+        <p><strong>Bond status: {Number(person.bond_paid||0)<=0?'Not paid':Number(person.bond_paid)>=Number(person.bond||0)?'Paid':'Part-paid'}</strong></p><p>{fmt(person.bond_paid)} received · {fmt(person.bond)} expected · {fmt(person.bond_held)} held</p>
+        <p className="muted">{fmt(person.bond_applied)} applied to rent/charges · {fmt(person.bond_deducted)} other deductions · {fmt(person.bond_refunded)} refunded</p>
+        {bondEdit&&<form onSubmit={saveBondAmount}><label>Expected bond (AUD)<input type="number" min="0" step="0.01" required value={bondAmount} onChange={e=>setBondAmount(e.target.value)}/></label><label>Reason for adjustment<input required minLength={5} value={bondReason} onChange={e=>setBondReason(e.target.value)} placeholder="Why is the expected bond changing?"/></label><p className="muted">Editing the expected bond does not create a payment or send a receipt.</p><div className="account-actions"><button className="primary" type="submit" disabled={bondBusy||bondReason.trim().length<5}>{bondBusy?'Saving…':'Save bond amount'}</button><button type="button" onClick={()=>setBondEdit(false)}>Cancel</button></div></form>}
+        {person.legacy_bond_declared>0&&<p className="muted">This bond was marked paid in an older profile, but its receipt has not been verified. Record the original transaction using the actual received date; do not assume the status proves payment.</p>}
+        <div className="account-actions"><button className="primary" type="button" onClick={()=>setBondReceipt(true)}>{person.legacy_bond_declared>0?'Record verified original bond payment':'Record bond payment'}</button><button type="button" onClick={()=>setTab('invoices')}>Bond receipt history</button><button type="button" disabled={!(person.bond_held>0)} onClick={()=>setSettlement(true)}>Settle &amp; refund bond</button></div>
+        <p className="muted">New bond payments create a numbered bond receipt and queue email. Existing recorded payments appear below in Transactions, where you can open or issue the receipt.</p>
+       </section>
       <StaySummary person={person} today={today}/>
       <AccountTransactions db={db} d={{people:[person]}} personId={person.id} today={today} reload={reload} onInvoices={()=>setTab('invoices')}/>
       <details className="card"><summary>Statement — charges, payments and running balance</summary><TenantStatements db={db} today={today} fixedPersonId={person.id}/></details>

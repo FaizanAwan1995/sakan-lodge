@@ -1,3 +1,4 @@
+import {verifyBondReceipts} from './bond-receipt-checks.js';
 import {verifyPastFortnights} from './past-fortnight-checks.js';
 import {verifyGuidedSettlement} from './guided-settlement-checks.js';
 import {verifyRoomPhotos} from './room-photo-checks.js';
@@ -744,9 +745,9 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
         phone: "0400000000",
         arrival_date: dates.checkout,
         departure_date: person.end_date,
-        spaces_requested: 2,
+        spaces_requested: 1,
       };
-      // A shared request needs two calendar months. Extend the test interval accordingly.
+      // Hold the single released bed for two calendar months; the original resident cannot extend into it.
       data.departure_date = (
         await sql(
           "select ($1::date+interval '2 months')::date::text end_date",
@@ -829,5 +830,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await db.exec(await read('../../supabase/migrations/20261026082712_room_photo_upload.sql'));
   await verifyRoomPhotos({t,sql,rpc,STAFF,OTHER});
   await verifyGuidedSettlement({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261028225255_guided_bond_settlement.sql'))});
+  await verifyBondReceipts({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261103_bond_payment_receipts.sql'))});
   await db.close();
 });

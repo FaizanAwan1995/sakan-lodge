@@ -803,10 +803,11 @@ function PersonForm({ person, db, done }) {
       <label>Bond status</label>
       <select value={f.bond_status || 'not_paid'} onChange={set('bond_status')}>
         <option value="not_paid">Not paid</option>
-        <option value="paid">Paid</option>
+        <option value="paid" disabled>Paid (record bond payment in tenant profile)</option>
         <option value="refunded">Refunded</option>
         <option value="deducted">Deducted</option>
       </select>
+      <p className="muted">To mark a bond paid and issue its receipt, open this tenant’s main profile and choose Record bond payment. Changing a status without a verified transaction does not create a receipt.</p>
       <label>Document URL</label>
       <input type="url" value={f.document_url || ''} onChange={(e) => setF({ ...f, document_url: e.target.value })} placeholder="https://... or document link" />
       <label>Document notes</label>

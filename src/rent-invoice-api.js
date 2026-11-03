@@ -39,7 +39,7 @@ export async function rentInvoiceApi(request,env){
  try{
   const input=await limitedJson(request,1000);
   if(new URL(request.url).pathname==='/api/rent-invoices/preview'){
-   const draft=input.person_id?await databaseRpc(env,'staff_past_fortnight_invoice',{p_person:input.person_id,p_start:input.start,p_amount:input.amount,p_reason:input.reason,p_action:'preview'},authorization):await databaseRpc(env,'staff_payment_receipt',{p_payment:input.payment_id,p_action:'preview',p_start:input.start||null,p_end:input.end||null},authorization);
+   const draft=input.bond_payment_id?await databaseRpc(env,'staff_bond_payment_receipt',{p_payment:input.bond_payment_id,p_action:'preview'},authorization):input.person_id?await databaseRpc(env,'staff_past_fortnight_invoice',{p_person:input.person_id,p_start:input.start,p_amount:input.amount,p_reason:input.reason,p_action:'preview'},authorization):await databaseRpc(env,'staff_payment_receipt',{p_payment:input.payment_id,p_action:'preview',p_start:input.start||null,p_end:input.end||null},authorization);
    if(draft.existing)return json({error:'This payment already has an invoice. Open invoice history.'},409);
    return new Response(await rentInvoicePdf(draft),{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="SAKAN-receipt-preview.pdf"','Cache-Control':'no-store'}});
   }
@@ -47,6 +47,6 @@ export async function rentInvoiceApi(request,env){
   if(!invoice.pdf_path)return json({error:'The invoice PDF is not yet prepared. Check invoice status.'},409);
   const response=await fetch(env.SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/authenticated/rent-invoices/'+invoice.pdf_path,{headers:{Authorization:authorization,apikey:env.SUPABASE_PUBLIC_KEY},signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw Error('Private PDF unavailable');
-  return new Response(response.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="SAKAN-invoice-${invoice.number}.pdf"`,'Cache-Control':'no-store'}});
+  return new Response(response.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="SAKAN-${invoice.snapshot?.document_type==='bond_receipt'?'bond-receipt':'invoice'}-${invoice.number}.pdf"`,'Cache-Control':'no-store'}});
  }catch{return json({error:'Unable to open this invoice. Refresh and check staff access.'},403);}
 }
