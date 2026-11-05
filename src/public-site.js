@@ -1,5 +1,6 @@
 import {SEGMENTS,segmentPath,renderSegmentPage,householdNotice,segmentPhotoUrls} from './accommodation-segments.js';
 import {STUDENT_PATH,STUDENT_TITLE,STUDENT_DESCRIPTION,studentAccommodationBody} from './student-accommodation.js';
+import {MUSLIM_PATH,MUSLIM_TITLE,MUSLIM_DESCRIPTION,muslimFriendlyBody} from './muslim-friendly-accommodation.js';
 import { renderSuburbGuide } from "./suburb-guides.js";
 import {
   escapeHtml as h,
@@ -123,7 +124,7 @@ function shell(
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261031-1" defer></script><script src="/general-enquiry.js?v=20261031-3" defer></script><script src="/accommodation-segments.js?v=20261030-3" defer></script></body></html>'
+    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261031-1" defer></script><script src="/general-enquiry.js?v=20261031-3" defer></script><script src="/accommodation-segments.js?v=20261030-3" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
@@ -432,6 +433,11 @@ export async function handlePublicSite(request, env) {
     const galleries=await loadSegmentPhotos(env);
     return html(shell(s.label+(key==='couples'?'’':'’s')+' Accommodation in Adelaide',s.description,canonical,renderSegmentPage(key,galleries),{image:segmentPhotoUrls(key,galleries)[0]}));
   }
+  if(path==='/muslim-friendly-accommodation-adelaide'||path===MUSLIM_PATH){
+    if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
+    if(path!==MUSLIM_PATH)return new Response(null,{status:308,headers:{location:ORIGIN+MUSLIM_PATH+url.search}});
+    return html(shell(MUSLIM_TITLE,MUSLIM_DESCRIPTION,MUSLIM_PATH,muslimFriendlyBody,{structured:{'@context':'https://schema.org','@graph':[{'@type':'WebPage','@id':ORIGIN+MUSLIM_PATH+'#page',url:ORIGIN+MUSLIM_PATH,name:MUSLIM_TITLE,description:MUSLIM_DESCRIPTION,inLanguage:'en-AU',publisher:{'@id':ORIGIN+'/#business'}},{'@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'Home',item:ORIGIN+'/'},{'@type':'ListItem',position:2,name:'Muslim-friendly accommodation',item:ORIGIN+MUSLIM_PATH}]}]}}));
+  }
   if(path==='/student-accommodation-adelaide'||path===STUDENT_PATH){
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
     if(path!==STUDENT_PATH)return new Response(null,{status:308,headers:{location:ORIGIN+STUDENT_PATH+url.search}});
@@ -542,6 +548,7 @@ export async function handlePublicSite(request, env) {
       const urls = [
         "/",
         STUDENT_PATH,
+        MUSLIM_PATH,
         ...Object.keys(SEGMENTS).map(segmentPath),
         "/privacy",
         "/terms",
