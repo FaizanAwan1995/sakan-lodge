@@ -47,7 +47,7 @@ begin
  if s is null or e<=s or n<1 or n>cap then raise exception 'Invalid allocation'; end if;
  if free<n then raise exception 'Room has insufficient availability' using errcode='23P01'; end if;
  return new;
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION sakan_private.booking_contract(p_id uuid, p_revision integer, p_data jsonb)
  RETURNS jsonb
@@ -77,7 +77,7 @@ begin
  c:=sakan_private.create_template_contract(p_id,p_data||jsonb_build_object('revision',r.revision));
  update public.contracts set fields=fields||jsonb_build_object('proprietor_signature',(select proprietor - 'address' - 'phone' - 'name' from public.contract_defaults where property_id=r.property_id),'proprietor_signature_date',(now() at time zone 'Australia/Adelaide')::date) where id=(c->>'id')::uuid returning to_jsonb(contracts.*) into c;
  return jsonb_build_object('reservation',to_jsonb(r),'contract',c);
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION sakan_private.manage_reservation(p_id uuid, p_revision integer, p_action text, p_data jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
@@ -162,5 +162,5 @@ begin
  insert into public.reservation_events(reservation_id,action,actor,details) values(r.id,p_action,auth.uid()::text,jsonb_build_object('from',previous,'to',r.status,'revision',r.revision,'people',person_ids));
  perform sakan_private.queue_drafts(r,p_action);
  return to_jsonb(r);
-end $function$
+end $function$;
 
