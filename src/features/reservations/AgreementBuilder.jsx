@@ -37,6 +37,7 @@ export default function AgreementBuilder({
     resident_names: reservation.full_name,
     first_rent_due: reservation.arrival_date,
     bond: reservation.weekly_rate * 2,
+    weekly_rate: String(reservation.weekly_rate),
     nightly_rate: "",
   });
   const update = (key, value) => {
@@ -224,6 +225,7 @@ export default function AgreementBuilder({
           ["premises_address", "Verified property address", "text"],
           ["first_rent_due", "First rent due", "date"],
           ["bond", "Bond per resident (AUD)", "number"],
+          ["weekly_rate", "Agreed weekly rent per resident (AUD)", "number"],
         ].map(([k, label, type]) => (
           <label key={k}>
             {label}
@@ -241,7 +243,7 @@ export default function AgreementBuilder({
           {roomLabel ||
             contracts[0]?.fields?.room_label ||
             "Selected reservation room"}{" "}
-          · Rent: AUD ${(reservation.weekly_rate * 2).toFixed(2)} per fortnight{" "}
+          · Rent: AUD ${(Number(form.weekly_rate) * 2).toFixed(2)} per fortnight{" "}
           {reservation.offer_type === "shared" ? "per resident" : ""}. Changes
           to dates or room recalculate the quote before PDF generation.
         </p>
@@ -286,6 +288,9 @@ export default function AgreementBuilder({
             busy ||
             !["pending", "review", "held"].includes(reservation.status) ||
             !reviewed ||
+            !Number.isFinite(Number(form.weekly_rate)) ||
+            Number(form.weekly_rate) <= 0 ||
+            Math.round(Number(form.weekly_rate) * 100) !== Number(form.weekly_rate) * 100 ||
             !form.premises_address ||
             (!form.template_id && template.terms.length < 40)
           }
@@ -296,6 +301,7 @@ export default function AgreementBuilder({
                 p_revision: reservation.revision,
                 p_data: {
                   ...form,
+                  weekly_rate: Number(form.weekly_rate),
                   terms_confirmed: reviewed,
                   template,
                   resident_names: form.resident_names
