@@ -864,5 +864,11 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
     await sql("update agreement_templates set design='{}' where id=$1",[template.id]);
     assert.deepEqual((await sql('select fields from contracts where id=$1',[c.id])).rows[0].fields.design,design);
   });
+  await db.exec(await read('../../supabase/migrations/20261106024252_agreement_critical_dates.sql'));
+  await t.test('agreement rejects first rent due on or after checkout',async()=>{
+    const r=(await sql('select * from reservations limit 1')).rows[0];
+    const template=(await sql('select id from agreement_templates limit 1')).rows[0];
+    await assert.rejects(()=>rpc('create_template_contract',[r.id,{revision:r.revision,template_id:template.id,resident_names:Array.from({length:r.spaces_requested},(_,i)=>'Synthetic '+i),premises_address:'Synthetic test property',term_description:'Synthetic fixed term',bond:200,first_rent_due:r.departure_date}]),/First rent due must be before departure/);
+  });
   await db.close();
 });
