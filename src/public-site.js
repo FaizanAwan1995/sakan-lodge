@@ -99,6 +99,7 @@ function shell(
   { noindex = false, structured, image } = {},
 ) {
   const canonical = ORIGIN + path;
+  structured = structured || {"@context":"https://schema.org","@type":"WebPage",url:canonical,name:title,description,inLanguage:"en-AU",isPartOf:{"@id":ORIGIN+"/#website"}};
   const schema = structured
     ? '<script type="application/ld+json">' +
       JSON.stringify(structured).replace(/</g, "\\u003c") +
@@ -124,7 +125,7 @@ function shell(
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261031-1" defer></script><script src="/general-enquiry.js?v=20261031-3" defer></script><script src="/accommodation-segments.js?v=20261030-3" defer></script></body></html>'
+    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><nav aria-label="Adelaide room guides"><a href="/locations/fulham/">Rooms in Fulham</a><a href="/locations/clapham/">Rooms in Clapham</a><a href="/locations/oaklands-park/">Rooms in Oaklands Park</a><a href="/student-accommodation-adelaide/">Student accommodation</a></nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261031-1" defer></script><script src="/general-enquiry.js?v=20261031-3" defer></script><script src="/accommodation-segments.js?v=20261030-3" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
@@ -179,7 +180,7 @@ function amenities(list) {
   );
 }
 const included =
-  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
+  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>Fulham electricity allowance is $1,000 per property per three months; see your agreement for excess allocation. Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
 function linkCard(title, path, desc, image = null) {
   return (
     '<article class="catalog-card">' + (image ? photos([image],title) : '') + '<h2><a href="' +

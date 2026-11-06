@@ -1,3 +1,7 @@
+> Production uses a Cloudflare Worker with static assets and Supabase, configured in `wrangler.toml`. The repository is public: never commit resident exports or credentials. Historical Pages setup notes below are retained for reference.
+>
+> Nightly backups require both `SUPABASE_DB_URL` and a separately retained `BACKUP_ENCRYPTION_PASSPHRASE` of at least 32 characters in GitHub Actions secrets. Verify an encrypted artifact and an isolated restore after configuring these secrets.
+
 # SAKAN Lodge — Rooming House Ledger
 
 A responsive web app for the four-house Adelaide portfolio. The key figures are calculated from the resident, payment and property records: rent outstanding, each house's earned income minus expenses, and Australian financial-year reporting.

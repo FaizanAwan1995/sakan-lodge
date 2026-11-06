@@ -1,3 +1,6 @@
+import { changeAgreementDetail, agreementDetailsError } from '../../agreement-details.js';
+import { DEFAULT_AGREEMENT_DESIGN } from '../../agreement-design.js';
+import { validWeeklyRent } from '../../rent-input.js';
 import { useEffect, useState } from "react";
 import { supabase } from "../../store.js";
 async function rpc(name, args) {
@@ -22,8 +25,10 @@ export default function AgreementBuilder({
   const [template, setTemplate] = useState({
     title: "SAKAN Lodge standard agreement",
     terms: "",
+    design: {...DEFAULT_AGREEMENT_DESIGN},
     proprietor: { name: "", address: "", phone: "" },
   });
+  const savedFields=contracts.find(c=>["draft","approved","signed"].includes(c.status))?.fields || {};
   const [form, setForm] = useState({
     full_name: reservation.full_name,
     email: reservation.email,
@@ -32,18 +37,23 @@ export default function AgreementBuilder({
     departure_date: reservation.departure_date,
     room_id: reservation.room_id,
     template_id: "",
-    premises_address: "",
-    term_description: `${reservation.arrival_date} to ${reservation.departure_date}`,
-    resident_names: reservation.full_name,
-    first_rent_due: reservation.arrival_date,
-    bond: reservation.weekly_rate * 2,
+    premises_address: savedFields.premises_address || "",
+    term_description: savedFields.term_description || `${reservation.arrival_date} to ${reservation.departure_date}`,
+    resident_names: savedFields.resident_names?.join("\n") || reservation.full_name,
+    first_rent_due: savedFields.first_rent_due || reservation.arrival_date,
+    bond: savedFields.bond ?? reservation.weekly_rate * 2,
     weekly_rate: String(reservation.weekly_rate),
     nightly_rate: "",
   });
   const update = (key, value) => {
-    setForm((old) => ({ ...old, [key]: value }));
+    setForm((old) => changeAgreementDetail(old,key,value));
     setReviewed(false);
   };
+  function editTemplate(patch) {
+    setTemplate(old=>({...old,...patch}));
+    update("template_id", "");
+  }
+  const detailsError=agreementDetailsError(form);
   const current =
     (generated?.reservation_revision === reservation.revision
       ? generated
@@ -71,7 +81,7 @@ export default function AgreementBuilder({
       setForm((old) => ({
         ...old,
         template_id: "",
-        premises_address: d.data?.premises_address || "",
+        premises_address: old.premises_address || d.data?.premises_address || "",
       }));
       if (d.data)
         setTemplate((old) => ({
@@ -139,17 +149,13 @@ export default function AgreementBuilder({
             Review the supplied sample’s reusable terms and proprietor details.
             Old resident details and resident signatures are excluded. The
             authorised proprietor signature is included in newly generated
-            contracts. The sample’s obsolete electricity threshold and
-            immediate-eviction penalty are excluded from this draft; review the
-            complete wording before approving.
+            contracts. Review the complete wording and property utility allowance before approving.
           </p>
           <label>
             Template name
             <input
               value={template.title}
-              onChange={(e) =>
-                setTemplate({ ...template, title: e.target.value })
-              }
+              onChange={(e) => editTemplate({title:e.target.value})}
             />
           </label>
           {["name", "address", "phone"].map((k) => (
@@ -158,21 +164,27 @@ export default function AgreementBuilder({
               <input
                 value={template.proprietor[k] || ""}
                 onChange={(e) =>
-                  setTemplate({
-                    ...template,
+                  editTemplate({
                     proprietor: { ...template.proprietor, [k]: e.target.value },
                   })
                 }
               />
             </label>
           ))}
+          <fieldset><legend>Agreement design</legend>
+            <label>Document title<input maxLength={32} value={template.design.title} onChange={e=>editTemplate({design:{...template.design,title:e.target.value}})}/></label>
+            <label>Colour theme<select value={template.design.theme} onChange={e=>editTemplate({design:{...template.design,theme:e.target.value}})}><option value="navy">Navy & gold</option><option value="forest">Forest & gold</option><option value="plum">Plum & gold</option></select></label>
+            <label>Body text size<select value={template.design.fontSize} onChange={e=>editTemplate({design:{...template.design,fontSize:Number(e.target.value)}})}>{[10,11,12].map(size=><option key={size} value={size}>{size} pt</option>)}</select></label>
+            <label><input type="checkbox" checked={template.design.showLogo} onChange={e=>editTemplate({design:{...template.design,showLogo:e.target.checked}})}/> Show SAKAN logo</label>
+            <p>Save a reusable version, then generate and open its PDF to preview the design.</p>
+          </fieldset>
           <label>
             Reusable terms
             <textarea
               rows={14}
               value={template.terms}
               onChange={(e) =>
-                setTemplate({ ...template, terms: e.target.value })
+                editTemplate({terms:e.target.value})
               }
             />
           </label>
@@ -204,7 +216,11 @@ export default function AgreementBuilder({
           Approved agreement
           <select
             value={form.template_id}
-            onChange={(e) => update("template_id", e.target.value)}
+            onChange={(e) => {
+              const selected=templates.find(t=>t.id===e.target.value);
+              if(selected)setTemplate({title:selected.title,terms:selected.terms,proprietor:selected.proprietor,design:{...DEFAULT_AGREEMENT_DESIGN,...selected.design}});
+              update("template_id",e.target.value);
+            }}
           >
             <option value="">
               Supplied SAKAN agreement (review terms below)
@@ -220,8 +236,8 @@ export default function AgreementBuilder({
           ["full_name", "Applicant name", "text"],
           ["email", "Email", "email"],
           ["phone", "Contact phone", "tel"],
-          ["arrival_date", "Arrival", "date"],
-          ["departure_date", "Departure", "date"],
+          ["arrival_date", "Check-in date", "date"],
+          ["departure_date", "Departure / checkout date", "date"],
           ["premises_address", "Verified property address", "text"],
           ["first_rent_due", "First rent due", "date"],
           ["bond", "Bond per resident (AUD)", "number"],
@@ -231,13 +247,18 @@ export default function AgreementBuilder({
             {label}
             <input
               type={type}
-              min={type === "number" ? 0 : undefined}
+              required
+              min={type === "number" ? 0 : type === "date" ? "2000-01-01" : undefined}
+              max={type === "date" ? "2100-12-31" : undefined}
               step={type === "number" ? ".01" : undefined}
               value={form[k]}
               onChange={(e) => update(k, e.target.value)}
             />
           </label>
         ))}
+        <p role="status">Check-in: {form.arrival_date || 'Choose a date'} · Checkout: {form.departure_date || 'Choose a date'} · First rent due: {form.first_rent_due || 'Choose a date'}</p>
+        <p>The checkout day is excluded from the stay. Date changes are checked against room availability when you generate the replacement agreement. Review its new PDF before sending.</p>
+        {detailsError&&<p role="alert">{detailsError}</p>}
         <p>
           Ledger room:{" "}
           {roomLabel ||
@@ -288,9 +309,8 @@ export default function AgreementBuilder({
             busy ||
             !["pending", "review", "held"].includes(reservation.status) ||
             !reviewed ||
-            !Number.isFinite(Number(form.weekly_rate)) ||
-            Number(form.weekly_rate) <= 0 ||
-            Math.round(Number(form.weekly_rate) * 100) !== Number(form.weekly_rate) * 100 ||
+            Boolean(detailsError) ||
+            !validWeeklyRent(form.weekly_rate) ||
             !form.premises_address ||
             (!form.template_id && template.terms.length < 40)
           }

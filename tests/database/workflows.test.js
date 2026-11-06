@@ -831,5 +831,44 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyRoomPhotos({t,sql,rpc,STAFF,OTHER});
   await verifyGuidedSettlement({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261028225255_guided_bond_settlement.sql'))});
   await verifyBondReceipts({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261103_bond_payment_receipts.sql'))});
+  await db.exec(await read('../../supabase/migrations/20261106000000_agreed_weekly_rent.sql'));
+  await t.test('latest weekly rent override migration is installed',async()=>{
+    const r=await sql("select pg_get_functiondef('sakan_private.booking_contract(uuid,integer,jsonb)'::regprocedure) definition");
+    assert.match(r.rows[0].definition,/agreed_weekly_rate/);
+  });
+  await db.exec(await read('../../supabase/migrations/20261106022103_audit_fulham_utilities.sql'));
+  await t.test('new Fulham contracts snapshot allowance and preserve earlier versions',async()=>{
+    await sql('begin');
+    try {
+      const r=(await sql('select id,property_id,revision from reservations limit 1')).rows[0];
+      await sql("update properties set name='Fulham' where id=$1",[r.property_id]);
+      const prior=(await sql('select fields from contracts where reservation_id=$1 order by version',[r.id])).rows;
+      const made=(await sql("insert into contracts(reservation_id,version,reservation_revision,fields) select $1,coalesce(max(version),0)+1,$2,$3::jsonb from contracts where reservation_id=$1 returning fields",[r.id,r.revision,JSON.stringify({terms:'Electricity and other utilities included.',full_name:'Synthetic'})])).rows[0].fields;
+      assert.match(made.utilities,/\$1,000/);
+      assert.match(made.terms,/takes precedence/);
+      assert.equal(made.utility_policy_version,'fulham-1000-quarter-v1');
+      const after=(await sql('select fields from contracts where reservation_id=$1 order by version limit $2',[r.id,prior.length])).rows;
+      assert.deepEqual(after,prior);
+    } finally { await sql('rollback'); }
+  });
+  await db.exec(await read('../../supabase/migrations/20261106022825_agreement_design_options.sql'));
+  await t.test('agreement designs validate and are copied into the contract snapshot',async()=>{
+    const design={title:'TENANCY AGREEMENT',theme:'forest',fontSize:12,showLogo:false};
+    const template=await rpc('approve_agreement_template',[{title:'Design test',terms:'Synthetic agreement terms for isolated design testing only.',proprietor:{name:'Synthetic Owner',address:'Synthetic address',phone:'0400000000'},confirmation:'APPROVE_REUSABLE_TEMPLATE',design}]);
+    assert.deepEqual(template.design,design);
+    await assert.rejects(()=>rpc('approve_agreement_template',[{title:'Invalid design',terms:'Synthetic agreement terms for isolated design testing only.',proprietor:{name:'Synthetic Owner',address:'Synthetic address',phone:'0400000000'},confirmation:'APPROVE_REUSABLE_TEMPLATE',design:{theme:'bad'}}]));
+    const c=(await sql('select id from contracts where document_path is null limit 1')).rows[0];
+    await sql("update contracts set fields=fields || jsonb_build_object('template_id',$2::text) where id=$1",[c.id,template.id]);
+    const snapshot=(await sql('select fields from contracts where id=$1',[c.id])).rows[0].fields;
+    assert.deepEqual(snapshot.design,design);
+    await sql("update agreement_templates set design='{}' where id=$1",[template.id]);
+    assert.deepEqual((await sql('select fields from contracts where id=$1',[c.id])).rows[0].fields.design,design);
+  });
+  await db.exec(await read('../../supabase/migrations/20261106024252_agreement_critical_dates.sql'));
+  await t.test('agreement rejects first rent due on or after checkout',async()=>{
+    const r=(await sql('select * from reservations limit 1')).rows[0];
+    const template=(await sql('select id from agreement_templates limit 1')).rows[0];
+    await assert.rejects(()=>rpc('create_template_contract',[r.id,{revision:r.revision,template_id:template.id,resident_names:Array.from({length:r.spaces_requested},(_,i)=>'Synthetic '+i),premises_address:'Synthetic test property',term_description:'Synthetic fixed term',bond:200,first_rent_due:r.departure_date}]),/First rent due must be before departure/);
+  });
   await db.close();
 });
