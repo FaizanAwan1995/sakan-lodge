@@ -1,3 +1,4 @@
+import { agreementDesign, AGREEMENT_THEMES } from './agreement-design.js';
 import { contractLogoJpeg } from "./contract-logo.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 const plain = (value) =>
@@ -9,6 +10,8 @@ const plain = (value) =>
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
 export async function contractPdf(contract, code) {
   const f = contract.fields;
+  const design = agreementDesign(f?.design);
+  const colour = hex => rgb(...hex.slice(1).match(/../g).map(part=>parseInt(part,16)/255));
   if (
     !f?.proprietor?.name ||
     !f.premises_address ||
@@ -21,8 +24,8 @@ export async function contractPdf(contract, code) {
     bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   pdf.setTitle("SAKAN Lodge agreement " + code);
   pdf.setAuthor("SAKAN Lodge");
-  const navy = rgb(0.12, 0.2, 0.28),
-    gold = rgb(0.56, 0.4, 0.18),
+  const navy = colour(AGREEMENT_THEMES[design.theme][0]),
+    gold = colour(AGREEMENT_THEMES[design.theme][1]),
     pale = rgb(0.96, 0.95, 0.92);
   const logo = await pdf.embedJpg(Uint8Array.from(atob(contractLogoJpeg), c => c.charCodeAt(0)));
   let signature;
@@ -44,7 +47,7 @@ export async function contractPdf(contract, code) {
       color: navy,
     });
     page.drawRectangle({ x: 0, y: 740, width: 595.28, height: 4, color: gold });
-    page.drawImage(logo, {x:465,y:754,width:76,height:76});
+    if(design.showLogo) page.drawImage(logo, {x:465,y:754,width:76,height:76});
     page.drawText("SAKAN", {
       x: 42,
       y: 798,
@@ -59,11 +62,11 @@ export async function contractPdf(contract, code) {
       size: 11,
       color: rgb(0.85, 0.76, 0.58),
     });
-    page.drawText("ROOMING HOUSE AGREEMENT", {
+    page.drawText(design.title, {
       x: 42,
       y: 771,
       font: bold,
-      size: 14,
+      size: 12,
       color: rgb(1, 1, 1),
     });
     page.drawText("SOUTH AUSTRALIA  /  Residential Tenancies Act 1995", {
@@ -86,7 +89,7 @@ export async function contractPdf(contract, code) {
   newPage();
   function line(
     text,
-    { heading = false, size = 10, x = 48, width = 499 } = {},
+    { heading = false, size = design.fontSize, x = 48, width = 499 } = {},
   ) {
     if (heading && y < 120) newPage();
     if (heading) {

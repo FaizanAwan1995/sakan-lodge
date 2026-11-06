@@ -851,5 +851,18 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
       assert.deepEqual(after,prior);
     } finally { await sql('rollback'); }
   });
+  await db.exec(await read('../../supabase/migrations/20261106022825_agreement_design_options.sql'));
+  await t.test('agreement designs validate and are copied into the contract snapshot',async()=>{
+    const design={title:'TENANCY AGREEMENT',theme:'forest',fontSize:12,showLogo:false};
+    const template=await rpc('approve_agreement_template',[{title:'Design test',terms:'Synthetic agreement terms for isolated design testing only.',proprietor:{name:'Synthetic Owner',address:'Synthetic address',phone:'0400000000'},confirmation:'APPROVE_REUSABLE_TEMPLATE',design}]);
+    assert.deepEqual(template.design,design);
+    await assert.rejects(()=>rpc('approve_agreement_template',[{title:'Invalid design',terms:'Synthetic agreement terms for isolated design testing only.',proprietor:{name:'Synthetic Owner',address:'Synthetic address',phone:'0400000000'},confirmation:'APPROVE_REUSABLE_TEMPLATE',design:{theme:'bad'}}]));
+    const c=(await sql('select id from contracts where document_path is null limit 1')).rows[0];
+    await sql("update contracts set fields=fields || jsonb_build_object('template_id',$2::text) where id=$1",[c.id,template.id]);
+    const snapshot=(await sql('select fields from contracts where id=$1',[c.id])).rows[0].fields;
+    assert.deepEqual(snapshot.design,design);
+    await sql("update agreement_templates set design='{}' where id=$1",[template.id]);
+    assert.deepEqual((await sql('select fields from contracts where id=$1',[c.id])).rows[0].fields.design,design);
+  });
   await db.close();
 });
