@@ -831,5 +831,25 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
   await verifyRoomPhotos({t,sql,rpc,STAFF,OTHER});
   await verifyGuidedSettlement({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261028225255_guided_bond_settlement.sql'))});
   await verifyBondReceipts({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261103_bond_payment_receipts.sql'))});
+  await db.exec(await read('../../supabase/migrations/20261106000000_agreed_weekly_rent.sql'));
+  await t.test('latest weekly rent override migration is installed',async()=>{
+    const r=await sql("select pg_get_functiondef('sakan_private.booking_contract(uuid,integer,jsonb)'::regprocedure) definition");
+    assert.match(r.rows[0].definition,/agreed_weekly_rate/);
+  });
+  await db.exec(await read('../../supabase/migrations/20261106022103_audit_fulham_utilities.sql'));
+  await t.test('new Fulham contracts snapshot allowance and preserve earlier versions',async()=>{
+    await sql('begin');
+    try {
+      const r=(await sql('select id,property_id,revision from reservations limit 1')).rows[0];
+      await sql("update properties set name='Fulham' where id=$1",[r.property_id]);
+      const prior=(await sql('select fields from contracts where reservation_id=$1 order by version',[r.id])).rows;
+      const made=(await sql("insert into contracts(reservation_id,version,reservation_revision,fields) select $1,coalesce(max(version),0)+1,$2,$3::jsonb from contracts where reservation_id=$1 returning fields",[r.id,r.revision,JSON.stringify({terms:'Electricity and other utilities included.',full_name:'Synthetic'})])).rows[0].fields;
+      assert.match(made.utilities,/\$1,000/);
+      assert.match(made.terms,/takes precedence/);
+      assert.equal(made.utility_policy_version,'fulham-1000-quarter-v1');
+      const after=(await sql('select fields from contracts where reservation_id=$1 order by version limit $2',[r.id,prior.length])).rows;
+      assert.deepEqual(after,prior);
+    } finally { await sql('rollback'); }
+  });
   await db.close();
 });

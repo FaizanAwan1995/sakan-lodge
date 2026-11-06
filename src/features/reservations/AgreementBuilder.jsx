@@ -1,3 +1,4 @@
+import { validWeeklyRent } from '../../rent-input.js';
 import { useEffect, useState } from "react";
 import { supabase } from "../../store.js";
 async function rpc(name, args) {
@@ -288,9 +289,7 @@ export default function AgreementBuilder({
             busy ||
             !["pending", "review", "held"].includes(reservation.status) ||
             !reviewed ||
-            !Number.isFinite(Number(form.weekly_rate)) ||
-            Number(form.weekly_rate) <= 0 ||
-            Math.round(Number(form.weekly_rate) * 100) !== Number(form.weekly_rate) * 100 ||
+            !validWeeklyRent(form.weekly_rate) ||
             !form.premises_address ||
             (!form.template_id && template.terms.length < 40)
           }

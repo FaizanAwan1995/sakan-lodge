@@ -193,7 +193,7 @@ export async function contractPdf(contract, code) {
     ],
     [
       "Utilities",
-      "Electricity, water, gas and internet included without additional charges.",
+      f.utilities || "Electricity, water, gas and internet included without additional charges.",
     ],
   ])
     detail(label, value);

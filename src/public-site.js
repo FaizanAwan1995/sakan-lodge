@@ -179,7 +179,7 @@ function amenities(list) {
   );
 }
 const included =
-  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
+  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>Fulham electricity allowance is $1,000 per property per three months; see your agreement for excess allocation. Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
 function linkCard(title, path, desc, image = null) {
   return (
     '<article class="catalog-card">' + (image ? photos([image],title) : '') + '<h2><a href="' +
