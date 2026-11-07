@@ -60,6 +60,37 @@ async function handleRequest(request, env) {
     if (pathname === '/api/gmail/callback') return gmailCallback(request, env);
     if (pathname === '/api/gmail/preview' || pathname === '/api/gmail/send') return gmailSend(request, env);
 
+    if (pathname === '/enquire' || pathname === '/enquire/') {
+      if (!['GET','HEAD'].includes(request.method)) return new Response('Method not allowed', {status:405,headers:{allow:'GET, HEAD'}});
+      const asset = await fetchFromAssets(env, request, '/landing.html');
+      if (!asset || asset.status !== 200) return new Response('Enquiry page unavailable', {status:503});
+      const source = await asset.text();
+      const extra = `<style>
+        body.enquiry-page { background:#f3f7f4; }
+        body.enquiry-page > *:not(#floating-contact):not(script):not(style) { display:none!important; }
+        body.enquiry-page #floating-contact { display:contents; }
+        body.enquiry-page .floating-contact { display:contents; }
+        body.enquiry-page .contact-palette, body.enquiry-page .contact-palette-open { display:none!important; }
+        body.enquiry-page #general-enquiry { position:relative;inset:auto;margin:32px auto;max-width:650px;width:calc(100% - 32px);max-height:none;overflow:visible;box-sizing:border-box;border:0;box-shadow:0 8px 36px rgba(0,0,0,.09); }
+        body.enquiry-page #general-enquiry::backdrop { display:none; }
+        body.enquiry-page #close-enquiry { display:none; }
+        @media(max-width:640px){body.enquiry-page #general-enquiry{margin:12px auto;width:calc(100% - 24px);}}
+      </style><script>
+        document.addEventListener('DOMContentLoaded',function(){
+          document.body.classList.add('enquiry-page');
+          const form=document.getElementById('general-enquiry');
+          if(!form)return;
+          form.setAttribute('open','');
+          const button=document.getElementById('open-enquiry');
+          if(button)button.click();
+          const close=document.getElementById('close-enquiry');
+          if(close)close.style.display='none';
+        });
+      </script>`;
+      const page = source.replace(/<title>[^<]*<\/title>/, '<title>Enquire about a room | SAKAN Lodge</title>').replace('</head>', '<meta name="robots" content="noindex,follow"><link rel="canonical" href="https://sakanlodge.com/enquire"></head>').replace('</body>',extra+'</body>');
+      return new Response(request.method==='HEAD'?null:page,{status:200,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
+    }
+
     if(pathname==='/landing.html')return Response.redirect(new URL('/'+url.search,url.origin),301);
     if (pathname === '/') {
       const response = await fetchFromAssets(env, request, '/landing.html');
