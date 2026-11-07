@@ -80,9 +80,8 @@ async function handleRequest(request, env) {
           document.body.classList.add('enquiry-page');
           const form=document.getElementById('general-enquiry');
           if(!form)return;
-          form.setAttribute('open','');
           const button=document.getElementById('open-enquiry');
-          if(button)button.click();
+          if(button)button.click(); else form.setAttribute('open','');
           const close=document.getElementById('close-enquiry');
           if(close)close.style.display='none';
         });
