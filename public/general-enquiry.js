@@ -22,7 +22,13 @@
    widget=window.turnstile.render(verification,{sitekey:config.site_key,action:'enquiry',size:'flexible',callback:value=>{token=value;state();if(!busy&&!received)status.textContent='';},'expired-callback':()=>{token='';state();},'error-callback':()=>{token='';state();status.textContent='Verification failed. Please close and reopen the form to retry.';}});
   }catch(error){started=false;status.textContent=(error.name==='TimeoutError'||error.name==='AbortError')?'The enquiry form could not connect. Close and reopen to retry, or contact us by email or WhatsApp.':error.message||'Unable to load verification. Please contact us by email or WhatsApp.';}
  }
- enquire.addEventListener('click',()=>{if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open','');start();});
+ const enquiryPage=/^\/enquire\/?$/.test(window.location.pathname);
+ function openForm(){if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open','');start();}
+ enquire.addEventListener('click',event=>{
+  if(enquiryPage){event.preventDefault();openForm();}
+  else {event.preventDefault();const segment=document.querySelector('[data-stay-segment]')?.dataset.staySegment;window.location.assign('/enquire'+(segment?'?audience='+encodeURIComponent(segment):''));}
+ });
+ if(enquiryPage)openForm();
  d.addEventListener('close',()=>{if(received){f.reset();received=false;key=crypto.randomUUID();signature='';submit.textContent='Send enquiry';token='';state();}});
  document.getElementById('close-enquiry')?.addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close();});
  f.addEventListener('submit',async e=>{

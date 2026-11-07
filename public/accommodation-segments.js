@@ -7,9 +7,11 @@
   const location=form.elements.namedItem('location');if(location&&preferredLocation)location.value=preferredLocation;else if((key==='women'||key==='couples')&&location&&!location.value)location.value='Fulham';
   const occupants=form.elements.namedItem('occupants');if(occupants)occupants.value=key==='couples'?'2':occupants.value||'1';
  }
+ const params=new URLSearchParams(window.location.search);
+ if(/^\/enquire\/?$/.test(window.location.pathname)&&['men','women','couples'].includes(params.get('audience')))prefill(params.get('audience'),params.get('location'));
  document.addEventListener('click',event=>{
   const trigger=event.target.closest('[data-audience-enquiry]');
-  if(trigger){prefill(trigger.dataset.audienceEnquiry,trigger.dataset.enquiryLocation);document.getElementById('open-enquiry')?.click();}
+  if(trigger){event.preventDefault();const params=new URLSearchParams({audience:trigger.dataset.audienceEnquiry});if(trigger.dataset.enquiryLocation)params.set('location',trigger.dataset.enquiryLocation);window.location.assign('/enquire?'+params);}
   else if(event.target.closest('#open-enquiry')&&page)prefill(page.dataset.staySegment);
  });
 })();
