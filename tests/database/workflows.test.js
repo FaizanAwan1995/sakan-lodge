@@ -886,5 +886,33 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
       }finally{await sql('rollback');}
     }
   });
+  await db.exec(await read('../../supabase/migrations/20261107221927_sync_recorded_bond_status.sql'));
+  await t.test('bond status follows recorded receipts, refunds and expected amount without duplicate transactions',async()=>{
+    await sql('begin');
+    try{
+      const person=(await sql("select id,property_id from people limit 1")).rows[0];
+      const countBefore=Number((await sql('select count(*) n from payments where person_id=$1',[person.id])).rows[0].n);
+      // Use a new resident to avoid the fixture's existing settlement history.
+      const person2=(await sql("insert into people(property_id,name,stay_type,start_date,bond,bond_status) values($1,'Synthetic bond sync','long',current_date,500,'not_paid') returning id",[person.property_id])).rows[0];
+      const status=async()=>(await sql('select bond_status from people where id=$1',[person2.id])).rows[0].bond_status;
+      const pay=async(kind,amount)=>(await sql("insert into payments(person_id,property_id,date,kind,amount,method,received_by) values($1,$2,current_date,$3,$4,'cash','Faizan') returning id",[person2.id,person.property_id,kind,amount])).rows[0];
+      await pay('bond',500);assert.equal(await status(),'paid');
+      await sql("update people set bond_status='not_paid' where id=$1",[person2.id]);assert.equal(await status(),'paid');
+      await sql('update people set bond=600 where id=$1',[person2.id]);assert.equal(await status(),'not_paid');
+      await pay('bond',100);assert.equal(await status(),'paid');
+      await pay('bond_refund',600);assert.equal(await status(),'refunded');
+      assert.equal(Number((await sql('select count(*) n from payments where person_id=$1',[person2.id])).rows[0].n),3);
+      assert.equal(Number((await sql('select count(*) n from payments where person_id=$1',[person.id])).rows[0].n),countBefore);
+      const settled=(await sql("insert into people(property_id,name,stay_type,start_date,bond,bond_status) values($1,'Synthetic settled bond','long',current_date,300,'not_paid') returning id",[person.property_id])).rows[0];
+      for(const [kind,amount] of [['bond',300],['bond_refund',215],['bond_deducted',85]])await sql("insert into payments(person_id,property_id,date,kind,amount,method,received_by) values($1,$2,current_date,$3,$4,'cash','Faizan')",[settled.id,person.property_id,kind,amount]);
+      assert.equal((await sql('select bond_status from people where id=$1',[settled.id])).rows[0].bond_status,'deducted');
+      for(const role of ['anon','authenticated']){
+        assert.equal((await sql("select has_function_privilege($1,'sakan_private.recorded_bond_status(uuid,numeric,text)','execute') allowed",[role])).rows[0].allowed,false);
+      }
+      const legacy=(await sql("insert into people(property_id,name,stay_type,start_date,bond,bond_status) values($1,'Synthetic legacy bond','long',current_date,500,'paid') returning id",[person.property_id])).rows[0];
+      await sql('update people set bond=550 where id=$1',[legacy.id]);
+      assert.equal((await sql('select bond_status from people where id=$1',[legacy.id])).rows[0].bond_status,'paid');
+    }finally{await sql('rollback');}
+  });
   await db.close();
 });
