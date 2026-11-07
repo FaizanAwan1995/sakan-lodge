@@ -67,7 +67,7 @@ async function handleRequest(request, env) {
       const source = await asset.text();
       const extra = `<style>
         body.enquiry-page { background:#f3f7f4; }
-        body.enquiry-page > *:not(#floating-contact):not(script):not(style) { display:none!important; }
+        body.enquiry-page > *:not(#floating-contact):not(#general-enquiry):not(script):not(style) { display:none!important; }
         body.enquiry-page #floating-contact { display:contents; }
         body.enquiry-page .floating-contact { display:contents; }
         body.enquiry-page .contact-palette, body.enquiry-page .contact-palette-open { display:none!important; }
