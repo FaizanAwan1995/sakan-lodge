@@ -61,8 +61,8 @@ export function restoreLocalBackup(data) {
 
 function makeSeedDb() {
   const properties = [
-    { id: 'local-fulham', name: 'Fulham', lease_rent: 1500, lease_anchor: '2026-10-13', lease_start: null, lease_first_amount: null, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
-    { id: 'local-oaklands', name: 'Oaklands Park', lease_rent: 1500, lease_anchor: '2026-10-17', lease_start: null, lease_first_amount: null, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
+    { id: 'local-fulham', name: 'Fulham', lease_rent: 1500, lease_anchor: '2026-10-13', lease_start: null, lease_first_amount: null, electricity_cap: 1000, bills_amount: 0, bills_frequency: 'monthly' },
+    { id: 'local-oaklands', name: 'Oaklands Park', lease_rent: 1500, lease_anchor: '2026-10-17', lease_start: null, lease_first_amount: null, electricity_cap: 1000, bills_amount: 0, bills_frequency: 'monthly' },
     { id: 'local-clapham', name: 'Clapham', lease_rent: 1680, lease_anchor: '2026-10-23', lease_start: '2026-08-29', lease_first_amount: 1680, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
     { id: 'local-woodville', name: 'Woodville', lease_rent: 1650, lease_anchor: '2026-09-11', lease_start: null, lease_first_amount: null, electricity_cap: 800, bills_amount: 0, bills_frequency: 'monthly' },
   ];

@@ -870,5 +870,21 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
     const template=(await sql('select id from agreement_templates limit 1')).rows[0];
     await assert.rejects(()=>rpc('create_template_contract',[r.id,{revision:r.revision,template_id:template.id,resident_names:Array.from({length:r.spaces_requested},(_,i)=>'Synthetic '+i),premises_address:'Synthetic test property',term_description:'Synthetic fixed term',bond:200,first_rent_due:r.departure_date}]),/First rent due must be before departure/);
   });
+  await db.exec(await read('../../supabase/migrations/20261107220715_property_electricity_allowances.sql'));
+  await t.test('all property allowance snapshots preserve existing contract versions',async()=>{
+    for(const [name,amount] of [['Fulham',1000],['Clapham',800],['Oaklands Park',1000]]){
+      await sql('begin');
+      try{
+        const r=(await sql('select id,property_id,revision from reservations limit 1')).rows[0];
+        await sql('update properties set name=$2,electricity_cap=1 where id=$1',[r.property_id,name]);
+        const prior=(await sql('select id,status,fields from contracts order by id')).rows;
+        await db.exec(await read('../../supabase/migrations/20261107220715_property_electricity_allowances.sql'));
+        assert.equal(Number((await sql('select electricity_cap from properties where id=$1',[r.property_id])).rows[0].electricity_cap),amount);
+        assert.deepEqual((await sql('select id,status,fields from contracts order by id')).rows,prior);
+        const made=(await sql("insert into contracts(reservation_id,version,reservation_revision,fields) select $1,coalesce(max(version),0)+1,$2,$3::jsonb from contracts where reservation_id=$1 returning fields",[r.id,r.revision,JSON.stringify({terms:'Synthetic terms.',full_name:'Synthetic'})])).rows[0].fields;
+        assert.ok(made.utilities.includes(name));assert.ok(made.utilities.includes('$'+amount.toLocaleString('en-AU')));assert.match(made.utilities,/per property per three months/);
+      }finally{await sql('rollback');}
+    }
+  });
   await db.close();
 });

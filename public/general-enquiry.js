@@ -39,6 +39,8 @@
    const response=await fetch('/api/enquiries',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify({...data,turnstile_token:token}),signal:AbortSignal.timeout(20000)});const result=await response.json();
    if(!response.ok||result.received!==true)throw Error(result.error||'Receipt could not be confirmed. Keep your details and try again.');
    received=true;submit.textContent='Enquiry received';status.textContent=result.message+' Reference: '+result.reference;
+   // Success-only, anonymous hook for the conversion tag. Never include form data.
+   try{window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sakan_enquiry_received',enquiry_id:key});}catch{/* Measurement must never turn a saved enquiry into a failure. */}
   }catch(error){status.textContent=error.message||'Receipt could not be confirmed. Keep your details and try again.';token='';if(window.turnstile&&widget!==undefined)window.turnstile.reset(widget);}
   finally{busy=false;state();}
  });

@@ -1,3 +1,4 @@
+import {utilityPolicy} from './utility-policy.js';
 import {escapeHtml as h} from './public-routes.js';
 
 const locations = {
@@ -25,6 +26,6 @@ export function locationSearchContent(slug) {
     title: `Rooms for Rent in ${name}, Adelaide | Bills Included`,
     description: `Furnished rooms in ${name}, Adelaide. Shared long stays $185/person/week; private rooms from $255/week. Bills included. View rooms and enquire about your dates.`,
     intro: `<p>${h(location.intro)}</p>`,
-    details: `<section class="catalog-card" aria-labelledby="stay-details"><h2 id="stay-details">Renting a room in ${h(name)}</h2><p>Shared rooms are $185 per person/week for stays of at least two calendar months. Private rooms for one occupant are $255/week long-term or $300/week short-term, subject to availability. Electricity, water, gas and internet are included. At Fulham, the property electricity allowance is $1,000 per three months; your agreement explains any excess allocation.</p><p>Check the room’s capacity, photos and amenities, then send your preferred move-in date, stay length and number of occupants. Our team confirms household arrangements, availability, bond and agreement details. An enquiry does not reserve a room.</p><p><a class="enquiry-next-action" href="/enquire?location=${encodeURIComponent(name)}">Enquire about ${h(name)}</a></p><p><a href="${location.audience}">${h(location.audienceLabel)}</a> · <a href="/student-accommodation-adelaide/">Compare student room costs and stay lengths</a></p></section>`,
+    details: `<section class="catalog-card" aria-labelledby="stay-details"><h2 id="stay-details">Renting a room in ${h(name)}</h2><p>Shared rooms are $185 per person/week for stays of at least two calendar months. Private rooms for one occupant are $255/week long-term or $300/week short-term, subject to availability. Electricity, water, gas and internet are included. ${h(utilityPolicy(slug))}</p><p>Check the room’s capacity, photos and amenities, then send your preferred move-in date, stay length and number of occupants. Our team confirms household arrangements, availability, bond and agreement details. An enquiry does not reserve a room.</p><p><a class="enquiry-next-action" href="/enquire?location=${encodeURIComponent(name)}">Enquire about ${h(name)}</a></p><p><a href="${location.audience}">${h(location.audienceLabel)}</a> · <a href="/student-accommodation-adelaide/">Compare student room costs and stay lengths</a></p></section>`,
   };
 }

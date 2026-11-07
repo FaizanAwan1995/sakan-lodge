@@ -1,3 +1,4 @@
+import {utilityPolicy} from './utility-policy.js';
 import {locationSearchContent} from './location-content.js';
 import {SEGMENTS,segmentPath,renderSegmentPage,householdNotice,segmentPhotoUrls} from './accommodation-segments.js';
 import {STUDENT_PATH,STUDENT_TITLE,STUDENT_DESCRIPTION,studentAccommodationBody} from './student-accommodation.js';
@@ -124,9 +125,9 @@ function shell(
     '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261031-1">' +
     '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/room-photos/shared-room-hero-balanced.webp')+'">' +
     schema +
-    '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
+    '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="/enquire">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><nav aria-label="Adelaide room guides"><a href="/locations/fulham/">Rooms in Fulham</a><a href="/locations/clapham/">Rooms in Clapham</a><a href="/locations/oaklands-park/">Rooms in Oaklands Park</a><a href="/student-accommodation-adelaide/">Student accommodation</a></nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261107-1" defer></script><script src="/general-enquiry.js?v=20261107-1" defer></script><script src="/accommodation-segments.js?v=20261108-1" defer></script></body></html>'
+    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><nav aria-label="Adelaide room guides"><a href="/locations/fulham/">Rooms in Fulham</a><a href="/locations/clapham/">Rooms in Clapham</a><a href="/locations/oaklands-park/">Rooms in Oaklands Park</a><a href="/student-accommodation-adelaide/">Student accommodation</a></nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261107-1" defer></script><script src="/general-enquiry.js?v=20261108-2" defer></script><script src="/accommodation-segments.js?v=20261108-1" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
@@ -180,8 +181,8 @@ function amenities(list) {
     "</ul>"
   );
 }
-const included =
-  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>Fulham electricity allowance is $1,000 per property per three months; see your agreement for excess allocation. Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
+const included = suburb =>
+  '<section aria-label="Bills, appliances and household arrangements"><p class="included-brief">Furnished · Electricity, water, gas &amp; internet included</p><details class="stay-about"><summary>What’s included &amp; household details</summary><p>' + h(utilityPolicy(suburb)) + ' Heaters are provided. Air-conditioning is available on request. Other high-consumption appliances require prior approval.</p><p>Explore men-only options, women-only living coming to Sakan Fulham, and enquiries for couples. Our team confirms household arrangements and availability.</p><p>We offer a halal-suitable living environment. Tell us your preferences.</p></details></section>';
 function linkCard(title, path, desc, image = null) {
   return (
     '<article class="catalog-card">' + (image ? photos([image],title) : '') + '<h2><a href="' +
@@ -245,7 +246,7 @@ export function renderListing(route, cat, env = {}) {
           "<h1>" +
           h(title) +
           "</h1>" + searchContent.intro +
-          householdNotice(route.suburb) + included +
+          householdNotice(route.suburb) + included(route.suburb) +
           '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
           h(location) +
           "</h2>" +
@@ -284,7 +285,7 @@ export function renderListing(route, cat, env = {}) {
               "</div>") +
           (properties.length
             ? ""
-            : '<p>No rooms are currently advertised here. <a href="mailto:sakanlodges@gmail.com">Enquire about availability in ' +
+            : '<p>No rooms are currently advertised here. <a href="/enquire?location=' + encodeURIComponent(location) + '">Enquire about availability in ' +
               h(location) +
               "</a>.</p>") +
           "</section>" +
@@ -331,7 +332,7 @@ export function renderListing(route, cat, env = {}) {
           "</p>" +
           photos(property.photos, property.name) +
           amenities(property.amenities) +
-          householdNotice(route.suburb) + included +
+          householdNotice(route.suburb) + included(route.suburb) +
           '<div class="catalog-grid">' +
           rooms
             .map((r) =>
@@ -394,7 +395,7 @@ export function renderListing(route, cat, env = {}) {
         "<h1>" +
         h(room.title) +
         "</h1><p>" +
-        h(room.description) +
+        h(String(room.description || "").replace(/without additional charges|without excess utility charges/gi, "subject to the property electricity allowance below")) +
         "</p>" +
         photos(room.photos, room.title, true) +
         '<p class="catalog-rate">' +
@@ -402,7 +403,7 @@ export function renderListing(route, cat, env = {}) {
           ? "Shared room · $185 per person/week · long-term only"
           : "Private room · $255/week long-term · $300/week short-term") +
         "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>" +
-        householdNotice(route.suburb) + included +
+        householdNotice(route.suburb) + included(route.suburb) +
         amenities(room.amenities) +
         roomForm(room, env),
       {

@@ -1,3 +1,4 @@
+import {UTILITY_SUMMARY} from './utility-policy.js';
 export const MUSLIM_PATH = '/muslim-friendly-accommodation-adelaide/';
 export const MUSLIM_TITLE = 'Muslim-Friendly Accommodation in Adelaide';
 export const MUSLIM_DESCRIPTION = 'Looking for Muslim-friendly rooms in Adelaide? Explore halal-suitable furnished accommodation, household options and bills-included rates. Contact SAKAN Lodge.';
@@ -23,7 +24,7 @@ export const muslimFriendlyBody = `
 <tr><th scope="row">Private room (one occupant)</th><td>$255</td><td>At least two calendar months</td></tr>
 <tr><th scope="row">Short-term private room (one occupant)</th><td>$300</td><td>Less than two calendar months</td></tr>
 </tbody></table></div>
-<p>Electricity, water, gas and internet are included in the advertised rent without excess utility charges. A stay of exactly two calendar months qualifies as long-term. Shared rooms are long-term only. Advertised rates are not a promise of availability; your agreement will confirm the room, bond and payment requirements.</p></section>
+<p>Electricity, water, gas and internet are included in the advertised rent. ${UTILITY_SUMMARY} A stay of exactly two calendar months qualifies as long-term. Shared rooms are long-term only. Advertised rates are not a promise of availability; your agreement will confirm the room, bond and payment requirements.</p></section>
 <section aria-labelledby="where-rooms"><h2 id="where-rooms">Where in Adelaide can I find a room?</h2>
 <p><a href="/locations/fulham/">Fulham</a> is in western Adelaide; <a href="/locations/clapham/">Clapham</a> is in the inner south; and <a href="/locations/oaklands-park/">Oaklands Park</a> is in the southern suburbs. Browse the suburb guides and individual room listings, then check your travel route to university, work or the mosque you plan to attend. We don't claim a particular mosque is within walking distance of every property.</p></section>
 <section aria-labelledby="how-to-enquire"><h2 id="how-to-enquire">Contact SAKAN Lodge about a suitable room</h2>
