@@ -8,6 +8,7 @@
   const occupants=form.elements.namedItem('occupants');if(occupants)occupants.value=key==='couples'?'2':occupants.value||'1';
  }
  const params=new URLSearchParams(window.location.search);
+ if(/^\/enquire\/?$/.test(window.location.pathname)&&['Fulham','Clapham','Oaklands Park'].includes(params.get('location'))){const field=document.getElementById('general-enquiry-form')?.elements.namedItem('location');if(field)field.value=params.get('location');}
  if(/^\/enquire\/?$/.test(window.location.pathname)&&['men','women','couples'].includes(params.get('audience')))prefill(params.get('audience'),params.get('location'));
  document.addEventListener('click',event=>{
   const trigger=event.target.closest('[data-audience-enquiry]');

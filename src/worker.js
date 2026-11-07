@@ -38,6 +38,12 @@ async function handleRequest(request, env) {
       if(target)return new Response(null,{status:308,headers:{location:new URL(target+url.search,url.origin).href,'cache-control':'no-store','X-Robots-Tag':'noindex, nofollow'}});
     }
 
+    if (['GET','HEAD'].includes(request.method)) {
+      const canonicalPaths = {'/index.html':'/ledger/', '/privacy/':'/privacy', '/privacy.html':'/privacy', '/terms/':'/terms', '/terms.html':'/terms', '/enquire/':'/enquire'};
+      const canonical = canonicalPaths[pathname];
+      if (canonical) return new Response(null,{status:308,headers:{location:new URL(canonical+url.search,url.origin).href,'cache-control':'no-store'}});
+    }
+
     // Keep the conventional favicon URL usable for browsers and crawlers.
     if(pathname==='/favicon.ico') return Response.redirect(new URL('/sakan-logo-circle-main.png', url).href,301);
 
@@ -67,7 +73,7 @@ async function handleRequest(request, env) {
       const source = await asset.text();
       // Use the existing website and enquiry dialog at a shareable URL.
       // The enquiry client opens the same form automatically on this route.
-      const page = source.replace(/<title>[^<]*<\/title>/, '<title>Enquire about a room | SAKAN Lodge</title>').replace(/<link rel="canonical"[^>]*>/, '<link rel="canonical" href="https://sakanlodge.com/enquire">').replace('</head>', '<meta name="robots" content="noindex,follow"></head>');
+      const page = source.replace(/<title>[^<]*<\/title>/, '<title>Enquire about a room | SAKAN Lodge</title>').replace(/<link rel="canonical"[^>]*>/, '<link rel="canonical" href="https://sakanlodge.com/enquire">').replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex,follow">').replace(/<meta property="og:url"[^>]*>/, '<meta property="og:url" content="https://sakanlodge.com/enquire">');
       return new Response(request.method==='HEAD'?null:page,{status:200,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
     }
 

@@ -1,3 +1,4 @@
+import {locationSearchContent} from './location-content.js';
 import {SEGMENTS,segmentPath,renderSegmentPage,householdNotice,segmentPhotoUrls} from './accommodation-segments.js';
 import {STUDENT_PATH,STUDENT_TITLE,STUDENT_DESCRIPTION,studentAccommodationBody} from './student-accommodation.js';
 import {MUSLIM_PATH,MUSLIM_TITLE,MUSLIM_DESCRIPTION,muslimFriendlyBody} from './muslim-friendly-accommodation.js';
@@ -125,7 +126,7 @@ function shell(
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-circle-main.png" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="mailto:sakanlodges@gmail.com">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><nav aria-label="Adelaide room guides"><a href="/locations/fulham/">Rooms in Fulham</a><a href="/locations/clapham/">Rooms in Clapham</a><a href="/locations/oaklands-park/">Rooms in Oaklands Park</a><a href="/student-accommodation-adelaide/">Student accommodation</a></nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261107-1" defer></script><script src="/general-enquiry.js?v=20261107-1" defer></script><script src="/accommodation-segments.js?v=20261107-1" defer></script></body></html>'
+    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><nav aria-label="Adelaide room guides"><a href="/locations/fulham/">Rooms in Fulham</a><a href="/locations/clapham/">Rooms in Clapham</a><a href="/locations/oaklands-park/">Rooms in Oaklands Park</a><a href="/student-accommodation-adelaide/">Student accommodation</a></nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261107-1" defer></script><script src="/general-enquiry.js?v=20261107-1" defer></script><script src="/accommodation-segments.js?v=20261108-1" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
@@ -234,17 +235,16 @@ export function renderListing(route, cat, env = {}) {
   const properties = cat.properties.filter((p) => p.suburb === location);
   if (route.kind === "location") {
     const title = "Rooms for rent in " + location + ", Adelaide SA";
+    const searchContent = locationSearchContent(route.suburb);
     return html(
       shell(
-        title,
-        "Rooms for university students, working professionals and couples in " +
-          location +
-          ", Adelaide, South Australia. Private and shared options; utilities included. Confirm room capacity.",
+        searchContent.title,
+        searchContent.description,
         base,
         crumbs([{ name: location }]) +
           "<h1>" +
           h(title) +
-          "</h1><p>View rooms and check availability for your dates.</p>" +
+          "</h1>" + searchContent.intro +
           householdNotice(route.suburb) + included +
           '<section aria-labelledby="available-heading"><h2 id="available-heading">Available rooms in ' +
           h(location) +
@@ -288,7 +288,7 @@ export function renderListing(route, cat, env = {}) {
               h(location) +
               "</a>.</p>") +
           "</section>" +
-          renderSuburbGuide(route.suburb) + '<p><a href="/student-accommodation-adelaide/">Student accommodation guide: compare room costs, suburbs and move-in steps</a></p>',
+          searchContent.details + renderSuburbGuide(route.suburb) + '<p><a href="/student-accommodation-adelaide/">Student accommodation guide: compare room costs, suburbs and move-in steps</a></p>',
       ),
     );
   }

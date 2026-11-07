@@ -11,7 +11,9 @@ routes = [
 directory = "./dist"
 binding = "ASSETS"
 html_handling = "none"
-not_found_handling = "single-page-application"
+# Ledger navigation is handled explicitly by the Worker. Missing public assets
+# must return 404 rather than an indexable copy of the staff app.
+not_found_handling = "none"
 run_worker_first = true
 
 # Dedicated storage for Gmail OAuth state and encrypted refresh token.
