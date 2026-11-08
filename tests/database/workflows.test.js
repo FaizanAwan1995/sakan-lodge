@@ -1,3 +1,4 @@
+import {verifyReferralCredit} from './referral-credit-checks.js';
 import {verifyBondReceipts} from './bond-receipt-checks.js';
 import {verifyPastFortnights} from './past-fortnight-checks.js';
 import {verifyGuidedSettlement} from './guided-settlement-checks.js';
@@ -914,5 +915,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
       assert.equal((await sql('select bond_status from people where id=$1',[legacy.id])).rows[0].bond_status,'paid');
     }finally{await sql('rollback');}
   });
+  await verifyReferralCredit({t,sql,rpc,STAFF,OTHER,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261108223547_referral_credit_payment.sql'))});
   await db.close();
 });

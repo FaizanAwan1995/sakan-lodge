@@ -434,11 +434,20 @@ export async function accountTransaction(request, personId, data, expected = nul
   }
   const person = db.people.find(p=>p.id===personId);
   if (!person || !(+data.amount>0)) throw Error('Choose a tenant and a positive amount.');
+  const referral=+(data.referral_credit || 0);
+  if(!Number.isFinite(referral) || referral<0 || referral>99999999 || Math.round(referral*100)/100!==referral || (referral>0 && data.kind!=='rent')) throw Error('Invalid referral credit.');
   const table = data.kind === 'charge' ? 'charges' : 'payments';
   const old = expected && db[table].find(p=>p.id===expected.id);
   if (expected && JSON.stringify(old)!==JSON.stringify(expected)) throw Error('Payment changed. Refresh before correcting.');
   const row = table === 'charges' ? {id:newId(),person_id:personId,kind:'adjustment',due_date:data.date,amount:data.amount,note:reason} : {...data,id:old?.id || newId(),person_id:personId,property_id:old?.property_id || person.property_id,created_at:old?.created_at || new Date().toISOString()};
   if (old) Object.assign(old,row);else db[table].push(row);
+  if(table==='payments') {
+    const credit=db.charges.find(c=>c.referral_payment_id===row.id);
+    if(referral>0 || credit) {
+      const values={person_id:personId,kind:'adjustment',due_date:data.date,amount:-referral,note:'Referral credit'+(data.referred_person ? ' - referred '+data.referred_person : ''),referral_payment_id:row.id};
+      if(credit) Object.assign(credit,values); else db.charges.push({id:newId(),...values});
+    }
+  }
   auditLocal(db, `${old ? 'corrected' : 'recorded'} ${data.kind} for ${person.name}`);
   Object.assign(db.audit[0],{tenant_id:personId,before_values:expected,after_values:row,reason});
   db.account_requests[request]={payload,result:row};
