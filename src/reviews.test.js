@@ -47,3 +47,9 @@ test('published review count reflects supplied reviews without inventing ratings
  assert.doesNotMatch(body,/aggregateRating/);
  assert.doesNotMatch(renderReviewSection([]),/0 published resident reviews/);
 });
+
+test('review invitations point straight to the existing form without publishing or sending messages',()=>{
+ const body=renderReviewSection([]);
+ assert.match(body,/data-copy-review-link/);assert.match(body,/id="leave-review"/);assert.match(body,/href="\/#leave-review"/);
+ assert.doesNotMatch(body,/<article class="review-slide" role="group"/);
+});

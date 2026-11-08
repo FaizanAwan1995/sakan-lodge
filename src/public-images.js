@@ -11,7 +11,13 @@ const grannyPhotos = new Map([
  ['https://gpohuctqsmmoikupyfvi.supabase.co/storage/v1/object/public/segment-photos/couples/e2c3b10b-e6fe-4ffc-b062-b45cc10cf0e7.jpg', '/property-photos/fulham-granny-bedroom-wardrobe'],
 ]);
 export const publicImageSrc = src => grannyPhotos.has(src) ? grannyPhotos.get(src)+'-1200.webp' : src;
+const localVariants = new Map([
+ ['/property-photos/sakan-fulham-women-room-1.webp', '/property-photos/sakan-fulham-women-room-1-320.webp 320w, /property-photos/sakan-fulham-women-room-1-640.webp 640w, /property-photos/sakan-fulham-women-room-1.webp 1200w'],
+ ['/property-photos/sakan-fulham-women-room-2.webp', '/property-photos/sakan-fulham-women-room-2-320.webp 320w, /property-photos/sakan-fulham-women-room-2-640.webp 640w, /property-photos/sakan-fulham-women-room-2.webp 1200w'],
+]);
 export function responsiveImageAttributes(src, sizes) {
  const base=grannyPhotos.get(src);
- return `src="${h(publicImageSrc(src))}"${base?` srcset="${h(base)}-640.webp 640w, ${h(base)}-1200.webp 1200w" sizes="${h(sizes)}"`:''}`;
+ const thumbnail=base&&/granny-bedroom(?:-wardrobe)?$/.test(base)?`${base}-320.webp 320w, `:'';
+ const variants=base?`${thumbnail}${base}-640.webp 640w, ${base}-1200.webp 1200w`:localVariants.get(src);
+ return `src="${h(publicImageSrc(src))}"${variants?` srcset="${h(variants)}" sizes="${h(sizes)}"`:''}`;
 }

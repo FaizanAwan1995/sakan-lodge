@@ -37,6 +37,14 @@
     reduced.addEventListener('change', () => { if (reduced.matches) playing = false; sync(); });
     sync();
   }
+  const share=document.querySelector('[data-copy-review-link]'),shareStatus=document.querySelector('[data-review-share-status]');
+  share?.addEventListener('click',async()=>{
+    const invitation='Thank you for staying at SAKAN Lodge. Please share an honest review of your experience: https://sakanlodge.com/#leave-review';
+    try{await navigator.clipboard.writeText(invitation);shareStatus.textContent='Invitation copied. Share it with a resident.';}catch{shareStatus.textContent='Review link: https://sakanlodge.com/#leave-review';}
+  });
+  const reviewPanel=document.getElementById('leave-review');
+  const openLinkedReview=()=>{if(location.hash==='#leave-review'&&reviewPanel)reviewPanel.open=true;};
+  window.addEventListener('hashchange',openLinkedReview);openLinkedReview();
   const form = document.getElementById('review-form');
   if (!form) return;
   const status = document.getElementById('review-status');

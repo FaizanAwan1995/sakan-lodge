@@ -16,7 +16,10 @@ export function validateEnquiry(input) {
 }
 export async function enquiriesApi(request,env) {
   const enabled=env.INCOMING_ALERT_EMAILS_ENABLED==='true' && env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY;
-  if(request.method==='GET')return json({enabled:!!enabled,site_key:enabled?env.TURNSTILE_SITE_KEY:null});
+  if(request.method==='GET'){
+    const destination=env.GOOGLE_ADS_ENQUIRY_SEND_TO;
+    return json({enabled:!!enabled,site_key:enabled?env.TURNSTILE_SITE_KEY:null,...(/^AW-[0-9]+\/[A-Za-z0-9_-]+$/.test(destination||'')?{conversion_send_to:destination}:{})});
+  }
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(request.headers.get('Origin')!=='https://sakanlodge.com')return json({error:'Invalid origin'},403);
   if(!enabled)return json({error:'Please contact us by email or WhatsApp while enquiries are unavailable.'},503);
