@@ -39,3 +39,11 @@ test('homepage server renders approved reviews while keeping submission email pr
  const original=globalThis.fetch;globalThis.fetch=async()=>Response.json([{display_name:'Previous guest',rating:4,review:'An actual submitted review visible after approval.',suburb:'Fulham'}]);
  try{const res=await worker.fetch(new Request('https://sakanlodge.com/'),{...env,ASSETS:{fetch:async()=>new Response('<main><!--SAKAN_REVIEWS--></main>')}});const body=await res.text();assert.match(body,/Previous guest/);assert.match(body,/Submit a review/);assert.match(body,/data-site-key="site"/);assert.doesNotMatch(body,/sb_secret/);}finally{globalThis.fetch=original;}
 });
+
+test('published review count reflects supplied reviews without inventing ratings or authors',()=>{
+ const body=renderReviewSection([{display_name:'Resident A',review:'A published resident experience.',rating:4}]);
+ assert.match(body,/1 published resident review\./);
+ assert.match(body,/Resident A/);
+ assert.doesNotMatch(body,/aggregateRating/);
+ assert.doesNotMatch(renderReviewSection([]),/0 published resident reviews/);
+});

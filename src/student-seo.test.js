@@ -34,3 +34,10 @@ test('search branding uses the real square logo and conventional favicon resolve
  const response=await worker.fetch(new Request('https://sakanlodge.com/favicon.ico'),{});assert.equal(response.status,301);assert.equal(response.headers.get('location'),'https://sakanlodge.com/sakan-logo-circle-main.png');
  const guide=await (await handlePublicSite(new Request('https://sakanlodge.com'+STUDENT_PATH),{})).text();assert.ok(guide.includes('sizes="540x540" href="/sakan-logo-circle-main.png"'));
 });
+
+test('student guide includes sourced commute options and room examples without journey-time promises',async()=>{
+ const body=await (await handlePublicSite(new Request('https://sakanlodge.com'+STUDENT_PATH),{})).text();
+ for(const text of ['Plan your journey to university','Belair line','Seaford line','Flinders station','North Terrace','Transport information checked 8 November 2026','/accommodation/women/','/accommodation/couples/','srcset='])assert.ok(body.includes(text),text);
+ assert.match(body,/not guaranteed walking distances or door-to-door travel times/);
+ assert.doesNotMatch(body,/guaranteed.*minute commute/);
+});
