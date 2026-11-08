@@ -433,7 +433,7 @@ export async function handlePublicSite(request, env) {
     const key=segmentMatch[1],canonical=segmentPath(key),s=SEGMENTS[key];
     if(path!==canonical)return new Response(null,{status:308,headers:{location:ORIGIN+canonical+url.search}});
     const galleries=await loadSegmentPhotos(env);
-    return html(shell(s.label+(key==='couples'?'’':'’s')+' Accommodation in Adelaide',s.description,canonical,renderSegmentPage(key,galleries),{image:segmentPhotoUrls(key,galleries)[0]}));
+    return html(shell(s.searchTitle||s.label+(key==='couples'?'’':'’s')+' Accommodation in Adelaide',s.description,canonical,renderSegmentPage(key,galleries),{image:segmentPhotoUrls(key,galleries)[0]}));
   }
   if(path==='/muslim-friendly-accommodation-adelaide'||path===MUSLIM_PATH){
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
@@ -557,6 +557,10 @@ export async function handlePublicSite(request, env) {
         ...LOCATION_SLUGS.map((suburb) => publicPath({ suburb })),
       ];
       const imageMap=new Map([['/',[ORIGIN+'/room-photos/shared-room-hero-balanced.webp']]]);
+      const galleries = await loadSegmentPhotos(env);
+      for (const key of Object.keys(SEGMENTS)) {
+        imageMap.set(segmentPath(key), segmentPhotoUrls(key, galleries).map(src => new URL(src, ORIGIN).href));
+      }
       for (const p of cat.properties) {
         const suburb = Object.keys(names).find((k) => names[k] === p.suburb);
         if (!suburb) continue;

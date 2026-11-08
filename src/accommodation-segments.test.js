@@ -29,3 +29,22 @@ test('segment maps match their suburbs and link straight to available rooms',()=
   assert.equal((body.match(/data-map-view=/g)||[]).length,slugs.length*5);assert.ok(body.indexOf('id="stay-rooms"')<body.indexOf('class="stay-values"'));assert.ok(body.includes('data-enquiry-location='));
  }
 });
+
+test('couples search metadata describes the Fulham offer on the existing canonical route', async () => {
+ const response=await handlePublicSite(new Request('https://sakanlodge.com/accommodation/couples/'),{});
+ const body=await response.text();
+ assert.match(body, /<title>Granny Flat for Rent in Fulham \| \$500\/week, Bills Included \| SAKAN Lodge<\/title>/);
+ assert.match(body, /rel="canonical" href="https:\/\/sakanlodge.com\/accommodation\/couples\/"/);
+ assert.match(body, /alt="Fulham granny flat kitchen with refrigerator, cooktop and cupboards"/);
+ assert.match(body, /alt="Fulham granny flat bathroom with shower, vanity and washing machine"/);
+ assert.doesNotMatch(body, /alt="SAKAN Lodge couples accommodation photo/);
+});
+
+test('Fulham suburb page exposes the couples offer and links to photos and the existing enquiry route', async () => {
+ const body=await renderListing({kind:'location',suburb:'fulham'},{properties:[],rooms:[]},{}).text();
+ assert.match(body, /Granny flat for rent in Fulham for couples/);
+ assert.match(body, /\$500 per week for a couple, bills included/);
+ assert.match(body, /datetime="2026-11-11"/);
+ assert.match(body, /href="\/accommodation\/couples\/"/);
+ assert.match(body, /href="\/enquire\?audience=couples&amp;location=Fulham"/);
+});

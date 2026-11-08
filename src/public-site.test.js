@@ -351,3 +351,27 @@ test('public room cards and room pages use the uploaded gallery and selected cov
  assert.ok(summary.includes('uploaded-cover.jpg'));assert.ok(!summary.includes('second.jpg'));
  const detail=await renderListing({kind:'room',suburb:'fulham',property:'house-1',room:'room-1'},catalogue).text();assert.ok(detail.includes('uploaded-cover.jpg'));assert.ok(detail.includes('second.jpg'));
 });
+
+test('image sitemap uses the same approved segment galleries as the public pages and tolerates gallery failure',async()=>{
+ const original=globalThis.fetch;
+ const photo='https://gpohuctqsmmoikupyfvi.supabase.co/storage/v1/object/public/segment-photos/couples/00000000-0000-4000-8000-000000000001.jpg';
+ let galleryFails=false;
+ globalThis.fetch=async url=>{
+  if(String(url).endsWith('/public_segment_photos'))return galleryFails?new Response('{}',{status:503}):new Response(JSON.stringify({couples:[photo,'https://unapproved.test/photo.jpg','javascript:alert(1)']}));
+  return new Response(JSON.stringify(cat));
+ };
+ try {
+  const env={SUPABASE_URL:'https://example.test',SUPABASE_PUBLIC_KEY:'public'};
+  for(const fails of [false,true]){
+   galleryFails=fails;
+   const response=await handlePublicSite(new Request('https://sakanlodge.com/sitemap.xml'),env);
+   assert.equal(response.status,200);
+   const xml=await response.text();
+   const couples=xml.match(/<url><loc>https:\/\/sakanlodge.com\/accommodation\/couples\/<\/loc>(.*?)<\/url>/)[1];
+   assert.equal((couples.match(/<image:image>/g)||[]).length,fails?5:6);
+   assert.equal(couples.includes(photo),!fails);
+   assert.doesNotMatch(xml,/unapproved\.test|javascript:/);
+   assert.match(xml, /<image:loc>https:\/\/sakanlodge.com\/property-photos\/sakan-fulham-women-room-1.webp<\/image:loc>/);
+  }
+ } finally {globalThis.fetch=original;}
+});
