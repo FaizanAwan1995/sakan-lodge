@@ -168,3 +168,62 @@ body{overflow-wrap:break-word}
 .room-guide form[hidden]{display:none!important}
 /* Sakan concierge: bounded mobile sheet, independent scrolling and chat composer. */
 .sakan-chat,.sakan-chat *{box-sizing:border-box}.sakan-chat{width:min(460px,calc(100vw - 24px));height:min(760px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid #d8e4dd;border-radius:24px;background:#f7f6f0;color:#193d32;box-shadow:0 24px 100px #06271c55;overflow:hidden;font:15px/1.5 system-ui,-apple-system,sans-serif}.sakan-chat[open]{display:flex;flex-direction:column}.sakan-chat [hidden]{display:none!important}.sakan-chat::backdrop{background:#092c2366;backdrop-filter:blur(5px)}.chat-header{display:flex;align-items:center;gap:12px;flex-shrink:0;background:linear-gradient(125deg,#123d30,#28634e);color:#fff;padding:18px 20px}.chat-avatar{display:grid;place-items:center;width:42px;height:42px;flex-shrink:0;border:1px solid #e6cf9655;border-radius:14px;color:#e9ce8e;font-size:26px;background:#ffffff10}.chat-header h2{font-size:17px!important;line-height:1.3!important;margin:0!important;color:white!important;letter-spacing:0}.chat-header p{font-size:12px;margin:3px 0 0;color:#d3e7dc}.chat-header div{flex:1}.sakan-chat button{font:inherit;cursor:pointer;min-height:44px}.chat-header button{width:36px;min-width:36px;padding:0;border:0;border-radius:12px;background:#ffffff18;color:white;font-size:24px}.chat-header button:hover{background:#ffffff30}.chat-welcome{padding:25px 24px;overflow:auto;overscroll-behavior:contain}.chat-eyebrow{font-size:9px;letter-spacing:1.6px;color:#816530;font-weight:800}.chat-welcome h3{font-size:27px;letter-spacing:-1px;line-height:1.2;margin:12px 0}.chat-welcome>p{font-size:14px;color:#5d7167;margin-bottom:22px}.chat-intro{display:grid;gap:13px}.chat-intro label{font-size:12px;font-weight:650;display:grid;gap:6px}.sakan-chat input,.sakan-chat select,.sakan-chat textarea{font:inherit!important;font-size:16px!important;min-width:0;max-width:100%;width:100%;background:#fff;border:1px solid #cddad2;border-radius:12px;padding:11px 12px;color:#173d32;min-height:46px}.sakan-chat input:focus,.sakan-chat textarea:focus{outline:2px solid #b89a57;outline-offset:2px}.chat-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.chat-intro .chat-consent{display:flex;align-items:flex-start;gap:9px;font-size:11px;font-weight:400;line-height:1.5}.chat-intro .chat-consent input{flex:0 0 16px;width:16px;min-height:16px;height:16px;padding:0;margin-top:2px;accent-color:#23654d}.chat-privacy{font-size:11px;color:#627268;margin:0}.sakan-chat a{color:#27634b}.chat-primary{border:0;background:#174f3a;color:#fff;border-radius:12px;padding:12px;font-weight:650!important}.chat-primary:disabled{opacity:.6}.chat-skip{border:0;background:none;color:#456e5d;padding:15px 0;font-size:12px!important;text-align:left}.chat-lead-status{font-size:12px;margin:0;color:#78541e}.chat-conversation{display:flex;flex:1;min-height:0;flex-direction:column}.chat-messages{flex:1;min-height:0;overflow:auto;padding:22px 20px;overscroll-behavior:contain;scroll-behavior:smooth}.chat-bubble{font-size:14px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;max-width:90%;padding:13px 16px;margin:0 0 14px;border-radius:17px;animation:chat-appear .2s ease-out}.chat-assistant{background:#fff;border:1px solid #e0e7df;border-bottom-left-radius:4px;box-shadow:0 2px 6px #193d3205}.chat-user{margin-left:auto;background:#1b5942;color:#fff;border-bottom-right-radius:4px}.chat-typing{color:#698074;animation:chat-pulse 1.4s infinite}.chat-room-card{display:block;overflow:hidden;background:#fff;text-decoration:none;border:1px solid #d8e3db;border-radius:16px;margin-bottom:18px;max-width:94%}.chat-room-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}.chat-room-card div{padding:13px 15px;display:grid;gap:5px}.chat-room-card strong{font-size:15px}.chat-room-card span{font-size:12px;color:#806327}.chat-room-card small{font-size:11px;color:#64766b}.chat-room-card b{font-size:12px;margin-top:5px}.chat-suggestions{display:flex;gap:7px;overflow:auto;flex-shrink:0;padding:8px 16px;scrollbar-width:thin}.chat-suggestions button,.chat-retry{white-space:nowrap;border:1px solid #cbded0;background:#fff;color:#2b634b;border-radius:20px;font-size:12px!important;padding:8px 13px}.chat-compose{display:flex;gap:9px;align-items:flex-end;padding:10px 16px 0;flex-shrink:0}.chat-compose textarea{resize:none;height:48px;max-height:100px;line-height:24px;padding:11px 13px}.chat-compose button{background:#1b5942;color:white;border:0;border-radius:14px;width:46px;flex:0 0 46px;font-size:24px}.chat-compose button:disabled{opacity:.4}.chat-footnote{font-size:10px;color:#6c7e72;text-align:center;margin:9px 12px 14px}.chat-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.sakan-chat button:focus-visible,.sakan-chat a:focus-visible{outline:3px solid #be9c53;outline-offset:2px}@keyframes chat-appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}@keyframes chat-pulse{50%{opacity:.55}}@media(prefers-reduced-motion:reduce){.chat-bubble{animation:none}.chat-messages{scroll-behavior:auto}}@media(max-width:520px){.sakan-chat{width:100%;max-width:100%;height:100dvh;max-height:100dvh;margin:0;border-radius:0;border:0}.chat-header{padding:16px 18px;padding-top:max(16px,env(safe-area-inset-top))}.chat-welcome{padding:24px 22px}.chat-footnote{padding-bottom:env(safe-area-inset-bottom)}.chat-fields{grid-template-columns:1fr}.chat-bubble{max-width:94%}}
+
+
+/* Pricing showcase: same-height cards and a balanced 4 / 2 / 1 responsive grid. */
+.rates-section{
+  background:linear-gradient(145deg,#f3f7f2 0%,#f8f8f4 58%,#f5f5ed 100%);
+}
+.rates-section .section-heading{align-items:end;gap:24px;margin-bottom:28px}
+.rates-section .section-heading>p{max-width:330px;margin:0;color:#586d61;line-height:1.65}
+.rate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+.rate-card{
+  --rate-accent:#b89051;
+  min-width:0;min-height:290px;padding:25px;
+  border:1px solid #dbe5dc;border-top:4px solid var(--rate-accent);
+  border-radius:18px;background:#fff;
+  display:flex;flex-direction:column;align-items:stretch;
+  box-shadow:0 12px 28px #173d320c;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.rate-card.featured{
+  --rate-accent:#2c7657;border:1px solid #81aa93;
+  border-top:4px solid var(--rate-accent);
+  background:linear-gradient(180deg,#f6fbf7 0%,#fff 44%);
+}
+.rate-card-couples{--rate-accent:#a58a5c}
+.rate-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-height:34px}
+.rate-card .rate-title{margin:0;font-size:1.08rem;line-height:1.35;letter-spacing:-.02em;font-weight:750;color:#173d32}
+.rate-term{flex-shrink:0;display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#edf3ed;color:#38634b;font-size:.67rem;letter-spacing:.02em;font-weight:750;white-space:nowrap}
+.rate-card.featured .rate-term{background:#dfeee3}
+.rate-card .rate-price{margin:22px 0 13px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;color:#183d32;line-height:1.05}
+.rate-price strong{font-size:clamp(2.35rem,4vw,3.15rem);font-weight:800;letter-spacing:-.07em;font-variant-numeric:tabular-nums}
+.rate-price span{font-size:.75rem;font-weight:650;color:#627368;line-height:1.35}
+.rate-card .rate-description{font-size:.86rem;line-height:1.6;color:#56695d;margin:0 0 24px;flex-grow:1}
+.rate-cta{margin-top:auto;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #e4ebe4;padding-top:13px;text-decoration:none;color:#18533c;font-size:.84rem;font-weight:750}
+.rate-cta span{font-size:1.15rem}
+.rate-cta:hover{text-decoration:underline;text-underline-offset:3px}
+.rates-section .inclusions{max-width:100%;margin-top:25px;line-height:1.65}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+  .rate-card:hover{transform:translateY(-4px);box-shadow:0 18px 34px #173d3216}
+}
+@media(min-width:1180px){
+  .rate-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .rate-card{padding:23px 20px;min-height:320px}
+  .rate-card-heading{flex-wrap:wrap;gap:7px;min-height:58px}
+  .rate-price strong{font-size:2.75rem}
+}
+@media(max-width:680px){
+  .rates-section .section-heading>p{margin-top:12px}
+  .rate-grid{grid-template-columns:1fr;gap:14px}
+  .rate-card{min-height:0;padding:22px;border-radius:16px}
+  .rate-card-heading{min-height:0}
+  .rate-card .rate-price{margin:15px 0 11px}
+  .rate-price strong{font-size:2.65rem}
+  .rate-card .rate-description{margin-bottom:18px}
+}
+@media(prefers-reduced-motion:reduce){.rate-card{transition:none}}
+/* Public concierge links are linkified safely, never through model-supplied HTML. */
+.chat-bubble a{color:#145c40;font-weight:750;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.chat-bubble a:hover{color:#0c3b2a}
+.chat-bubble a:focus-visible{outline:3px solid #b89a57;outline-offset:3px;border-radius:2px}
