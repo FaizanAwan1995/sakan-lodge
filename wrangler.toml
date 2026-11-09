@@ -49,3 +49,12 @@ crons = ["* * * * *"]
 [previews.vars]
 INCOMING_ALERT_EMAILS_ENABLED = "false"
 RENT_INVOICE_EMAILS_ENABLED = "false"
+
+# Public accommodation assistant; separate from resident records.
+[ai]
+binding = "ROOM_AI"
+
+[[ratelimits]]
+name = "ROOM_AI_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
