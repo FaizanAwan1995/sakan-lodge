@@ -1,13 +1,11 @@
-# Public room guide and optional AI
+# Public Sakan concierge
 
-The public guide offers verified topic cards and photo/listing links without representing scripted answers as AI. It never reports room totals as vacancies. Existing rates remain unchanged. Unconfirmed nightly prices and the updated short-term cutoff go to the enquiry form.
+The responsive chat opens with an optional name/email/phone introduction. Successful submissions use the existing Turnstile-protected `/api/enquiries` workflow, including its idempotency, private storage and administrator inbox. The required enquiry-contact consent and separate optional future-availability consent, audience interest and timestamp are recorded in the enquiry message. No mailing campaign is sent by this feature. Visitors can browse without contact capture.
 
-Conversational AI is enabled by the production Wrangler configuration with both bindings:
-- `ROOM_AI`: Workers AI binding supporting `run`.
-- `ROOM_AI_LIMITER`: Cloudflare rate-limit binding supporting `limit` (recommended 10 requests per minute per IP).
+Contact form fields never enter model prompts or browser chat storage. The public chat warns against sharing personal details; email addresses and phone-like strings in chat are filtered client-side. This is a convenience filter, not a guarantee that arbitrary personal information can be detected.
 
-The endpoint is `/api/room-assistant`. GET reports activation; POST requires same-origin JSON, bounded input and a verified Cloudflare IP. AI receives only curated public facts, not tenant records, credentials or database output. No conversation persistence is implemented. Provider operation may have costs. Verify AI output quality, privacy disclosure and abuse controls before activation. Treat model answers as guidance requiring team confirmation, never booking decisions.
+Conversation history (up to 40 messages) and validated household/suburb preferences live in sessionStorage, expire after 24 hours, and survive reloads in the same tab. Closing the browser session or using New chat clears this context. No transcript is stored server-side. Each model request includes at most six previous question/answer pairs plus validated preferences, allowing follow-ups after longer conversations.
 
-Future room cards can draw from the public catalogue once audience eligibility and date availability are explicitly represented. Current guide links to public listings instead of inferring vacancies or showing potentially unsuitable rooms.
+The Worker uses `ROOM_AI` and `ROOM_AI_LIMITER` (10 requests/minute/IP per Cloudflare location, not a global billing cap). The active 70B primary model falls back once to the active 8B fast variant on provider errors. Both receive curated public facts only, never tenant records or database data. UI errors preserve the draft and provide retry and an enquiry link. AI cannot book rooms, decide housing eligibility, confirm vacancies or invent nightly prices.
 
-Questions are bounded to 600 characters; at most four previous messages are accepted. Responses are rendered as plain text. The 10 requests/minute/IP limiter is per Cloudflare location (not a global billing cap). Conversation context is held only in browser memory and AI sees curated public facts only. Nightly prices and date-specific vacancies require a team response.
+Room cards are curated public examples selected from visitor-stated preferences. Cards have fixed first-party image and listing URLs; generated text is rendered as plain text, never HTML. Photos do not prove availability. Team confirmation remains required.
