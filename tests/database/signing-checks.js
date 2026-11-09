@@ -113,4 +113,24 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     assert.equal((await sql("select has_function_privilege('anon','public.reconcile_signing_email(uuid,text,text)','execute') allowed")).rows[0].allowed,false);
   });
 
+  await t.test('signed requests can be rejected and archived atomically without deleting their evidence',async()=>{
+    const s=await sign(await make());const out=await rpc('archive_reservation_request',[s.reservation.id,s.reservation.revision,'Duplicate test request','ARCHIVE_REQUEST']);assert.equal(out.status,'archived');assert.equal(out.checked_in_person_id,null);
+    assert.equal((await access(s)).request.status,'rejected');assert.ok((await access(s)).request.signed_document_path);
+    assert.equal(Number((await sql("select count(*) n from incoming_alert_deliveries where source_id=$1 and kind='signing_rejected'",[s.request.id])).rows[0].n),1);
+    assert.equal(Number((await sql("select count(*) n from notification_outbox where reservation_id=$1 and kind='archive' and status='pending'",[s.reservation.id])).rows[0].n),0);
+  });
+  await t.test('unsigned archive revokes the link, denies stale requests and protects allocated tenants',async()=>{
+    const s=await make();await assert.rejects(()=>rpc('archive_reservation_request',[s.reservation.id,s.reservation.revision,'','ARCHIVE_REQUEST']),/reason/);
+    const out=await rpc('archive_reservation_request',[s.reservation.id,s.reservation.revision,'Duplicate request','ARCHIVE_REQUEST']);assert.equal(out.status,'archived');await assert.rejects(()=>access(s),/revoked/);
+    await assert.rejects(()=>rpc('archive_reservation_request',[s.reservation.id,s.reservation.revision,'Duplicate request','ARCHIVE_REQUEST']),/changed/);
+    const approved=await sign(await make());const assigned=await rpc('review_contract_signing',[approved.request.id,approved.reservation.revision,'approve',null]);await assert.rejects(()=>rpc('archive_reservation_request',[assigned.id,assigned.revision,'Duplicate request','ARCHIVE_REQUEST']),/allocated tenant/);
+    assert.equal((await sql("select has_function_privilege('anon','public.archive_reservation_request(uuid,integer,text,text)','execute') allowed")).rows[0].allowed,false);
+  });
+
+  await t.test('archive refuses nonstaff and a sending email leaves a signed request unchanged',async()=>{
+    const s=await sign(await make());await sql("select set_config('request.jwt.claim.sub',$1,false)",[OTHER]);await assert.rejects(()=>rpc('archive_reservation_request',[s.reservation.id,s.reservation.revision,'Duplicate request','ARCHIVE_REQUEST']),/Staff/);await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);
+    await sql("update notification_outbox set status='sending' where id=$1",[s.notification.id]);await assert.rejects(()=>rpc('archive_reservation_request',[s.reservation.id,s.reservation.revision,'Duplicate request','ARCHIVE_REQUEST']),/message is being sent/);
+    const saved=await access(s);assert.equal(saved.request.status,'signed');assert.equal(saved.request.reviewed_at,null);assert.equal((await sql('select status from reservations where id=$1',[s.reservation.id])).rows[0].status,'review');
+  });
+
 }
