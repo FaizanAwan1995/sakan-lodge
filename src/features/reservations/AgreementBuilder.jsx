@@ -1,3 +1,4 @@
+import ContractSigning from './ContractSigning.jsx';
 import { changeAgreementDetail, agreementDetailsError } from '../../agreement-details.js';
 import { DEFAULT_AGREEMENT_DESIGN } from '../../agreement-design.js';
 import { validWeeklyRent } from '../../rent-input.js';
@@ -15,6 +16,8 @@ export default function AgreementBuilder({
   onReservation,
   contracts = [],
   roomLabel,
+  signingRequests = [],
+  reload,
 }) {
   const [templates, setTemplates] = useState([]),
     [error, setError] = useState(""),
@@ -133,8 +136,7 @@ export default function AgreementBuilder({
         </summary>
         <p>
           Review the applicant details below. Generate a private PDF, review it
-          here, optionally send the booking email. You can confirm the
-          reservation manually later.
+          here, then send a signing link. Review the returned signatures before approving room allocation.
         </p>
         {error && <p role="alert">{error}</p>}
         {!templates.length && (
@@ -343,7 +345,7 @@ export default function AgreementBuilder({
       </details>
       {current && (
         <div>
-          <h4>2. Review PDF and send booking email</h4>
+          <h4>Review the original agreement PDF</h4>
           <p>
             Contract v{current.version}. Open the PDF to review it before
             sending.
@@ -383,41 +385,10 @@ export default function AgreementBuilder({
               Open the contract PDF above to enable sending.
             </p>
           )}
-          <button
-            disabled={
-              busy ||
-              !current.document_path ||
-              !pdf ||
-              pdfContractId !== current.id ||
-              !["draft", "approved", "signed"].includes(current.status)
-            }
-            onClick={() =>
-              run(async () => {
-                const n = await rpc("prepare_booking_offer", {
-                  p_id: reservation.id,
-                  p_revision: reservation.revision,
-                  p_contract: current.id,
-                });
-                if (
-                  !confirm(
-                    "Send from sakanlodges@gmail.com to " +
-                      n.recipient +
-                      " with the reviewed PDF attached?\n\n" +
-                      n.payload.subject +
-                      "\n\n" +
-                      n.payload.body,
-                  )
-                )
-                  return;
-                await call("/api/reservations/email", {
-                  id: n.id,
-                  confirmation: "SEND_REVIEWED_EMAIL",
-                });
-              })
-            }
-          >
-            Send booking confirmation email
-          </button>
+          <ContractSigning reservation={reservation} contract={current} requests={signingRequests}
+            ready={Boolean(current.document_path && pdf && pdfContractId === current.id)}
+            busy={busy} run={run} onReservation={onReservation} reload={reload}/>
+
         </div>
       )}
     </div>

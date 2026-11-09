@@ -3,6 +3,7 @@ import { supabase } from "../../store.js";
 export default function FinalBooking({
   reservation,
   contracts,
+  signingRequests = [],
   busy,
   run,
   onReservation,
@@ -25,13 +26,13 @@ export default function FinalBooking({
         {reservation.arrival_date}. Record payments separately in the ledger.
       </p>
     ) : null;
+  if(signingRequests.some(s=>s.contract_id===current?.id&&['awaiting_signature','processing','signed'].includes(s.status)))return <p>Online agreement signing is in progress. Use the signing panel above to review and approve the signed agreement before allocating the room.</p>;
   return (
-    <div className="card">
-      <h3>3. Confirm reservation</h3>
+    <details className="card"><summary>Manual / offline signing fallback</summary>
+      <h3>Confirm an offline-signed reservation</h3>
       <p>
         When you are ready, confirm this reservation and assign the tenant to
-        the room. Payment and signed-document checks are handled by you outside
-        this process. No payment will be recorded automatically.
+        the room. Use this manual option only for an agreement completed outside online signing. Verify the signed document and any payment separately. No payment will be recorded automatically.
       </p>
       <label>
         <input
@@ -72,6 +73,6 @@ export default function FinalBooking({
       >
         Confirm reservation and assign tenant
       </button>
-    </div>
+    </details>
   );
 }

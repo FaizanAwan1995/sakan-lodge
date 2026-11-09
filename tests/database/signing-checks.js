@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import {sha256} from '../../src/contract-signing.js';
+export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assertSingleAllocation}) {
+  await applyMigration();
+  await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);
+  const prop=crypto.randomUUID(),room=crypto.randomUUID();
+  await sql("insert into properties(id,name,lease_rent,lease_anchor) values($1,'Signing Synthetic',500,'2035-01-01')",[prop]);
+  await sql("insert into rooms(id,property_id,label,capacity) values($1,$2,'Signing Room',1)",[room,prop]);
+  await sql("insert into room_profiles(room_id,slug,title,description,ready,published,offer_type) values($1,'signing-room','Synthetic Room','Synthetic signing room',true,false,'private')",[room]);
+  const template=await rpc('approve_agreement_template',[{title:'Signing synthetic template',terms:'Synthetic agreement for isolated signing tests only. No real tenancy is created.',proprietor:{name:'Synthetic Owner',address:'1 Synthetic Road',phone:'0400000000'},confirmation:'APPROVE_REUSABLE_TEMPLATE'}]);
+  let offset=0;
+  async function make({sameDates=false,spaces=1,weeklyRate=255}={}) {
+    const dates=(await sql("select (date '2035-01-01'+$1::int)::text arrival,(date '2035-05-01'+$1::int)::text departure",[sameDates?8000:(offset+=200)])).rows[0];
+    const made=await rpc('create_staff_reservation',[{room_id:room,full_name:'Synthetic Signer',email:'synthetic@example.test',phone:'0400000000',spaces_requested:spaces,arrival_date:dates.arrival,departure_date:dates.departure},crypto.randomUUID()]);
+    const r=(await sql('select * from reservations where reservation_code=$1',[made.code])).rows[0];
+    const out=await rpc('generate_booking_contract',[r.id,r.revision,{...r,template_id:template.id,premises_address:'2 Synthetic Road',term_description:'Synthetic fixed stay',resident_names:['Synthetic Signer'],first_rent_due:r.arrival_date,bond:510,weekly_rate:weeklyRate}]);
+    const path=`contracts/${r.id}/${out.contract.id}/original.pdf`;
+    await sql("insert into storage.objects(bucket_id,name) values('reservation-contracts',$1)",[path]);
+    out.contract=(await rpc('booking_contract_document',[out.contract.id,path])).contract;
+    const token=crypto.randomUUID().replaceAll('-','')+crypto.randomUUID().replaceAll('-','');
+    const hash=await sha256(token),docHash='a'.repeat(64);
+    const invitation=await rpc('prepare_contract_signing',[out.contract.id,out.reservation.revision,hash,docHash,7,'https://sakanlodge.com/sign#'+token]);
+    return {...out,token,hash,docHash,...invitation};
+  }
+  const payload=(s,name='Synthetic Signer')=>({document_hash:s.docHash,submission_hash:'b'.repeat(64),consent_version:'sakan-sign-v1',signatures:[{name,mode:'typed',consent:true,strokes:[]}]});
+  const access=s=>rpc('contract_signing_public',[s.hash,'access',{}]);
+  async function sign(s) {
+    const begin=await rpc('contract_signing_public',[s.hash,'begin',payload(s)]);
+    const path=`contracts/${s.reservation.id}/${s.contract.id}/signed-${s.request.id}.pdf`;
+    await sql("insert into storage.objects(bucket_id,name) values('reservation-contracts',$1) on conflict do nothing",[path]);
+    const data={path,signed_hash:'c'.repeat(64),submission_hash:'b'.repeat(64)};
+    const signed=await rpc('contract_signing_public',[s.hash,'complete',data]);
+    return {...s,signed,begin,data};
+  }
+  await t.test('signing creates only a private invitation draft and anonymous users cannot access its rows or RPCs',async()=>{
+    const s=await make();assert.equal(s.request.status,'awaiting_signature');assert.equal(s.notification.kind,'contract_signing');assert.equal(s.notification.status,'pending');assert.ok(s.notification.payload.body.includes('/sign#'+s.token));assert.equal(s.request.token_hash,undefined);
+    for(const role of ['anon','authenticated'])assert.equal((await sql("select has_function_privilege($1,'public.contract_signing_public(text,text,jsonb)','execute') allowed",[role])).rows[0].allowed,false);
+    assert.equal((await sql("select has_function_privilege('service_role','public.contract_signing_public(text,text,jsonb)','execute') allowed")).rows[0].allowed,true);
+    await sql('set role anon');try{await assert.rejects(()=>sql('select * from contract_signing_requests'),/permission denied/);}finally{await sql('reset role');}
+    await sql("select set_config('request.jwt.claim.sub',$1,false)",[OTHER]);await sql('set role authenticated');try{assert.equal(Number((await sql('select count(*) n from contract_signing_requests')).rows[0].n),0);await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,s.reservation.revision,'approve',null]),/Staff/);}finally{await sql('reset role');await sql("select set_config('request.jwt.claim.sub',$1,false)",[STAFF]);}
+  });
+  await t.test('invalid token, missing consent, mismatched signer and changed document cannot sign or allocate',async()=>{
+    const s=await make();await assert.rejects(()=>rpc('contract_signing_public',['0'.repeat(64),'access',{}]),/unavailable/);
+    await assert.rejects(()=>rpc('contract_signing_public',[s.hash,'begin',payload(s,'Different Signer')]),/resident/);
+    await assert.rejects(()=>rpc('contract_signing_public',[s.hash,'begin',{...payload(s),signatures:[{name:'Synthetic Signer',mode:'typed',consent:false}]}]),/resident/);
+    await assert.rejects(()=>rpc('contract_signing_public',[s.hash,'begin',{...payload(s),document_hash:'d'.repeat(64)}]),/current agreement/);
+    await assert.rejects(()=>rpc('confirm_manual_booking',[s.reservation.id,s.reservation.revision,s.contract.id]),/online signature/);
+    assert.equal((await sql('select checked_in_person_id from reservations where id=$1',[s.reservation.id])).rows[0].checked_in_person_id,null);
+  });
+  await t.test('signature receipt is immutable and retryable without duplicate events or room allocation',async()=>{
+    const s=await make();const begin=await rpc('contract_signing_public',[s.hash,'begin',payload(s)]);const again=await rpc('contract_signing_public',[s.hash,'begin',payload(s)]);assert.equal(begin.request.submitted_at,again.request.submitted_at);
+    await assert.rejects(()=>rpc('contract_signing_public',[s.hash,'begin',{...payload(s),submission_hash:'d'.repeat(64)}]),/already processing/);
+    const signed=await sign(s);assert.equal(signed.signed.request.status,'signed');assert.equal(signed.signed.contract.status,'signed');assert.equal((await sql('select status from reservations where id=$1',[s.reservation.id])).rows[0].status,'review');
+    await rpc('contract_signing_public',[s.hash,'complete',signed.data]);
+    assert.equal(Number((await sql("select count(*) n from reservation_events where reservation_id=$1 and action='tenant_signature_received'",[s.reservation.id])).rows[0].n),1);
+    await assert.rejects(()=>rpc('confirm_manual_booking',[s.reservation.id,s.reservation.revision,s.contract.id]),/online signature/);
+  });
+  await t.test('approval allocates once and the signed agreement links to the created tenant profile without payments',async()=>{
+    const s=await sign(await make());const out=await rpc('review_contract_signing',[s.request.id,s.reservation.revision,'approve',null]);assert.equal(out.status,'assigned');assert.equal(out.assigned_people.length,1);
+    const person=(await sql('select * from people where id=$1',[out.checked_in_person_id])).rows[0];assert.equal(person.name,'Synthetic Signer');assert.equal(person.room_id,room);assert.equal(Number(person.weekly_rate),255);assert.equal(person.bond_status,'not_paid');
+    assert.equal(Number((await sql('select count(*) n from payments where person_id=$1',[person.id])).rows[0].n),0);
+    assert.equal((await sql('select signed_document_path from contracts where reservation_id=$1',[out.id])).rows[0].signed_document_path,s.signed.contract.signed_document_path);
+    await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,out.revision,'approve',null]),/already been handled/);
+    assert.equal((await access(s)).request.status,'approved');
+  });
+  await t.test('rejection releases a hold, retains the signed artifact and creates no tenant',async()=>{
+    const s=await sign(await make());const held=await rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'hold',{expires_at:new Date(Date.now()+3600000).toISOString()}]);
+    // A hold revision change requires fresh signatures; test rejection with the unchanged signed revision instead.
+    await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,held.revision,'reject','Not proceeding']),/changed/);
+    const s2=await sign(await make());await sql("update reservations set status='held',hold_expires_at=now()+interval '1 hour' where id=$1",[s2.reservation.id]);await assert.rejects(()=>rpc('review_contract_signing',[s2.request.id,s2.reservation.revision,'reject','']),/reason/);
+    const out=await rpc('review_contract_signing',[s2.request.id,s2.reservation.revision,'reject','Applicant withdrew the request']);assert.equal(out.status,'cancelled');assert.equal(out.checked_in_person_id,null);assert.equal(out.hold_expires_at,null);
+    const saved=await access(s2);assert.equal(saved.request.status,'rejected');assert.ok(saved.request.signed_document_path);assert.equal(saved.request.review_reason,'Applicant withdrew the request');
+  });
+  await t.test('expiry, revocation and replacement immediately invalidate outstanding links',async()=>{
+    const expired=await make();await sql("update contract_signing_requests set expires_at=now()-interval '1 minute' where id=$1",[expired.request.id]);await assert.rejects(()=>access(expired),/expired/);
+    const revoked=await make();await rpc('review_contract_signing',[revoked.request.id,revoked.reservation.revision,'revoke',null]);await assert.rejects(()=>access(revoked),/revoked/);
+    const changed=await make();await rpc('manage_reservation',[changed.reservation.id,changed.reservation.revision,'edit',{admin_notes:'Replacement required'}]);assert.equal((await access(changed)).request.status,'superseded');await assert.rejects(()=>rpc('contract_signing_public',[changed.hash,'begin',payload(changed)]),/changed/);
+  });
+  await t.test('approval preserves administrator-agreed rent rather than forcing the public quote',async()=>{
+    const s=await sign(await make({weeklyRate:275.50}));
+    const out=await rpc('review_contract_signing',[s.request.id,s.reservation.revision,'approve',null]);
+    assert.equal(Number((await sql('select weekly_rate from people where id=$1',[out.checked_in_person_id])).rows[0].weekly_rate),275.5);
+  });
+  await t.test('two signed requests for the same room cannot both be approved',async()=>{
+    const one=await sign(await make({sameDates:true})),two=await sign(await make({sameDates:true}));
+    if(process.env.SAKAN_TEST_DATABASE_URL)await assertSingleAllocation([one,two].map(s=>({sql:'select public.review_contract_signing($1,$2,$3,$4)',args:[s.request.id,s.reservation.revision,'approve',null]})));
+    else {await rpc('review_contract_signing',[one.request.id,one.reservation.revision,'approve',null]);await assert.rejects(()=>rpc('review_contract_signing',[two.request.id,two.reservation.revision,'approve',null]),/available|insufficient/);}
+    assert.equal(Number((await sql("select count(*) n from contract_signing_requests where id=any($1::uuid[]) and status='approved'",[[one.request.id,two.request.id]])).rows[0].n),1);
+  });
+}

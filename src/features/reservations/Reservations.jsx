@@ -46,7 +46,7 @@ export default function Reservations({ db, reload }) {
     try {
       const { data, error: e } = await supabase
         .from("reservations")
-        .select("*")
+        .select("*,contract_signing_requests(id,status,expires_at)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (e) throw e;
@@ -63,14 +63,13 @@ export default function Reservations({ db, reload }) {
   }
   async function loadDetail(id) {
     const requestVersion = ++detailVersion.current;
-    const { data, error } = await supabase
-      .from("contracts")
-      .select("*")
-      .eq("reservation_id", id)
-      .order("version", { ascending: false });
-    if (error) throw error;
+    const [contracts,signing] = await Promise.all([
+      supabase.from('contracts').select('*').eq('reservation_id',id).order('version',{ascending:false}),
+      supabase.from('contract_signing_requests').select('*').eq('reservation_id',id).order('created_at',{ascending:false}),
+    ]);
+    if(contracts.error||signing.error)throw contracts.error||signing.error;
     if (requestVersion !== detailVersion.current) return;
-    setDetail({ contracts: data || [] });
+    setDetail({contracts:contracts.data||[],signingRequests:signing.data||[]});
   }
   useEffect(() => {
     refresh();
@@ -80,6 +79,7 @@ export default function Reservations({ db, reload }) {
       "reservation_events",
       "contracts",
       "notification_outbox",
+      "contract_signing_requests",
     ]);
     const sync = () => {
       void refresh();
@@ -221,9 +221,7 @@ export default function Reservations({ db, reload }) {
         </button>
       </div>
       <p>
-        Online customer requests remain disabled until deployment acceptance.
-        Requests are unconfirmed; only active holds and confirmed stays allocate
-        inventory. Emails require manual review and sending.
+        Prepare an agreement, send its signing link, then review the returned signatures here. Only administrator approval allocates tenants to a room. Signing invitations require review before sending.
       </p>
       <div className="screen-actions">
         {["reservations", "listings", "blocks"].map((v) => (
@@ -520,11 +518,14 @@ export default function Reservations({ db, reload }) {
                     db.rooms.find((r) => r.id === selected.room_id)?.label
                   }
                   onReservation={acceptReservation}
+                  signingRequests={detail.signingRequests}
+                  reload={reload}
                 />
               </div>
               <FinalBooking
                 reservation={selected}
                 contracts={detail.contracts}
+                signingRequests={detail.signingRequests}
                 busy={busy}
                 run={run}
                 onReservation={acceptReservation}
@@ -538,13 +539,13 @@ export default function Reservations({ db, reload }) {
           ) : (
             <>
               <div className="screen-actions">
-                {["all", ...STATES].map((s) => (
+                {["all", "awaiting_signature", "signature_review", ...STATES].map((s) => (
                   <button
                     key={s}
                     className={filter === s ? "primary" : ""}
                     onClick={() => setFilter(s)}
                   >
-                    {s}
+                    {s.replaceAll("_"," ")}
                   </button>
                 ))}
               </div>
@@ -553,7 +554,7 @@ export default function Reservations({ db, reload }) {
                 are checked by the database.
               </p>
               {rows
-                .filter((r) => filter === "all" || r.status === filter)
+                .filter((r) => filter === "all" || r.status === filter || r.contract_signing_requests?.some(s => filter === "signature_review" ? s.status === "signed" : filter === "awaiting_signature" && ["awaiting_signature","processing"].includes(s.status)))
                 .map((r) => (
                   <article key={r.id} className="card">
                     <h2>
@@ -569,6 +570,7 @@ export default function Reservations({ db, reload }) {
                       {r.spaces_requested} space(s)
                     </p>
                     {reservationTenants(r, db.people).map(person => <p key={person.id} className="tenant-reference"><Link to={`/rooms/${person.id}`}>Tenant ID {tenantReference(person)} · {tenantStatus(person, todayStr())}</Link></p>)}
+                    {r.contract_signing_requests?.some(s=>s.status==='signed')&&<p><strong>Signed agreement awaiting administrator review</strong></p>}
                     <button onClick={() => open(r)}>Manage request</button>
                   </article>
                 ))}
