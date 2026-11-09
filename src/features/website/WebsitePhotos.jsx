@@ -3,7 +3,7 @@ import {supabase,isLocalMode} from '../../store.js';
 import RoomPhotos from '../rooms/RoomPhotos.jsx';
 import {uploadRoomPhotoBatch,MAX_ROOM_PHOTOS,ROOM_PHOTO_ACCEPT} from '../../room-photo-upload.js';
 import {segmentRooms} from '../../segment-photo-model.js';
-const labels={men:'Men',women:'Women',couples:'Couples'};
+const labels={men:'Male',women:'Female',couples:'Couples'};
 export default function WebsitePhotos({db}){
  const [segment,setSegment]=useState('women'),[mode,setMode]=useState('segment'),[busy,setBusy]=useState(false),[profiles,setProfiles]=useState([]),[roomProfiles,setRoomProfiles]=useState([]),[error,setError]=useState(''),[roomId,setRoomId]=useState('');
  useEffect(()=>{if(isLocalMode)return;let alive=true;(async()=>{try{const [p,r]=await Promise.all([supabase.from('property_profiles').select('property_id,suburb,public_name'),supabase.from('room_profiles').select('room_id,slug')]);if(p.error||r.error)throw p.error||r.error;if(alive){setProfiles(p.data||[]);setRoomProfiles(r.data||[]);}}catch(e){if(alive)setError(e.message||'Unable to load properties.');}})();return()=>{alive=false;};},[]);

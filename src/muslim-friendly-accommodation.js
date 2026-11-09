@@ -14,8 +14,8 @@ export const muslimFriendlyBody = `
 <p>We do not advertise a mosque, dedicated prayer room, halal meals, or a halal-certified kitchen as included facilities. Household arrangements vary by property, and a Muslim-only household is not guaranteed. Everyone is welcome to enquire; suitability and availability are confirmed by our team.</p></section>
 <section aria-labelledby="household-choices"><h2 id="household-choices">Choose an Adelaide room that suits your household preferences</h2>
 <div class="catalog-grid">
-<article class="catalog-card"><h3><a href="/accommodation/men/">Rooms for men</a></h3><p>Explore men-only household options in Clapham and Oaklands Park. Check the actual room photos, capacity, dates and shared or private arrangements.</p><a href="/accommodation/men/">Explore men's rooms</a></article>
-<article class="catalog-card"><h3><a href="/accommodation/women/">Rooms for women in Fulham</a></h3><p>Women-only accommodation is being introduced at Sakan Fulham. The household transition is in progress; please enquire about its readiness for your move-in date.</p><a href="/accommodation/women/">Explore women's accommodation</a></article>
+<article class="catalog-card"><h3><a href="/accommodation/men/">Male accommodation</a></h3><p>Explore male-only household options in Clapham and Oaklands Park. Check the actual room photos, capacity, dates and shared or private arrangements.</p><a href="/accommodation/men/">Explore male rooms</a></article>
+<article class="catalog-card"><h3><a href="/accommodation/women/">Female accommodation in Fulham</a></h3><p>Female-only accommodation is being introduced at Sakan Fulham. The household transition is in progress; please enquire about its readiness for your move-in date.</p><a href="/accommodation/women/">Explore female accommodation</a></article>
 <article class="catalog-card"><h3><a href="/accommodation/couples/">Accommodation for couples</a></h3><p>Ask our team about the Fulham granny flat for two occupants. Availability, household arrangements and the applicable rate must be confirmed.</p><a href="/accommodation/couples/">Explore the Fulham granny flat</a></article>
 </div></section>
 <section aria-labelledby="adelaide-rates"><h2 id="adelaide-rates">Weekly room costs and what's included</h2>
@@ -34,7 +34,7 @@ export const muslimFriendlyBody = `
 <section aria-labelledby="muslim-faq"><h2 id="muslim-faq">Frequently asked questions</h2>
 <details><summary>Are the rooms only for Muslims?</summary><p>No. SAKAN Lodge welcomes enquiries from people of all backgrounds. We describe the environment as halal-suitable so applicants can ask about the arrangements that matter to them.</p></details>
 <details><summary>Are the kitchens halal-certified?</summary><p>We do not advertise certified halal kitchens. Please contact us about the kitchen and shared-facility arrangements at your preferred property.</p></details>
-<details><summary>Is there accommodation for Muslim women or couples?</summary><p>We have women-only accommodation being introduced at Fulham and enquiries for the Fulham granny flat for couples. Our team will confirm readiness, capacity and availability before you agree to a stay.</p></details>
+<details><summary>Is there accommodation for female Muslim residents or couples?</summary><p>We have female-only accommodation being introduced at Fulham and enquiries for the Fulham granny flat for couples. Our team will confirm readiness, capacity and availability before you agree to a stay.</p></details>
 <details><summary>Can I enquire from overseas?</summary><p>Yes. Share your expected arrival date, stay length and room preferences. We'll explain the next steps and confirm availability before booking.</p></details>
 </section>
 <p>Also see our <a href="/student-accommodation-adelaide/">student accommodation guide</a>, <a href="/#contact">contact options</a> and <a href="/terms">terms</a>.</p>

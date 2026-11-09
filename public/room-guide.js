@@ -71,13 +71,13 @@
   const launch = document.createElement("button");
   launch.className = "room-guide-launch";
   launch.type = "button";
-  launch.innerHTML = '<span aria-hidden="true">✦</span> Ask Sakan';
+  launch.innerHTML = '<span aria-hidden="true">✦</span> <span>Ask Sakan Agent <span class="chat-availability">24x7</span></span>';
   launch.setAttribute("aria-haspopup", "dialog");
   document.body.append(launch);
   const d = document.createElement("dialog");
   d.className = "sakan-chat";
   d.setAttribute("aria-labelledby", "sakan-chat-title");
-  d.innerHTML = `<header class="chat-header"><span class="chat-avatar" aria-hidden="true">✦</span><div><h2 id="sakan-chat-title">Your Sakan concierge</h2><p>AI room guide · Adelaide</p></div><button type="button" class="chat-new" aria-label="Start a new chat">↻</button><button type="button" class="chat-close" aria-label="Close chat">×</button></header><section class="chat-welcome"><span class="chat-eyebrow">A LITTLE HELLO. A NEW PLACE TO CALL HOME.</span><h3>Let’s find your place <span aria-hidden="true">✨</span></h3><p>Rooms, photos, prices — ask away. Leave your details and our team can help with your next move.</p><form class="chat-intro"><label>Your name<input name="full_name" autocomplete="name" minlength="2" maxlength="120" required placeholder="What should we call you?"></label><div class="chat-fields"><label>Email<input name="email" autocomplete="email" type="email" maxlength="254" required placeholder="you@example.com"></label><label>Phone<input name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required placeholder="Your contact number"></label></div><label>I’m looking for<select name="audience"><option value="">Help me choose</option><option value="women">Women’s rooms</option><option value="men">Men’s rooms</option><option value="couples">A couples granny flat</option></select></label><label class="chat-consent"><input name="contact" type="checkbox" required> I agree Sakan can contact me about my accommodation enquiry.</label><label class="chat-consent"><input name="future" type="checkbox"> Also contact me about future room availability (optional).</label><p class="chat-privacy">Details go to the Sakan team, not the AI. <a href="/privacy">Privacy</a></p><div class="chat-verification"></div><p class="chat-lead-status" role="status"></p><button class="chat-primary" type="submit">Save details & start chatting →</button></form><button class="chat-skip" type="button">Just browsing? Explore without sharing details →</button></section><section class="chat-conversation" hidden><div class="chat-messages" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions"></div><div class="chat-suggestions" aria-label="Suggested questions"></div><form class="chat-compose"><label class="chat-sr" for="sakan-message">Your message</label><textarea id="sakan-message" maxlength="600" rows="1" required placeholder="Tell me what you’re looking for…"></textarea><button type="submit" aria-label="Send message">↑</button></form><p class="chat-footnote">AI guidance · Team confirms availability. <a href="/enquire">Talk to our team ↗</a></p></section>`;
+  d.innerHTML = `<header class="chat-header"><span class="chat-avatar" aria-hidden="true">✦</span><div><h2 id="sakan-chat-title">Ask Sakan Agent 24x7</h2><p>AI room guide · Available 24x7</p></div><button type="button" class="chat-new" aria-label="Start a new chat">↻</button><button type="button" class="chat-close" aria-label="Close chat">×</button></header><section class="chat-welcome"><span class="chat-eyebrow">A LITTLE HELLO. A NEW PLACE TO CALL HOME.</span><h3>Let’s find your place <span aria-hidden="true">✨</span></h3><p>Rooms, photos, prices — ask away. Leave your details and our team can help with your next move.</p><form class="chat-intro"><label>Your name<input name="full_name" autocomplete="name" minlength="2" maxlength="120" required placeholder="What should we call you?"></label><div class="chat-fields"><label>Email<input name="email" autocomplete="email" type="email" maxlength="254" required placeholder="you@example.com"></label><label>Phone<input name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required placeholder="Your contact number"></label></div><label>I’m looking for<select name="audience"><option value="">Help me choose</option><option value="women">Female rooms</option><option value="men">Male rooms</option><option value="couples">A couples granny flat</option></select></label><label class="chat-consent"><input name="contact" type="checkbox" required> I agree Sakan can contact me about my accommodation enquiry.</label><label class="chat-consent"><input name="future" type="checkbox"> Also contact me about future room availability (optional).</label><p class="chat-privacy">Details go to the Sakan team, not the AI. <a href="/privacy">Privacy</a></p><div class="chat-verification"></div><p class="chat-lead-status" role="status"></p><button class="chat-primary" type="submit">Save details & start chatting →</button></form><button class="chat-skip" type="button">Just browsing? Explore without sharing details →</button></section><section class="chat-conversation" hidden><div class="chat-messages" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions"></div><div class="chat-suggestions" aria-label="Suggested questions"></div><form class="chat-compose"><label class="chat-sr" for="sakan-message">Your message</label><textarea id="sakan-message" maxlength="600" rows="1" required placeholder="Tell me what you’re looking for…"></textarea><button type="submit" aria-label="Send message">↑</button></form><p class="chat-footnote">AI guidance · Team confirms availability. <a href="/enquire">Talk to our team ↗</a></p></section>`;
   document.body.append(d);
   const log = d.querySelector(".chat-messages"),
     intro = d.querySelector(".chat-intro"),
@@ -90,7 +90,7 @@
       price: "Private rooms from $255/week long-term",
       image: "/property-photos/sakan-fulham-women-room-1.webp",
       href: "/accommodation/women/",
-      note: "Women-only household transition in progress; team confirms readiness.",
+      note: "Female-only household transition in progress; team confirms readiness.",
     },
     men: {
       title: "Find your Adelaide base",
@@ -173,8 +173,8 @@
           "Contact the team",
         ]
       : [
-          "Women’s rooms",
-          "Men’s rooms",
+          "Female rooms",
+          "Male rooms",
           "Couples granny flat",
           "Compare prices",
           "Contact the team",

@@ -32,8 +32,8 @@
       field('occupants').value = count > 2 ? '3+' : String(count);
     }
     const notes = [];
-    if (c.audience === 'women') notes.push('Women-only accommodation at Fulham: please confirm household readiness.');
-    if (c.audience === 'men') notes.push('Men-only accommodation.');
+    if (c.audience === 'women') notes.push('Female-only accommodation at Fulham: please confirm household readiness.');
+    if (c.audience === 'men') notes.push('Male-only accommodation.');
     if (c.audience === 'couples' || c.offer === 'couples') notes.push('Fulham granny flat for a couple.');
     if (c.offer === 'short') notes.push('Interested in a shorter stay; please confirm the rate for my dates.');
     if (c.room_title) notes.push('Preferred room: ' + c.room_title);
