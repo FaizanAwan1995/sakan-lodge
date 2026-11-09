@@ -50,7 +50,7 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
   await t.test('signature receipt is immutable and retryable without duplicate events or room allocation',async()=>{
     const s=await make();const begin=await rpc('contract_signing_public',[s.hash,'begin',payload(s)]);const again=await rpc('contract_signing_public',[s.hash,'begin',payload(s)]);assert.equal(begin.request.submitted_at,again.request.submitted_at);
     await assert.rejects(()=>rpc('contract_signing_public',[s.hash,'begin',{...payload(s),submission_hash:'d'.repeat(64)}]),/already processing/);
-    const signed=await sign(s);assert.equal(signed.signed.request.status,'signed');assert.equal(signed.signed.contract.status,'signed');assert.equal((await sql('select status from reservations where id=$1',[s.reservation.id])).rows[0].status,'review');
+    const signed=await sign(s);assert.equal(signed.signed.request.status,'signed');assert.ok(Date.parse(signed.signed.request.expires_at)-Date.now()>29*86400000);assert.ok(Number((await sql("select count(*) n from incoming_alert_deliveries where source_id=$1 and kind='signing_received'",[s.request.id])).rows[0].n)>0);assert.equal(signed.signed.contract.status,'signed');assert.equal((await sql('select status from reservations where id=$1',[s.reservation.id])).rows[0].status,'review');
     await rpc('contract_signing_public',[s.hash,'complete',signed.data]);
     assert.equal(Number((await sql("select count(*) n from reservation_events where reservation_id=$1 and action='tenant_signature_received'",[s.reservation.id])).rows[0].n),1);
     await assert.rejects(()=>rpc('confirm_manual_booking',[s.reservation.id,s.reservation.revision,s.contract.id]),/online signature/);
@@ -61,15 +61,15 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     assert.equal(Number((await sql('select count(*) n from payments where person_id=$1',[person.id])).rows[0].n),0);
     assert.equal((await sql('select signed_document_path from contracts where reservation_id=$1',[out.id])).rows[0].signed_document_path,s.signed.contract.signed_document_path);
     await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,out.revision,'approve',null]),/already been handled/);
-    assert.equal((await access(s)).request.status,'approved');
+    assert.equal((await access(s)).request.status,'approved');const notices=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_approved'",[s.request.id])).rows;assert.equal(notices.length,1);assert.equal(notices[0].recipient,'synthetic@example.test');assert.ok(notices[0].body.includes('/sign#'+s.token));assert.ok(notices[0].body.includes('does not acknowledge any payment'));
   });
   await t.test('rejection releases a hold, retains the signed artifact and creates no tenant',async()=>{
-    const s=await sign(await make());const held=await rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'hold',{expires_at:new Date(Date.now()+3600000).toISOString()}]);
-    // A hold revision change requires fresh signatures; test rejection with the unchanged signed revision instead.
-    await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,held.revision,'reject','Not proceeding']),/changed/);
+    const s=await sign(await make());await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'hold',{expires_at:new Date(Date.now()+3600000).toISOString()}]),/online signing review/);const held=await rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'edit',{admin_notes:'Replacement needed'}]);
+    // A material edit requires fresh signatures; reject a separate unchanged signed request below.
+    await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,held.revision,'reject','Not proceeding']),/changed|already been handled/);
     const s2=await sign(await make());await sql("update reservations set status='held',hold_expires_at=now()+interval '1 hour' where id=$1",[s2.reservation.id]);await assert.rejects(()=>rpc('review_contract_signing',[s2.request.id,s2.reservation.revision,'reject','']),/reason/);
     const out=await rpc('review_contract_signing',[s2.request.id,s2.reservation.revision,'reject','Applicant withdrew the request']);assert.equal(out.status,'cancelled');assert.equal(out.checked_in_person_id,null);assert.equal(out.hold_expires_at,null);
-    const saved=await access(s2);assert.equal(saved.request.status,'rejected');assert.ok(saved.request.signed_document_path);assert.equal(saved.request.review_reason,'Applicant withdrew the request');
+    const saved=await access(s2);assert.equal(saved.request.status,'rejected');assert.ok(saved.request.signed_document_path);assert.equal(saved.request.review_reason,'Applicant withdrew the request');const notice=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_rejected'",[s2.request.id])).rows;assert.equal(notice.length,1);assert.ok(notice[0].body.includes('Applicant withdrew the request'));assert.equal(Number((await sql("select count(*) n from notification_outbox where reservation_id=$1 and kind='cancel' and status='pending'",[s2.reservation.id])).rows[0].n),0);
   });
   await t.test('expiry, revocation and replacement immediately invalidate outstanding links',async()=>{
     const expired=await make();await sql("update contract_signing_requests set expires_at=now()-interval '1 minute' where id=$1",[expired.request.id]);await assert.rejects(()=>access(expired),/expired/);
@@ -85,6 +85,32 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     const one=await sign(await make({sameDates:true})),two=await sign(await make({sameDates:true}));
     if(process.env.SAKAN_TEST_DATABASE_URL)await assertSingleAllocation([one,two].map(s=>({sql:'select public.review_contract_signing($1,$2,$3,$4)',args:[s.request.id,s.reservation.revision,'approve',null]})));
     else {await rpc('review_contract_signing',[one.request.id,one.reservation.revision,'approve',null]);await assert.rejects(()=>rpc('review_contract_signing',[two.request.id,two.reservation.revision,'approve',null]),/available|insufficient/);}
-    assert.equal(Number((await sql("select count(*) n from contract_signing_requests where id=any($1::uuid[]) and status='approved'",[[one.request.id,two.request.id]])).rows[0].n),1);
+    assert.equal(Number((await sql("select count(*) n from contract_signing_requests where id=any($1::uuid[]) and status='approved'",[[one.request.id,two.request.id]])).rows[0].n),1);assert.equal(Number((await sql("select count(*) n from incoming_alert_deliveries where source_id=any($1::uuid[]) and kind='signing_approved'",[[one.request.id,two.request.id]])).rows[0].n),1);
   });
+  await t.test('new agreements remove legacy return-by-email instructions without modifying frozen terms',async()=>{
+    const old='Pay the agreed bond using PayID 0426721787 and reply to sakanlodges@gmail.com with the signed agreement and payment receipt. Rent is payable fortnightly.';
+    const normalized=(await sql('select sakan_private.online_signing_terms($1) terms',[old])).rows[0].terms;
+    assert.ok(normalized.includes('private SAKAN online signing link'));assert.ok(normalized.includes('Pay the agreed bond using PayID 0426721787'));assert.ok(normalized.endsWith('Rent is payable fortnightly.'));
+    const s=await make();await sql("update contracts set fields=jsonb_set(fields,'{terms}',to_jsonb($2::text)) where id=$1",[s.contract.id,old]);
+    const token='f'.repeat(64);await assert.rejects(async()=>rpc('prepare_contract_signing',[s.contract.id,s.reservation.revision,await sha256(token),'a'.repeat(64),7,'https://sakanlodge.com/sign#'+token]),/replacement agreement/);
+    assert.equal((await sql("select fields->>'terms' terms from contracts where id=$1",[s.contract.id])).rows[0].terms,old);
+    const fresh=(await sql("insert into contracts(reservation_id,version,fields,reservation_revision) select reservation_id,version+100,fields,reservation_revision from contracts where id=$1 returning fields",[s.contract.id])).rows[0];assert.equal(fresh.fields.terms,normalized);
+  });
+  await t.test('legacy status actions cannot bypass online review and cancelling an unsigned request revokes its link',async()=>{
+    const s=await sign(await make());for(const action of ['hold','confirm','check_in'])await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,action,{}]),/online signing review/);
+    await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'cancel',{}]),/Reject request/);
+    const unsigned=await make();await rpc('manage_reservation',[unsigned.reservation.id,unsigned.reservation.revision,'cancel',{}]);await assert.rejects(()=>access(unsigned),/revoked/);
+  });
+  await t.test('staff can reconcile uncertain outcome emails only after explicit Sent Mail verification',async()=>{
+    const s=await sign(await make());await rpc('review_contract_signing',[s.request.id,s.reservation.revision,'approve',null]);
+    const n=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_approved'",[s.request.id])).rows[0];
+    await sql("update incoming_alert_deliveries set status='uncertain' where id=$1",[n.id]);
+    await assert.rejects(()=>rpc('reconcile_signing_email',[n.id,'requeue','unchecked']),/Check Gmail/);
+    const out=await rpc('reconcile_signing_email',[n.id,'requeue','CHECKED_SENT_MAIL_NOT_SENT']);assert.equal(out.status,'pending');
+    await assert.rejects(()=>rpc('reconcile_signing_email',[n.id,'requeue','CHECKED_SENT_MAIL_NOT_SENT']),/Check Gmail/);
+    await sql("update incoming_alert_deliveries set status='uncertain' where id=$1",[n.id]);
+    const sent=await rpc('reconcile_signing_email',[n.id,'sent','synthetic-message-id']);assert.equal(sent.status,'sent');
+    assert.equal((await sql("select has_function_privilege('anon','public.reconcile_signing_email(uuid,text,text)','execute') allowed")).rows[0].allowed,false);
+  });
+
 }

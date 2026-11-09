@@ -85,6 +85,7 @@ export async function contractSigningApi(request,env) {
     snapshot=await databaseRpc(env,'contract_signing_public',{p_hash:hash,p_action:'complete',p_data:{path:file,signed_hash:signedHash,submission_hash}},{admin:true});
     return reply(publicReceipt(snapshot));
   } catch(error) {
+    if(path==='/api/reservations/signing-link'&&error.message?.includes('Generate a replacement agreement'))return reply({error:'Generate a replacement agreement first. This PDF still contains the old email-return signing instructions.'},409);
     const unavailable=error.status===401||error.status===403;
     return reply({error:unavailable?'This signing link is unavailable, expired or revoked. Ask SAKAN for a new link.':error.status===400||error.status===409?'This agreement changed or could not be processed. Reload the page or ask SAKAN for help.':error.message||'Unable to complete signing. Retry the same submission.'},unavailable?403:409);
   }

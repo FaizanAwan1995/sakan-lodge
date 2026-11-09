@@ -1,3 +1,4 @@
+import {onlineSigningTerms} from './agreement-signing-terms.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PDFDocument} from 'pdf-lib';
@@ -53,4 +54,9 @@ test('signing page is private and does not load marketing scripts or leak its fr
  const html='<!doctype html><title>Private signing</title>';
  const r=await worker.fetch(new Request('https://sakanlodge.com/sign'),{ASSETS:{fetch:async()=>new Response(html)}});
  assert.equal(r.status,200);assert.match(r.headers.get('cache-control'),/no-store/);assert.equal(r.headers.get('referrer-policy'),'no-referrer');assert.match(r.headers.get('content-security-policy'),/frame-ancestors 'none'/);assert.match(r.headers.get('x-robots-tag'),/noindex/);
+});
+
+test('online signing instructions preserve payment amounts and replace only the obsolete email return step',()=>{
+ const old='Pay $510 bond and reply to sakanlodges@gmail.com with the signed agreement and payment receipt. Rent $255 weekly.';
+ const result=onlineSigningTerms(old);assert.match(result,/private SAKAN online signing link/);assert.match(result,/Pay \$510 bond/);assert.match(result,/Rent \$255 weekly/);assert.doesNotMatch(result,/reply to .*signed agreement/);assert.equal(onlineSigningTerms(result),result);
 });

@@ -1,3 +1,4 @@
+import {onlineSigningTerms} from '../../agreement-signing-terms.js';
 import ContractSigning from './ContractSigning.jsx';
 import { changeAgreementDetail, agreementDetailsError } from '../../agreement-details.js';
 import { DEFAULT_AGREEMENT_DESIGN } from '../../agreement-design.js';
@@ -89,7 +90,7 @@ export default function AgreementBuilder({
       if (d.data)
         setTemplate((old) => ({
           ...old,
-          terms: d.data.draft_terms,
+          terms: onlineSigningTerms(d.data.draft_terms),
           proprietor: d.data.proprietor,
         }));
     });
@@ -220,7 +221,7 @@ export default function AgreementBuilder({
             value={form.template_id}
             onChange={(e) => {
               const selected=templates.find(t=>t.id===e.target.value);
-              if(selected)setTemplate({title:selected.title,terms:selected.terms,proprietor:selected.proprietor,design:{...DEFAULT_AGREEMENT_DESIGN,...selected.design}});
+              if(selected)setTemplate({title:selected.title,terms:onlineSigningTerms(selected.terms),proprietor:selected.proprietor,design:{...DEFAULT_AGREEMENT_DESIGN,...selected.design}});
               update("template_id",e.target.value);
             }}
           >

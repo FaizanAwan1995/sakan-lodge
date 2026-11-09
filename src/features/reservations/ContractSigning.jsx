@@ -1,3 +1,4 @@
+import SigningDelivery from './SigningDelivery.jsx';
 import {useEffect,useState} from 'react';
 import {supabase} from '../../store.js';
 const time=value=>value?new Date(value).toLocaleString('en-AU',{timeZone:'Australia/Adelaide'}):'—';
@@ -10,7 +11,7 @@ export default function ContractSigning({reservation,contract,requests=[],ready,
     let active=true;
     supabase.from('notification_outbox').select('id,recipient,payload,status').eq('kind','contract_signing').eq('payload->>signing_request_id',request.id).order('created_at',{ascending:false}).limit(1).maybeSingle().then(({data,error})=>{if(!active)return;if(error){setMessage('Could not load the invitation. Refresh this reservation.');return;}setInvitation(data);setLink(data?.payload?.body?.match(/https:\/\/sakanlodge\.com\/sign#[a-f0-9]{64}/)?.[0]||'');});
     return()=>{active=false;};
-  },[request?.id]);
+  },[request?.id,request?.status]);
   useEffect(()=>()=>{if(signedPdf)URL.revokeObjectURL(signedPdf);},[signedPdf]);
   async function call(path,body) {
     const {data,error}=await supabase.auth.getSession();
@@ -57,13 +58,14 @@ export default function ContractSigning({reservation,contract,requests=[],ready,
       {signedPdf&&opened===request.id&&<><p><a href={signedPdf} download="SAKAN-signed-agreement.pdf">Download signed agreement</a></p><iframe title="Signed agreement review" src={signedPdf} style={{width:'100%',height:560,border:'1px solid #ccc'}}/></>}
       {request.status==='signed'&&active&&<>
         <label><input type="checkbox" checked={verified} onChange={e=>setVerified(e.target.checked)}/> I reviewed every resident signature, the applicant identity, room, dates, rent and bond. Approve the agreed room if it is still available.</label>
-        <button className="primary" disabled={busy||opened!==request.id||!verified} onClick={()=>run(async()=>{if(confirm('Approve this signed agreement and allocate the tenant(s) to the agreed room? No bond or rent payment will be recorded.'))await review('approve');})}>Approve signed agreement and allocate room</button>
+        <button className="primary" disabled={busy||opened!==request.id||!verified} onClick={()=>run(async()=>{if(confirm('Approve this signed agreement and allocate the tenant(s) to the agreed room? An outcome email will be queued to the applicant. No bond or rent payment will be recorded.'))await review('approve');})}>Approve signed agreement and allocate room</button>
         <label>Reason for declining (shown to the applicant on their signing page)<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-        <button disabled={busy||reason.trim().length<3} onClick={()=>run(async()=>{if(confirm('Reject this request and release any hold? The signed copy and history will be retained.'))await review('reject');})}>Reject request</button>
+        <button disabled={busy||reason.trim().length<3} onClick={()=>run(async()=>{if(confirm('Reject this request and release any hold? The applicant will be emailed your reason. The signed copy and history will be retained.'))await review('reject');})}>Reject request</button>
         <p>Changing the room, dates, rent or terms requires a replacement agreement and fresh signatures. Availability is checked again when you approve.</p>
       </>}
       {request.status==='approved'&&<p>Approved {time(request.reviewed_at)}. The signed agreement is linked to the allocated tenant profile.</p>}
       {request.status==='rejected'&&<p>Rejected {time(request.reviewed_at)}: {request.review_reason}</p>}
     </div>}
+    {request&&['signed','approved','rejected'].includes(request.status)&&<SigningDelivery request={request}/>}
   </section>;
 }

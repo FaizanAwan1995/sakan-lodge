@@ -1,7 +1,8 @@
 /* Token stays in the URL fragment and memory; no analytics or persistent browser storage. */
 (() => {
-  const token=location.hash.slice(1),status=document.getElementById('signing-status'),content=document.getElementById('signing-content'),retry=document.getElementById('retry-load');
-  let snapshot,busy=false;
+  const token=location.hash.slice(1);
+  const status=document.getElementById('signing-status'),content=document.getElementById('signing-content'),retry=document.getElementById('retry-load');
+  let snapshot,busy=false,loading=false,poll;
   const el=(tag,text,className)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(className)n.className=className;return n;};
   const money=n=>'AUD $'+Number(n).toFixed(2);
   async function api(action,data={}) {
@@ -23,7 +24,7 @@
   }
   function signatureField(name) {
     const field=el('fieldset'),legend=el('legend',name);field.append(legend);
-    const label=el('label','Type your full name as shown in the agreement'),input=el('input');input.required=true;input.maxLength=160;input.autocomplete='name';label.append(input);
+    const label=el('label','Type your full name as shown in the agreement'),input=el('input');input.required=true;input.maxLength=160;input.autocomplete='name';input.addEventListener('input',()=>input.setCustomValidity(''));label.append(input);
     const modeLabel=el('label','Signature method'),mode=el('select');for(const [value,text] of [['typed','Use my typed name as my signature'],['drawn','Draw my signature']]){const option=el('option',text);option.value=value;mode.append(option);}modeLabel.append(mode);
     const drawing=el('div');drawing.hidden=true;
     const help=el('p','Draw with your finger, stylus or mouse. You can use a typed signature instead.', 'signature-help'),canvas=el('canvas',undefined,'signature-canvas');canvas.width=1000;canvas.height=280;canvas.setAttribute('aria-label','Draw signature for '+name);
@@ -36,21 +37,26 @@
     clear.addEventListener('click',()=>{ctx.clearRect(0,0,1000,280);strokes=[];stroke=null;});mode.addEventListener('change',()=>drawing.hidden=mode.value!=='drawn');
     const consentLabel=el('label',undefined,'signing-consent'),consent=el('input');consent.type='checkbox';consent.required=true;consentLabel.append(consent,el('span','I am '+name+'. I have read the agreement, agree to its terms and consent to signing electronically. This signature is my own.'));
     field.append(label,modeLabel,drawing,consentLabel);
-    return {field,read:()=>({name:input.value,mode:mode.value,consent:consent.checked,strokes:mode.value==='drawn'?strokes:[]})};
+    return {field,validate:()=>{const normal=n=>n.trim().replace(/\s+/g,' ').toLowerCase();input.setCustomValidity(normal(input.value)===normal(name)?'':'Enter your full name exactly as shown in the agreement.');if(mode.value==='drawn'&&!strokes.some(s=>s.length>1)){status.textContent='Please draw your signature or choose a typed signature.';return false;}return input.reportValidity();},read:()=>({name:input.value,mode:mode.value,consent:consent.checked,strokes:mode.value==='drawn'?strokes:[]})};
   }
   async function submit(signatures,button,form) {
-    if(busy)return;busy=true;button.disabled=true;status.textContent='Saving your signed agreement. Please keep this page open…';form?.setAttribute('aria-busy','true');
-    try{snapshot=await api('submit',{document_hash:snapshot.request.document_hash,consent_version:'sakan-sign-v1',signatures});render();}
+    if(busy)return;busy=true;button.disabled=true;status.textContent='Saving your signed agreement. Please keep this page open…';form?.setAttribute('aria-busy','true');form?.querySelectorAll('fieldset').forEach(f=>f.disabled=true);
+    try{snapshot=await api('submit',{document_hash:snapshot.request.document_hash,consent_version:'sakan-sign-v1',signatures});render();status.scrollIntoView({block:'start'});}
     catch(e){status.textContent=e.name==='TimeoutError'?'Your submission could not be confirmed. Retry with the same signatures; this will not create a duplicate.':e.message;status.scrollIntoView({block:'center'});}
-    finally{busy=false;button.disabled=false;form?.removeAttribute('aria-busy');}
+    finally{busy=false;button.disabled=false;form?.removeAttribute('aria-busy');form?.querySelectorAll('fieldset').forEach(f=>f.disabled=false);}
   }
   function render() {
-    content.replaceChildren();content.hidden=false;retry.hidden=true;
+    clearTimeout(poll);content.replaceChildren();content.hidden=false;retry.hidden=true;
     const {request:r,agreement:a,reference}=snapshot;
     content.append(el('p',reference+' · Agreement version '+a.version));
     if(['signed','approved','rejected','superseded'].includes(r.status)) {
       const messages={signed:'Your signatures have been received. The SAKAN team will review them and confirm room availability before approving your allocation.',approved:'Your signed agreement has been approved by the SAKAN team.',rejected:'The SAKAN team has declined this request. Contact the team if you have questions.',superseded:'This agreement has been replaced. Ask SAKAN for the latest signing link.'};
       status.textContent=messages[r.status];
+      content.append(facts(a));
+      if(r.status==='signed'){content.append(el('p','You have finished signing. Our team reviews your agreement next. We will email you after approving or declining your request. You do not need to reply with the PDF.','signing-notice'));poll=setTimeout(()=>{if(!document.hidden&&!busy)load();},30000);}
+      if(r.status==='approved')content.append(el('p','Your room is allocated. Contact our team to arrange arrival and key collection. Rent and bond payment are handled separately; this approval does not acknowledge a payment.','signing-notice'));
+      const refresh=el('button','Refresh review status');refresh.type='button';refresh.addEventListener('click',load);content.append(refresh);
+      if(r.status==='rejected')content.append(el('p','Please do not make payments for this declined request. Contact our team if you need to discuss your options.','signing-notice'));
       if(r.review_reason)content.append(el('p',r.review_reason,'signing-notice'));
       if(r.can_download_signed)content.append(documentButton(true),el('p','Save your signed copy now. This private link expires '+new Date(r.expires_at).toLocaleString('en-AU')+'.'));
       return;
@@ -65,12 +71,12 @@
     const form=el('form',undefined,'signing-card');form.append(el('h2','Resident signatures'),el('p','Each named resident must complete their own signature below. Submitting signatures does not reserve a room or confirm allocation. Our administrators review the signed agreement next.'));
     const fields=a.resident_names.map(name=>signatureField(name));for(const f of fields)form.append(f.field);
     const button=el('button','Sign and send for admin review','primary');button.type='submit';form.append(button);
-    form.addEventListener('submit',e=>{e.preventDefault();if(form.reportValidity())submit(fields.map(f=>f.read()),button,form);});content.append(form);
+    form.addEventListener('submit',e=>{e.preventDefault();if(form.reportValidity()&&fields.every(f=>f.validate()))submit(fields.map(f=>f.read()),button,form);});content.append(form);
   }
   async function load() {
-    retry.hidden=true;status.textContent='Opening your private agreement…';
-    if(!/^[0-9a-f]{64}$/.test(token)){status.textContent='Open the complete signing link from your SAKAN email. If it has expired, ask our team for a new link.';return;}
-    try{snapshot=await api('access');render();}catch(e){status.textContent=e.message||'Unable to open this agreement.';retry.hidden=false;}
+    if(loading||busy)return;loading=true;retry.hidden=true;if(!snapshot)status.textContent='Opening your private agreement…';
+    if(!/^[0-9a-f]{64}$/.test(token)){status.textContent='Open the complete signing link from your SAKAN email. If it has expired, ask our team for a new link.';loading=false;return;}
+    try{snapshot=await api('access');render();}catch(e){status.textContent=e.message||'Unable to open this agreement.';retry.hidden=false;}finally{loading=false;}
   }
-  retry.addEventListener('click',load);load();
+  retry.addEventListener('click',load);window.addEventListener('hashchange',()=>location.reload());document.addEventListener('visibilitychange',()=>{if(!document.hidden&&snapshot?.request.status==='signed'&&!busy)load();});load();
 })();
