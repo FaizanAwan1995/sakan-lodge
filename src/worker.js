@@ -1,3 +1,4 @@
+import {roomAssistant} from './room-assistant.js';
 import {legacyLedgerPath} from './ledger-routing.js';
 import { enquiriesApi } from './enquiries-api.js';
 import { processIncomingAlerts } from './incoming-alerts.js';
@@ -55,6 +56,7 @@ async function handleRequest(request, env) {
       const key=String(env.GOOGLE_MAPS_BROWSER_KEY || '').trim();
       return Response.json({key:/^AIza[\w-]{30,50}$/.test(key)?key:null,properties:publicMapProperties(env.PUBLIC_PROPERTY_MAP_POINTS)},{headers:{'cache-control':'no-store'}});
     }
+    if(pathname==='/api/room-assistant')return roomAssistant(request,env);
     if(pathname==='/api/enquiries')return enquiriesApi(request,env);
     if(pathname==='/api/reviews')return reviewsApi(request,env);
     if(pathname==='/api/reservations/contract-pdf')return bookingContractApi(request,env);

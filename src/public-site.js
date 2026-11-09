@@ -1,3 +1,4 @@
+import {publicFooter} from './public-footer.js';
 import {publicImageSrc} from './public-images.js';
 import {utilityPolicy} from './utility-policy.js';
 import {locationSearchContent} from './location-content.js';
@@ -128,7 +129,7 @@ function shell(
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-display-96.webp" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="/enquire">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main><footer class="site-footer"><p>SAKAN Lodge · Adelaide, South Australia</p><nav aria-label="Adelaide room guides"><a href="/locations/fulham/">Rooms in Fulham</a><a href="/locations/clapham/">Rooms in Clapham</a><a href="/locations/oaklands-park/">Rooms in Oaklands Park</a><a href="/student-accommodation-adelaide/">Student accommodation</a></nav><a href="/#about-sakan">About Sakan</a><a href="/#testimonials">Resident reviews</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/muslim-friendly-accommodation-adelaide/">Muslim-friendly rooms</a><a href="tel:+61426721787">0426 721 787</a><a href="https://www.facebook.com/share/1KGs4jyDqK/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer">Facebook</a></footer><script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261107-1" defer></script><script src="/general-enquiry.js?v=20261108-2" defer></script><script src="/accommodation-segments.js?v=20261108-1" defer></script></body></html>'
+    '</main>' + publicFooter + '<script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261107-1" defer></script><script src="/general-enquiry.js?v=20261108-2" defer></script><script src="/accommodation-segments.js?v=20261108-1" defer></script><script src="/room-guide.js?v=20261109" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
