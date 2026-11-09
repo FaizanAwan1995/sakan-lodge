@@ -19,7 +19,7 @@ test('women are directed to Fulham with the transition explicit; couples suitabi
 });
 test('Fulham listing keeps the existing booking form and shows household transition notice',async()=>{
  const cat={properties:[{id:'p',suburb:'Fulham',slug:'sakan-fulham',name:'Sakan Fulham',photos:[],amenities:[]}],rooms:[{id:'r',property_id:'p',slug:'room-1',title:'Room 1',capacity:1,photos:[],amenities:[]}]};
- const body=await renderListing({kind:'room',suburb:'fulham',property:'sakan-fulham',room:'room-1'},cat,{}).text();assert.ok(body.includes('transitioning to women-only'));assert.ok(body.includes('id="reservation-form"'));assert.ok(body.includes('id="check-availability"'));
+ const body=await renderListing({kind:'room',suburb:'fulham',property:'sakan-fulham',room:'room-1'},cat,{}).text();assert.ok(body.includes('transitioning to female-only'));assert.ok(body.includes('id="reservation-form"'));assert.ok(body.includes('id="check-availability"'));
 });
 
 test('segment maps match their suburbs and link straight to available rooms',()=>{

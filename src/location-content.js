@@ -4,18 +4,18 @@ import {escapeHtml as h} from './public-routes.js';
 const locations = {
   fulham: {
     name: 'Fulham',
-    intro: 'Explore furnished rooms at Sakan Fulham in Adelaide’s western suburbs. Women-only living is being introduced here; ask our team when the household and your room will be ready. The Fulham granny flat is available separately for couples at $500/week, bills included, from 11 November 2026. Compare photos and stay options before enquiring.',
-    audience: '/accommodation/women/', audienceLabel: 'Women’s accommodation at Sakan Fulham',
+    intro: 'Explore furnished rooms at Sakan Fulham in Adelaide’s western suburbs. Female-only living is being introduced here; ask our team when the household and your room will be ready. The Fulham granny flat is available separately for couples at $500/week, bills included, from 11 November 2026. Compare photos and stay options before enquiring.',
+    audience: '/accommodation/women/', audienceLabel: 'Female accommodation at Sakan Fulham',
   },
   clapham: {
     name: 'Clapham',
-    intro: 'Compare furnished private rooms and shared accommodation at Sakan Clapham in Adelaide’s southern foothills. Explore men-only household options, view individual room details and check availability for your full stay.',
-    audience: '/accommodation/men/', audienceLabel: 'Men’s accommodation in Adelaide',
+    intro: 'Compare furnished private rooms and shared accommodation at Sakan Clapham in Adelaide’s southern foothills. Explore male-only household options, view individual room details and check availability for your full stay.',
+    audience: '/accommodation/men/', audienceLabel: 'Male accommodation in Adelaide',
   },
   'oaklands-park': {
     name: 'Oaklands Park',
-    intro: 'Explore furnished rooms and shared accommodation at Sakan Oaklands Park in Adelaide’s southern suburbs. Compare men-only household options and individual room details, with Westfield Marion, Oaklands railway station and local recreation in the surrounding area.',
-    audience: '/accommodation/men/', audienceLabel: 'Men’s accommodation in Adelaide',
+    intro: 'Explore furnished rooms and shared accommodation at Sakan Oaklands Park in Adelaide’s southern suburbs. Compare male-only household options and individual room details, with Westfield Marion, Oaklands railway station and local recreation in the surrounding area.',
+    audience: '/accommodation/men/', audienceLabel: 'Male accommodation in Adelaide',
   },
 };
 export function locationSearchContent(slug) {
