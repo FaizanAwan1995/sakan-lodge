@@ -182,3 +182,4 @@ test("AI retries an active fallback model when the primary provider fails", asyn
     "@cf/meta/llama-3.1-8b-instruct-fast",
   ]);
 });
+test('AI cannot turn an unconfirmed women-only household into an available shared-room offer',async()=>{const env={ROOM_AI:{run:async()=>({response:"Women's rooms are available in Fulham. Shared rooms $185/week."})},ROOM_AI_LIMITER:{limit:async()=>({success:true})}};const r=await roomAssistant(req({question:'Women rooms?',preferences:{audience:'women'}}),env);const data=await r.json();assert.match(data.answer,/team must confirm/);assert.doesNotMatch(data.answer,/185/);});
