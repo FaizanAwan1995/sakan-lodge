@@ -64,9 +64,9 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     assert.equal((await access(s)).request.status,'approved');const notices=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_approved'",[s.request.id])).rows;assert.equal(notices.length,1);assert.equal(notices[0].recipient,'synthetic@example.test');assert.ok(notices[0].body.includes('/sign#'+s.token));assert.ok(notices[0].body.includes('does not acknowledge any payment'));
   });
   await t.test('rejection releases a hold, retains the signed artifact and creates no tenant',async()=>{
-    const s=await sign(await make());const held=await rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'hold',{expires_at:new Date(Date.now()+3600000).toISOString()}]);
-    // A hold revision change requires fresh signatures; test rejection with the unchanged signed revision instead.
-    await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,held.revision,'reject','Not proceeding']),/changed/);
+    const s=await sign(await make());await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'hold',{expires_at:new Date(Date.now()+3600000).toISOString()}]),/online signing review/);const held=await rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'edit',{admin_notes:'Replacement needed'}]);
+    // A material edit requires fresh signatures; reject a separate unchanged signed request below.
+    await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,held.revision,'reject','Not proceeding']),/changed|already been handled/);
     const s2=await sign(await make());await sql("update reservations set status='held',hold_expires_at=now()+interval '1 hour' where id=$1",[s2.reservation.id]);await assert.rejects(()=>rpc('review_contract_signing',[s2.request.id,s2.reservation.revision,'reject','']),/reason/);
     const out=await rpc('review_contract_signing',[s2.request.id,s2.reservation.revision,'reject','Applicant withdrew the request']);assert.equal(out.status,'cancelled');assert.equal(out.checked_in_person_id,null);assert.equal(out.hold_expires_at,null);
     const saved=await access(s2);assert.equal(saved.request.status,'rejected');assert.ok(saved.request.signed_document_path);assert.equal(saved.request.review_reason,'Applicant withdrew the request');const notice=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_rejected'",[s2.request.id])).rows;assert.equal(notice.length,1);assert.ok(notice[0].body.includes('Applicant withdrew the request'));assert.equal(Number((await sql("select count(*) n from notification_outbox where reservation_id=$1 and kind='cancel' and status='pending'",[s2.reservation.id])).rows[0].n),0);
@@ -95,6 +95,11 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     const token='f'.repeat(64);await assert.rejects(async()=>rpc('prepare_contract_signing',[s.contract.id,s.reservation.revision,await sha256(token),'a'.repeat(64),7,'https://sakanlodge.com/sign#'+token]),/replacement agreement/);
     assert.equal((await sql("select fields->>'terms' terms from contracts where id=$1",[s.contract.id])).rows[0].terms,old);
     const fresh=(await sql("insert into contracts(reservation_id,version,fields,reservation_revision) select reservation_id,version+100,fields,reservation_revision from contracts where id=$1 returning fields",[s.contract.id])).rows[0];assert.equal(fresh.fields.terms,normalized);
+  });
+  await t.test('legacy status actions cannot bypass online review and cancelling an unsigned request revokes its link',async()=>{
+    const s=await sign(await make());for(const action of ['hold','confirm','check_in'])await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,action,{}]),/online signing review/);
+    await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'cancel',{}]),/Reject request/);
+    const unsigned=await make();await rpc('manage_reservation',[unsigned.reservation.id,unsigned.reservation.revision,'cancel',{}]);await assert.rejects(()=>access(unsigned),/revoked/);
   });
   await t.test('staff can reconcile uncertain outcome emails only after explicit Sent Mail verification',async()=>{
     const s=await sign(await make());await rpc('review_contract_signing',[s.request.id,s.reservation.revision,'approve',null]);

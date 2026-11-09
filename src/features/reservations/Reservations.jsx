@@ -391,8 +391,9 @@ export default function Reservations({ db, reload }) {
               </details>
               <details className="reservation-secondary">
                 <summary>Hold, cancel or record arrival</summary>
+                {detail.signingRequests?.some(s=>["awaiting_signature","processing","signed"].includes(s.status))&&<p>Online signing is in progress. Use the signing panel to review or reject a signed request. Place holds before sending a signing link; changing agreement details requires fresh signatures.</p>}
                 <button
-                  disabled={busy || selected.status !== "pending"}
+                  disabled={busy || selected.status !== "pending" || detail.signingRequests?.some(s=>["awaiting_signature","processing","signed"].includes(s.status))}
                   onClick={() => action("review")}
                 >
                   Review request
@@ -409,6 +410,7 @@ export default function Reservations({ db, reload }) {
                   disabled={
                     busy ||
                     !draft.expires_at ||
+                    detail.signingRequests?.some(s=>["awaiting_signature","processing","signed"].includes(s.status)) ||
                     !["pending", "review", "held"].includes(selected.status)
                   }
                   onClick={() =>
@@ -422,6 +424,7 @@ export default function Reservations({ db, reload }) {
                 <button
                   disabled={
                     busy ||
+                    detail.signingRequests?.some(s=>s.status==="signed") ||
                     !["pending", "review", "held", "confirmed"].includes(
                       selected.status,
                     )
