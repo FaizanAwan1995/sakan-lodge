@@ -63,5 +63,5 @@
   finally{busy=false;f.removeAttribute('aria-busy');if(!received)submit.textContent='Send enquiry';state();}
  });
  const palette=document.getElementById('contact-palette'),hide=document.getElementById('contact-palette-close'),show=document.getElementById('contact-palette-open');if(!palette||!hide||!show)return;
- const setExpanded=expanded=>{palette.hidden=!expanded;show.hidden=expanded;hide.setAttribute('aria-expanded',String(expanded));show.setAttribute('aria-expanded',String(expanded));};hide.addEventListener('click',()=>setExpanded(false));show.addEventListener('click',()=>setExpanded(true));if(window.matchMedia?.('(max-width:680px)').matches){show.textContent='Contact';setExpanded(false);}
+ const setExpanded=expanded=>{palette.hidden=!expanded;show.hidden=expanded;hide.setAttribute('aria-expanded',String(expanded));show.setAttribute('aria-expanded',String(expanded));};hide.addEventListener('click',()=>setExpanded(false));show.addEventListener('click',()=>setExpanded(true));setExpanded(true);
 })();

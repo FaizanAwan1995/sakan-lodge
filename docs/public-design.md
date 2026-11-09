@@ -6,6 +6,6 @@ Keep the established forest green, gold, warm neutral palette and Inter font. Pu
 
 `public/enquiry-context.js` validates public room preferences, dates and identifiers before they enter enquiry URLs. Room, suburb, dates, occupancy and advertised offer selection can carry over. Contact details and client-provided prices cannot. The visitor can edit the resulting enquiry, and staff still confirm availability and price. A completed availability check never reserves a room.
 
-Keep direct WhatsApp and Messenger choices accessible. On phones the contact rail starts collapsed beside the concierge launcher so it does not cover room descriptions. All controls need visible keyboard focus, touch-sized targets and reduced-motion handling.
+Keep direct WhatsApp and Messenger choices accessible. The contact rail starts expanded at the vertical centre of the right edge on phones, tablets and desktops. Visitors can collapse it manually. All controls need visible keyboard focus, touch-sized targets and reduced-motion handling.
 
 Validation includes enquiry retries and idempotency, room-to-form navigation, invalid date handling, public-fact synchronization, booking and ledger regression checks, and browser checks of desktop, phone and tablet layouts. Local previews do not use production Turnstile credentials or send real enquiries.

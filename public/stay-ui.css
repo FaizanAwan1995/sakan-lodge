@@ -63,11 +63,6 @@ h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}
 @media(max-width:680px){.rate-card .rate-price{min-height:0}.rate-card-heading{gap:12px}.rate-card .rate-title{font-size:1.125rem}.general-enquiry-dialog{max-height:calc(100dvh - 24px);padding:20px}.enquiry-dialog-heading{gap:12px}}
 @media(prefers-reduced-motion:reduce){.chat-typing{animation:none}}
 
-/* Two compact actions stay at the bottom on phones, leaving room content clear. */
-@media(max-width:680px){
- .floating-contact{top:auto!important;bottom:max(12px,env(safe-area-inset-bottom))!important;left:12px;right:auto!important;transform:none!important;align-items:flex-start}
- .floating-contact .contact-palette{align-items:flex-start;padding-bottom:0}
- .floating-contact .contact-palette-toggle{left:0;right:auto}
- .floating-contact .contact-palette-open{min-width:104px}
- .room-guide-launch{right:12px;max-width:calc(100vw - 136px);padding:12px 16px;min-height:44px}
-}
+/* Keep contact choices expanded at the right-hand centre on every screen. */
+.floating-contact{top:50%!important;bottom:auto!important;left:auto!important;right:max(12px,env(safe-area-inset-right))!important;transform:translateY(-50%)!important;align-items:flex-end}
+@media(max-width:680px){.floating-contact{right:max(10px,env(safe-area-inset-right))!important}}
