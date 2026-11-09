@@ -169,7 +169,7 @@ test("reviewed notification sends only the immutable claimed recipient and recor
   }
 });
 
-test("provisional notice sends the exact private reviewed PDF from the lodge account", async () => {
+for (const kind of ["provisional_offer", "contract_signing"]) test(kind+" sends only the reviewed invitation from the lodge account", async () => {
   const original = globalThis.fetch;
   const actions = [];
   let gmailRaw = "";
@@ -205,7 +205,7 @@ test("provisional notice sends the exact private reviewed PDF from the lodge acc
         JSON.stringify({
           id,
           recipient: "guest@example.test",
-          kind: "provisional_offer",
+          kind,
           payload: {
             contract_id: "10000000-0000-4000-8000-000000000002",
             document_path: "contracts/synthetic/reviewed.pdf",
@@ -257,6 +257,11 @@ test("provisional notice sends the exact private reviewed PDF from the lodge acc
     assert.ok(!gmailRaw.includes("attacker@example.test"));
     assert.ok(!gmailRaw.includes("Cc:"));
     assert.ok(gmailRaw.includes('From: Sakan Lodge <sakanlodges@gmail.com>'));
+    if(kind==='contract_signing') {
+      assert.ok(!gmailRaw.includes('Content-Disposition: attachment'));
+      assert.ok(!gmailRaw.includes('multipart/mixed'));
+      return;
+    }
     assert.ok(gmailRaw.includes('multipart/mixed'));
     assert.ok(gmailRaw.includes('Content-Disposition: attachment; filename="SAKAN-agreement-v2.pdf"'));
     assert.ok(gmailRaw.includes(Buffer.from('%PDF-synthetic-reviewed-attachment').toString('base64')));

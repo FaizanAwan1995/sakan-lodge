@@ -23,6 +23,7 @@ export async function reservationEmail(request, env) {
       authorization,
     );
     const options = {};
+    if(claimed.kind==='contract_signing')options.expectedSender='sakanlodges@gmail.com';
     if (claimed.kind === "provisional_offer") {
       const snapshot = await databaseRpc(
         env,

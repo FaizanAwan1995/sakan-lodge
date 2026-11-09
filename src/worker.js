@@ -1,3 +1,4 @@
+import {contractSigningApi} from './contract-signing-api.js';
 import {roomAssistant} from './room-assistant.js';
 import {legacyLedgerPath} from './ledger-routing.js';
 import { enquiriesApi } from './enquiries-api.js';
@@ -56,6 +57,14 @@ async function handleRequest(request, env) {
       const key=String(env.GOOGLE_MAPS_BROWSER_KEY || '').trim();
       return Response.json({key:/^AIza[\w-]{30,50}$/.test(key)?key:null,properties:publicMapProperties(env.PUBLIC_PROPERTY_MAP_POINTS)},{headers:{'cache-control':'no-store'}});
     }
+    if(pathname==='/api/reservations/signing-link'||pathname.startsWith('/api/contract-signing/'))return contractSigningApi(request,env);
+    if(pathname==='/sign'||pathname==='/sign/') {
+      if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});
+      const asset=await fetchFromAssets(env,request,'/sign.html');
+      if(!asset||asset.status!==200)return new Response('Signing page temporarily unavailable',{status:503,headers:{'cache-control':'no-store'}});
+      return new Response(request.method==='HEAD'?null:asset.body,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, private','referrer-policy':'no-referrer','x-robots-tag':'noindex, nofollow','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"}});
+    }
+    if(pathname==='/sign.html')return Response.redirect(new URL('/sign',url.origin),301);
     if(pathname==='/api/room-assistant')return roomAssistant(request,env);
     if(pathname==='/api/enquiries')return enquiriesApi(request,env);
     if(pathname==='/api/reviews')return reviewsApi(request,env);
@@ -177,7 +186,7 @@ export default {
     const headers = new Headers(response.headers);
     if (new URL(request.url).pathname.startsWith('/ledger') || new URL(request.url).pathname.startsWith('/api/')) headers.set('X-Robots-Tag','noindex, nofollow');
     headers.set('X-Content-Type-Options', 'nosniff');
-    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    if(!headers.has('Referrer-Policy'))headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     headers.set('X-Frame-Options', 'DENY');
     headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
     headers.set('Cross-Origin-Opener-Policy', 'same-origin');
