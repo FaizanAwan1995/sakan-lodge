@@ -134,7 +134,7 @@ export async function roomAssistant(request, env) {
     if (typeof answer !== "string" || !answer.trim())
       throw new Error("Empty response");
     const unsupportedWomenOffer=preferences.audience==='women' && (/shared[^.\n]*\$?185/i.test(answer) || (/\b(?:is|are|currently)\s+(?:currently\s+)?available\b/i.test(answer) && !/transition|readiness|introduc/i.test(answer)));
-  if(unsupportedWomenOffer)return reply({answer:'Women-only living is being introduced at Fulham, and our team must confirm the household is ready for your dates. Published private single-room rent is $255/week long-term or $300/week short-term, with a two-week bond. What move-in date are you considering?'});
+  if(unsupportedWomenOffer)return reply({answer:withPublicContactLinks('Women-only living is being introduced at Fulham, and our team must confirm the household is ready for your dates. Published private single-room rent is $255/week long-term or $300/week short-term, with a two-week bond. What move-in date are you considering?', question)});
   return reply({ answer: withPublicContactLinks(answer, question).slice(0, 3000) });
   } catch (error) {
     console.error("room-assistant failure", error?.name || "Unknown");
