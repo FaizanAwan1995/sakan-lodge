@@ -1,3 +1,4 @@
+import {signingEmailHtml} from './signing-email.js';
 import { databaseRpc, json, limitedJson } from "./public-site.js";
 import { gmailSend } from "./gmail-send.js";
 export async function reservationEmail(request, env) {
@@ -23,7 +24,7 @@ export async function reservationEmail(request, env) {
       authorization,
     );
     const options = {};
-    if(claimed.kind==='contract_signing')options.expectedSender='sakanlodges@gmail.com';
+    if(claimed.kind==='contract_signing'){options.expectedSender='sakanlodges@gmail.com';options.html=signingEmailHtml(claimed.payload.subject,claimed.payload.body);}
     if (claimed.kind === "provisional_offer") {
       const snapshot = await databaseRpc(
         env,

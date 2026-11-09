@@ -31,3 +31,9 @@ Delivery status is visible in the signing panel. Queued messages normally send o
 Future agreements replace the old signed-PDF email-return instruction while retaining payment amounts and tenancy clauses. Historical PDFs and saved template versions remain unchanged. A pre-existing unsigned PDF with the obsolete instruction must be regenerated before a new invitation can be issued.
 
 Legacy hold/review/confirm/check-in actions cannot bypass an active online signing review. Place a hold before creating the signing link. Cancelling an unsigned online request revokes its link. Signed requests must use Reject with a reason so the applicant receives the correct outcome. Material edits still require a new agreement and signatures.
+
+## PDF and email presentation
+
+New original PDFs and electronic signing confirmations display the original emblem through a native PDF clipping path, removing the white rectangle without changing the owner artwork. Signature input uses a consistent 2:1 drawing surface; captured proportions are stored with the immutable signature submission and fitted uniformly into the receipt. Proprietor artwork is fitted proportionally too. Signed times display in Adelaide time, with short references prominent and full identifiers retained in the verification section.
+
+Signing invitation and outcome messages use readable subjects, stay summaries and local dates. HTML messages contain labelled action buttons; plain text alternatives remain available. No previously delivered messages are resent. Previously issued PDFs remain immutable; use a replacement agreement to apply new presentation to an existing contract.
