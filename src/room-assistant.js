@@ -18,7 +18,8 @@ export async function roomAssistant(request,env){
   const {success}=await env.ROOM_AI_LIMITER.limit({key:ip});
   if(!success)return reply({error:'Too many questions. Please try later or enquire.'},429);
   const output=await env.ROOM_AI.run('@cf/meta/llama-3.1-8b-instruct',{messages:[{role:'system',content:ROOM_FACTS},...history.map(({role,content})=>({role,content})),{role:'user',content:question}],max_tokens:350,temperature:0.2});
-  if(typeof output?.response!=='string'||!output.response.trim())throw new Error('Empty response');
-  return reply({answer:output.response.slice(0,3000)});
- }catch{return reply({error:'Assistant unavailable. Please use /enquire.'},503);}
+  const answer=output?.response ?? output?.choices?.[0]?.message?.content ?? output?.result?.response;
+  if(typeof answer!=='string'||!answer.trim())throw new Error('Empty response');
+  return reply({answer:answer.slice(0,3000)});
+ }catch(error){console.error('room-assistant failure',error?.name,String(error?.message||'Unknown').slice(0,180));return reply({error:'Assistant unavailable. Please use /enquire.'},503);}
 }
