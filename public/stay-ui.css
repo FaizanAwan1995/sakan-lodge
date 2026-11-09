@@ -1,0 +1,73 @@
+/* Pricing showcase: same-height cards and a balanced 4 / 2 / 1 responsive grid. */
+.rates-section{
+  background:linear-gradient(145deg,#f3f7f2 0%,#f8f8f4 58%,#f5f5ed 100%);
+}
+.rates-section .section-heading{align-items:end;gap:24px;margin-bottom:28px}
+.rates-section .section-heading>p{max-width:330px;margin:0;color:#586d61;line-height:1.65}
+.rate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);align-items:stretch}
+.rate-card{
+  --rate-accent:#b89051;
+  min-width:0;min-height:290px;padding:25px;
+  border:1px solid #dbe5dc;border-top:4px solid var(--rate-accent);
+  border-radius:var(--radius-card);background:#fff;
+  display:flex;flex-direction:column;align-items:stretch;
+  box-shadow:0 12px 28px #173d320c;
+  transition:transform .25s var(--motion-curve),box-shadow .25s var(--motion-curve),border-color .25s var(--motion-curve);
+}
+.rate-card.featured{
+  --rate-accent:#2c7657;border:1px solid #81aa93;
+  border-top:4px solid var(--rate-accent);
+  background:linear-gradient(180deg,#f6fbf7 0%,#fff 44%);
+}
+.rate-card-couples{--rate-accent:#a58a5c}
+.rate-card-heading{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;min-height:34px}
+.rate-card .rate-title{margin:0;font-size:1.08rem;line-height:1.35;letter-spacing:-.02em;font-weight:750;color:#173d32}
+.rate-term{flex-shrink:0;display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#edf3ed;color:#38634b;font-size:.67rem;letter-spacing:.02em;font-weight:750;white-space:nowrap}
+.rate-card.featured .rate-term{background:#dfeee3}
+.rate-card .rate-price{margin:22px 0 13px;display:grid;gap:8px;align-content:start;min-height:82px;color:#183d32;line-height:1.05}
+.rate-price strong{font-size:clamp(2.35rem,4vw,3.15rem);font-weight:800;letter-spacing:-.07em;font-variant-numeric:tabular-nums}
+.rate-price span{font-size:.875rem;font-weight:650;color:#627368;line-height:1.35}
+.rate-card .rate-description{font-size:.9375rem;line-height:1.6;color:#56695d;margin:0 0 24px;flex-grow:1}
+.rate-cta{margin-top:auto;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #e4ebe4;padding-top:13px;text-decoration:none;color:#18533c;font-size:.875rem;font-weight:750}
+.rate-cta span{font-size:1.15rem}
+.rate-cta:hover{text-decoration:underline;text-underline-offset:3px}
+.rates-section .inclusions{max-width:100%;margin-top:25px;line-height:1.65}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+  .rate-card:hover{transform:translateY(-4px);box-shadow:0 18px 34px #173d3216}
+}
+@media(min-width:1180px){
+  .rate-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .rate-card{padding:23px 20px;min-height:320px}
+  .rate-card-heading{flex-wrap:wrap;gap:7px;min-height:58px}
+  .rate-price strong{font-size:2.75rem}
+}
+@media(max-width:680px){
+  .rates-section .section-heading>p{margin-top:12px}
+  .rate-grid{grid-template-columns:1fr;gap:14px}
+  .rate-card{min-height:0;padding:22px;border-radius:16px}
+  .rate-card-heading{min-height:0}
+  .rate-card .rate-price{margin:15px 0 11px}
+  .rate-price strong{font-size:2.65rem}
+  .rate-card .rate-description{margin-bottom:18px}
+}
+@media(prefers-reduced-motion:reduce){.rate-card{transition:none}}
+
+h1,h2,h3{text-wrap:balance}p{text-wrap:pretty}
+.enquiry-context{padding:var(--space-3);background:#eef4e9;border-radius:var(--radius-control);border:1px solid var(--sakan-line);color:var(--forest)!important}
+.enquiry-retry{min-height:44px;padding:10px 16px;border:1px solid var(--forest);border-radius:var(--radius-control);background:#fff;color:var(--forest);font:inherit;cursor:pointer;margin-block:12px}
+.enquiry-retry[hidden]{display:none}
+.general-enquiry-dialog input,.general-enquiry-dialog select,.general-enquiry-dialog textarea{font-size:16px;min-height:48px}
+.general-enquiry-dialog{scroll-padding-block:24px}
+.enquiry-dialog-heading button,.chat-header button{min-width:44px;min-height:44px;flex-shrink:0}
+#general-enquiry-form[aria-busy=true]{cursor:progress}
+@media(max-width:680px){.rate-card .rate-price{min-height:0}.rate-card-heading{gap:12px}.rate-card .rate-title{font-size:1.125rem}.general-enquiry-dialog{max-height:calc(100dvh - 24px);padding:20px}.enquiry-dialog-heading{gap:12px}}
+@media(prefers-reduced-motion:reduce){.chat-typing{animation:none}}
+
+/* Two compact actions stay at the bottom on phones, leaving room content clear. */
+@media(max-width:680px){
+ .floating-contact{top:auto!important;bottom:max(12px,env(safe-area-inset-bottom))!important;left:12px;right:auto!important;transform:none!important;align-items:flex-start}
+ .floating-contact .contact-palette{align-items:flex-start;padding-bottom:0}
+ .floating-contact .contact-palette-toggle{left:0;right:auto}
+ .floating-contact .contact-palette-open{min-width:104px}
+ .room-guide-launch{right:12px;max-width:calc(100vw - 136px);padding:12px 16px;min-height:44px}
+}
