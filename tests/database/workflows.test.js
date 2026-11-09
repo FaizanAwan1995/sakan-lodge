@@ -915,6 +915,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
       assert.equal((await sql('select bond_status from people where id=$1',[legacy.id])).rows[0].bond_status,'paid');
     }finally{await sql('rollback');}
   });
-  await verifySigning({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261109093943_tenant_contract_signing.sql'))});
+  await verifySigning({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>{await db.exec(await read('../../supabase/migrations/20261030215006_incoming_staff_alerts.sql'));await db.exec(await read('../../supabase/migrations/20261109093943_tenant_contract_signing.sql'));await db.exec(await read('../../supabase/migrations/20261109095409_complete_tenant_signing_journey.sql'));}});
   await db.close();
 });

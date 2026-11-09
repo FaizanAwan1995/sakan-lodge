@@ -214,6 +214,7 @@ export async function contractPdf(contract, code) {
   line(
     "Please read this agreement before signing. A copy must be provided to the resident.",
   );
+  line("For online signing, use your private signing page. Electronic signature receipts are appended to the signed copy.", { size: 9 });
   line(
     "Proprietor: " +
       (f.proprietor_signature?.signature_name || f.proprietor.name),
