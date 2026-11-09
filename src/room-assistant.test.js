@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { roomAssistant } from "./room-assistant.js";
+import { roomAssistant, withPublicContactLinks, PUBLIC_CONTACT_URLS } from "./room-assistant.js";
 const req = (body, origin = "https://sakanlodge.com") =>
   new Request("https://sakanlodge.com/api/room-assistant", {
     method: "POST",
@@ -183,3 +183,45 @@ test("AI retries an active fallback model when the primary provider fails", asyn
   ]);
 });
 test('AI cannot turn an unconfirmed women-only household into an available shared-room offer',async()=>{const env={ROOM_AI:{run:async()=>({response:"Women's rooms are available in Fulham. Shared rooms $185/week."})},ROOM_AI_LIMITER:{limit:async()=>({success:true})}};const r=await roomAssistant(req({question:'Women rooms?',preferences:{audience:'women'}}),env);const data=await r.json();assert.match(data.answer,/team must confirm/);assert.doesNotMatch(data.answer,/185/);});
+
+
+test("canonical contact links replace relative paths and include all contact channels", () => {
+  const answer = withPublicContactLinks(
+    "Book an inspection at /enquire. Our team will check availability.",
+    "How do I book a viewing?",
+  );
+  assert.match(answer, /https:\/\/sakanlodge\.com\/enquire/);
+  assert.match(answer, /https:\/\/wa\.me\/61426721787/);
+  assert.match(answer, /https:\/\/m\.me\/SakanLodge/);
+  assert.doesNotMatch(answer, /at \/enquire\b/);
+  assert.equal(
+    withPublicContactLinks("See /enquire for details.", "How much?"),
+    "See https://sakanlodge.com/enquire for details.",
+  );
+  assert.equal(PUBLIC_CONTACT_URLS.enquiry, "https://sakanlodge.com/enquire");
+});
+
+test("contact questions include three canonical links even if model omits them", async () => {
+  const env = {
+    ROOM_AI: { run: async () => ({ response: "We can arrange a viewing. Please enquire." }) },
+    ROOM_AI_LIMITER: { limit: async () => ({ success: true }) },
+  };
+  const response = await roomAssistant(req({ question: "How can I book an inspection?" }), env);
+  assert.equal(response.status, 200);
+  const { answer } = await response.json();
+  for (const url of Object.values(PUBLIC_CONTACT_URLS)) assert.ok(answer.includes(url));
+});
+
+test("November 31 is never presented as a valid move-in day", async () => {
+  let called = false;
+  const env = {
+    ROOM_AI: { run: async () => { called = true; return { response: "Available!" }; } },
+    ROOM_AI_LIMITER: { limit: async () => ({ success: true }) },
+  };
+  const response = await roomAssistant(req({ question: "Can I inspect on November 31st?" }), env);
+  assert.equal(response.status, 200);
+  const { answer } = await response.json();
+  assert.match(answer, /November has 30 days/);
+  assert.ok(answer.includes(PUBLIC_CONTACT_URLS.enquiry));
+  assert.equal(called, false);
+});

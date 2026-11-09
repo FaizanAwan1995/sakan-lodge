@@ -2,10 +2,21 @@
 (() => {
   const KEY = "sakan-chat-v2",
     TTL = 24 * 60 * 60 * 1000;
+  const CONTACT_URLS = [
+    "https://sakanlodge.com/enquire",
+    "https://wa.me/61426721787",
+    "https://m.me/SakanLodge",
+  ];
+  // Retain the published business WhatsApp URL while never storing visitor phone numbers.
   const clean = (s) =>
     s
-      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email removed]")
-      .replace(/(?:\+?\d[\d ()-]{6,}\d)/g, "[phone removed]");
+      .split(CONTACT_URLS[1])
+      .map((part) =>
+        part
+          .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email removed]")
+          .replace(/(?:\+?\d[\d ()-]{6,}\d)/g, "[phone removed]"),
+      )
+      .join(CONTACT_URLS[1]);
   let saved;
   try {
     saved = JSON.parse(sessionStorage.getItem(KEY));
@@ -123,7 +134,24 @@
   function bubble(role, text, { temporary = false } = {}) {
     const el = document.createElement("div");
     el.className = "chat-bubble chat-" + role;
-    el.textContent = text;
+    if (role === "assistant") {
+      // Only linkify these known business URLs. Never inject model output as HTML.
+      for (const part of text.split(
+        /(https:\/\/sakanlodge\.com\/enquire|https:\/\/wa\.me\/61426721787|https:\/\/m\.me\/SakanLodge)/g,
+      )) {
+        if (!part) continue;
+        if (CONTACT_URLS.includes(part)) {
+          const link = document.createElement("a");
+          link.href = part;
+          link.textContent = part;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          el.append(link);
+        } else {
+          el.append(document.createTextNode(part));
+        }
+      }
+    } else el.textContent = text;
     log.append(el);
     if (!temporary) {
       messages.push({ role, content: clean(text) });
@@ -142,12 +170,14 @@
           "What’s the bond?",
           "Are bills included?",
           "Short stays?",
+          "Contact the team",
         ]
       : [
           "Women’s rooms",
           "Men’s rooms",
           "Couples granny flat",
           "Compare prices",
+          "Contact the team",
         ]) {
       const b = document.createElement("button");
       b.type = "button";
