@@ -1,3 +1,4 @@
+import RemoveRequest from './RemoveRequest.jsx';
 import { Link, useLocation } from 'react-router-dom';
 import { reservationTenants, tenantReference, tenantStatus } from '../../tenant-model.js';
 import { todayStr } from '../../ledger.js';
@@ -28,6 +29,7 @@ export default function Reservations({ db, reload }) {
   const location = useLocation();
   const deepLink = useRef(null);
   const detailVersion = useRef(0);
+  const refreshVersion = useRef(0);
   const selectedRef = useRef(null);
   const [stale, setStale] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -43,13 +45,15 @@ export default function Reservations({ db, reload }) {
   async function refresh() {
     if (!supabase) return;
     setError("");
+    const version=++refreshVersion.current;
     try {
-      const { data, error: e } = await supabase
-        .from("reservations")
-        .select("*,contract_signing_requests(id,status,expires_at)")
+      let query=supabase.from("reservations").select("*,contract_signing_requests(id,status,expires_at)");
+      query=filter==="archived"?query.eq("status","archived"):query.neq("status","archived");
+      const { data, error: e } = await query
         .order("created_at", { ascending: false })
         .limit(200);
       if (e) throw e;
+      if(version!==refreshVersion.current)return data||[];
       setRows(data || []);
       const current = selectedRef.current;
       if (current) {
@@ -69,7 +73,7 @@ export default function Reservations({ db, reload }) {
     ]);
     if(contracts.error||signing.error)throw contracts.error||signing.error;
     if (requestVersion !== detailVersion.current) return;
-    setDetail({contracts:contracts.data||[],signingRequests:signing.data||[]});
+    setDetail({reservationId:id,contracts:contracts.data||[],signingRequests:signing.data||[]});
   }
   useEffect(() => {
     refresh();
@@ -101,12 +105,14 @@ export default function Reservations({ db, reload }) {
       window.removeEventListener("focus", sync);
       window.removeEventListener("online", sync);
     };
-  }, []);
+  }, [filter]);
   useEffect(() => {
     const id=new URLSearchParams(location.search).get('reservation');
-    const row=rows.find(r=>r.id===id);
-    if(row && deepLink.current!==id) { deepLink.current=id; open(row).catch(e=>setError(e.message)); }
-  },[location.search,rows]);
+    if(!id||!supabase||deepLink.current===id)return;
+    let active=true;
+    supabase.from('reservations').select('*,contract_signing_requests(id,status,expires_at)').eq('id',id).maybeSingle().then(async({data,error})=>{if(!active)return;if(error||!data){setError('This request could not be opened. Refresh the inbox.');return;}deepLink.current=id;if(data.status==='archived')setFilter('archived');await open(data);}).catch(e=>{if(active)setError(e.message);});
+    return()=>{active=false;};
+  },[location.search]);
   async function run(fn) {
     setBusy(true);
     setError("");
@@ -282,6 +288,7 @@ export default function Reservations({ db, reload }) {
               <p>
                 Status: <strong>{selected.status}</strong>
               </p>
+              {selected.status==="archived"&&<p role="status">Archived. This request has been removed from the active inbox; its documents and history are preserved.</p>}
               <p>
                 {selected.email} · {selected.phone}
               </p>
@@ -389,15 +396,18 @@ export default function Reservations({ db, reload }) {
                   </button>
                 </form>
               </details>
-              <details className="reservation-secondary">
-                <summary>Hold, cancel or record arrival</summary>
+              {detail.reservationId===selected.id&&<RemoveRequest key={selected.id} reservation={selected} signingRequests={detail.signingRequests} busy={busy||stale} run={run} onReservation={acceptReservation}/>}
+              {!["cancelled","archived"].includes(selected.status)&&<details className="reservation-secondary">
+                <summary>Other reservation actions</summary>
                 {detail.signingRequests?.some(s=>["awaiting_signature","processing","signed"].includes(s.status))&&<p>Online signing is in progress. Use the signing panel to review or reject a signed request. Place holds before sending a signing link; changing agreement details requires fresh signatures.</p>}
-                <button
+                {!detail.signingRequests?.some(s=>["awaiting_signature","processing","signed"].includes(s.status))&&["pending","review","held","confirmed"].includes(selected.status)&&<>
+                {selected.status==="pending"&&<button
                   disabled={busy || selected.status !== "pending" || detail.signingRequests?.some(s=>["awaiting_signature","processing","signed"].includes(s.status))}
                   onClick={() => action("review")}
                 >
                   Review request
-                </button>
+                </button>}
+                {["pending","review","held"].includes(selected.status)&&<>
                 <label>
                   Explicit hold expiry (your device local time)
                   <input
@@ -421,6 +431,8 @@ export default function Reservations({ db, reload }) {
                 >
                   Place / extend hold
                 </button>
+                {!draft.expires_at&&<p>Choose a future expiry above to enable the hold action.</p>}
+                </>}
                 <button
                   disabled={
                     busy ||
@@ -440,12 +452,7 @@ export default function Reservations({ db, reload }) {
                 >
                   Cancel reservation
                 </button>
-                <button
-                  disabled={busy || selected.status !== "cancelled"}
-                  onClick={() => action("archive")}
-                >
-                  Archive cancelled request
-                </button>
+                </>}
                 {selected.status === "assigned" && (
                   <button disabled={busy} onClick={() => action("check_in")}>
                     Record actual arrival (tenant already assigned)
@@ -509,7 +516,7 @@ export default function Reservations({ db, reload }) {
                     )}
                   </>
                 )}
-              </details>
+              </details>}
               <div className="reservation-contract">
                 <AgreementBuilder
                   key={selected.id}
@@ -548,7 +555,7 @@ export default function Reservations({ db, reload }) {
                     className={filter === s ? "primary" : ""}
                     onClick={() => setFilter(s)}
                   >
-                    {s.replaceAll("_"," ")}
+                    {s==="all"?"Active requests":s==="archived"?"Archived":s.replaceAll("_"," ")}
                   </button>
                 ))}
               </div>
@@ -557,7 +564,7 @@ export default function Reservations({ db, reload }) {
                 are checked by the database.
               </p>
               {rows
-                .filter((r) => filter === "all" || r.status === filter || r.contract_signing_requests?.some(s => filter === "signature_review" ? s.status === "signed" : filter === "awaiting_signature" && ["awaiting_signature","processing"].includes(s.status)))
+                .filter((r) => (filter === "all" ? r.status!=="archived" : r.status === filter || r.contract_signing_requests?.some(s => filter === "signature_review" ? s.status === "signed" : filter === "awaiting_signature" && ["awaiting_signature","processing"].includes(s.status))))
                 .map((r) => (
                   <article key={r.id} className="card">
                     <h2>
