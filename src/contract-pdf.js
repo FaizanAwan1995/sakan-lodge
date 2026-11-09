@@ -1,5 +1,5 @@
 import { agreementDesign, AGREEMENT_THEMES } from './agreement-design.js';
-import { contractLogoJpeg } from "./contract-logo.js";
+import {embedContractLogo,drawContractLogo} from './pdf-branding.js';
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 const plain = (value) =>
   String(value ?? "")
@@ -27,7 +27,7 @@ export async function contractPdf(contract, code) {
   const navy = colour(AGREEMENT_THEMES[design.theme][0]),
     gold = colour(AGREEMENT_THEMES[design.theme][1]),
     pale = rgb(0.96, 0.95, 0.92);
-  const logo = await pdf.embedJpg(Uint8Array.from(atob(contractLogoJpeg), c => c.charCodeAt(0)));
+  const logo = await embedContractLogo(pdf);
   let signature;
   if (f.proprietor_signature?.signature_png) {
     signature = await pdf.embedPng(
@@ -47,7 +47,7 @@ export async function contractPdf(contract, code) {
       color: navy,
     });
     page.drawRectangle({ x: 0, y: 740, width: 595.28, height: 4, color: gold });
-    if(design.showLogo) page.drawImage(logo, {x:465,y:754,width:76,height:76});
+    if(design.showLogo) drawContractLogo(page,logo,{x:465,y:754,width:76});
     page.drawText("SAKAN", {
       x: 42,
       y: 798,
@@ -221,7 +221,8 @@ export async function contractPdf(contract, code) {
     { heading: true },
   );
   if (signature) {
-    page.drawImage(signature, { x: 48, y: y - 68, width: 98, height: 79 });
+    const fitted=signature.scaleToFit(110,65);
+    page.drawImage(signature,{x:48+(110-fitted.width)/2,y:y-72+(65-fitted.height)/2,...fitted});
     page.drawText("Authorised proprietor signature", {
       x: 170,
       y: y - 30,

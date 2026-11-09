@@ -1,3 +1,4 @@
+import {alternativeEmailParts} from './signing-email.js';
 import {
   hasUnfilledPlaceholders,
   isValidTenantEmail,
@@ -282,7 +283,7 @@ export async function gmailSend(
             "--" + boundary + "--",
             "",
           ]
-        : [
+        : trustedNotification&&trustedOptions.html ? alternativeEmailParts(boundary,body,trustedOptions.html,encode64) : [
             "Content-Type: text/plain; charset=UTF-8",
             "Content-Transfer-Encoding: base64",
             "",

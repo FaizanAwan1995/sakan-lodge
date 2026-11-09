@@ -33,7 +33,7 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     return {...s,signed,begin,data};
   }
   await t.test('signing creates only a private invitation draft and anonymous users cannot access its rows or RPCs',async()=>{
-    const s=await make();assert.equal(s.request.status,'awaiting_signature');assert.equal(s.notification.kind,'contract_signing');assert.equal(s.notification.status,'pending');assert.ok(s.notification.payload.body.includes('/sign#'+s.token));assert.equal(s.request.token_hash,undefined);
+    const s=await make();assert.equal(s.request.status,'awaiting_signature');assert.equal(s.notification.kind,'contract_signing');assert.equal(s.notification.status,'pending');assert.ok(s.notification.payload.body.includes('/sign#'+s.token));assert.equal(s.request.token_hash,undefined);assert.ok(!s.notification.payload.subject.includes(s.reservation.reservation_code));assert.match(s.notification.payload.body,/Check-in: [A-Z][a-z]+, \d+ [A-Z][a-z]+ \d{4}/);
     for(const role of ['anon','authenticated'])assert.equal((await sql("select has_function_privilege($1,'public.contract_signing_public(text,text,jsonb)','execute') allowed",[role])).rows[0].allowed,false);
     assert.equal((await sql("select has_function_privilege('service_role','public.contract_signing_public(text,text,jsonb)','execute') allowed")).rows[0].allowed,true);
     await sql('set role anon');try{await assert.rejects(()=>sql('select * from contract_signing_requests'),/permission denied/);}finally{await sql('reset role');}
@@ -61,7 +61,7 @@ export async function verifySigning({t,sql,rpc,STAFF,OTHER,applyMigration,assert
     assert.equal(Number((await sql('select count(*) n from payments where person_id=$1',[person.id])).rows[0].n),0);
     assert.equal((await sql('select signed_document_path from contracts where reservation_id=$1',[out.id])).rows[0].signed_document_path,s.signed.contract.signed_document_path);
     await assert.rejects(()=>rpc('review_contract_signing',[s.request.id,out.revision,'approve',null]),/already been handled/);
-    assert.equal((await access(s)).request.status,'approved');const notices=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_approved'",[s.request.id])).rows;assert.equal(notices.length,1);assert.equal(notices[0].recipient,'synthetic@example.test');assert.ok(notices[0].body.includes('/sign#'+s.token));assert.ok(notices[0].body.includes('does not acknowledge any payment'));
+    assert.equal((await access(s)).request.status,'approved');const notices=(await sql("select * from incoming_alert_deliveries where source_id=$1 and kind='signing_approved'",[s.request.id])).rows;assert.equal(notices.length,1);assert.equal(notices[0].recipient,'synthetic@example.test');assert.ok(notices[0].body.includes('/sign#'+s.token));assert.ok(notices[0].body.includes('Payment confirmations are sent separately.'));
   });
   await t.test('rejection releases a hold, retains the signed artifact and creates no tenant',async()=>{
     const s=await sign(await make());await assert.rejects(()=>rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'hold',{expires_at:new Date(Date.now()+3600000).toISOString()}]),/online signing review/);const held=await rpc('manage_reservation',[s.reservation.id,s.reservation.revision,'edit',{admin_notes:'Replacement needed'}]);

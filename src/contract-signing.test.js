@@ -60,3 +60,11 @@ test('online signing instructions preserve payment amounts and replace only the 
  const old='Pay $510 bond and reply to sakanlodges@gmail.com with the signed agreement and payment receipt. Rent $255 weekly.';
  const result=onlineSigningTerms(old);assert.match(result,/private SAKAN online signing link/);assert.match(result,/Pay \$510 bond/);assert.match(result,/Rent \$255 weekly/);assert.doesNotMatch(result,/reply to .*signed agreement/);assert.equal(onlineSigningTerms(result),result);
 });
+
+test('drawn signature rendering keeps the captured proportions and fits the page',async()=>{
+ const {fittedSignatureLines}=await import('./contract-signing.js');
+ const [line]=fittedSignatureLines({aspect_ratio:2,strokes:[[[.1,.2],[.9,.8]]]},{x:60,y:440,width:360,height:110});
+ assert.ok(Math.abs(Math.abs((line.end.x-line.start.x)/(line.end.y-line.start.y))-2.6666666667)<.00001);
+ for(const p of [line.start,line.end]){assert.ok(p.x>=60&&p.x<=420);assert.ok(p.y>=440&&p.y<=550);}
+ assert.throws(()=>validateSignatures([{name:'Synthetic Signer',mode:'drawn',consent:true,strokes:[[[0,0],[1,1]]],aspect_ratio:100}],names));
+});
