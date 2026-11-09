@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
+const helperContext={URLSearchParams,crypto};vm.runInNewContext(fs.readFileSync(new URL('../public/enquiry-context.js',import.meta.url),'utf8'),helperContext);
+const SakanEnquiryContext=helperContext.SakanEnquiryContext;
 const source = fs.readFileSync(new URL('../public/booking.js', import.meta.url), 'utf8');
 
 function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, token = 'synthetic-challenge',postFails=false,abortAvailability=false} = {}) {
@@ -45,7 +47,7 @@ function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, to
   }
   vm.runInNewContext(source, {
     document: {querySelector: (selector) => elements[selector]},
-    Intl, Date, crypto, URLSearchParams, AbortSignal,
+    Intl, Date, crypto, URLSearchParams, AbortSignal, SakanEnquiryContext,
     FormData: MockFormData,
     window: {turnstile: {reset() {}}},
     fetch: async (url, options) => {
@@ -125,7 +127,7 @@ test('editing the dates requires a fresh availability check without disabling su
   assert.equal(c.calls.filter(x => x.url.startsWith('/api/availability')).length, 2);
 });
 
-test('available room offers a working date-prefilled email request when online submission is closed', async () => {
+test('available room offers a working date-prefilled website enquiry when online submission is closed', async () => {
   const eventHandlers = {}, checkHandlers = {};
   const values = {arrival_date:'2030-01-01',departure_date:'2030-03-01',spaces_requested:'1'};
   const fields = Object.fromEntries(Object.entries(values).map(([key]) => [
@@ -135,7 +137,7 @@ test('available room offers a working date-prefilled email request when online s
     }
   ]));
   const form = {
-    dataset: {room:'synthetic-room-id',roomTitle:'Noor Room 1'},
+    dataset: {room:'11111111-2222-3333-4444-555555555555',roomTitle:'Noor Room 1',location:'Fulham',capacity:'1'},
     elements:fields,
     addEventListener(name,fn){eventHandlers[name]=fn;}
   };
@@ -147,7 +149,7 @@ test('available room offers a working date-prefilled email request when online s
   const calls=[];
   vm.runInNewContext(source,{
     document:{querySelector(selector){return nodes[selector]||null;}},
-    Intl,Date,crypto,URLSearchParams,AbortSignal,
+    Intl,Date,crypto,URLSearchParams,AbortSignal,SakanEnquiryContext,
     fetch:async(url)=>{
       calls.push(url);
       return {ok:true,json:async()=>({spaces:1,weekly_rate:255,offer_type:'private',requests_enabled:false})};
@@ -156,13 +158,14 @@ test('available room offers a working date-prefilled email request when online s
   assert.equal(nextStep.hidden,true);
   await checkHandlers.click();
   assert.equal(nextStep.hidden,false);
-  const target=new URL(email.href);
-  assert.equal(target.protocol,'mailto:');
-  assert.equal(target.pathname,'sakanlodges@gmail.com');
-  assert.match(target.searchParams.get('subject'),/Noor Room 1/);
-  assert.match(target.searchParams.get('body'),/Arrival: 2030-01-01/);
-  assert.match(target.searchParams.get('body'),/Departure \(checkout day\): 2030-03-01/);
-  assert.match(target.searchParams.get('body'),/synthetic-room-id/);
+  const target=new URL(email.href,'https://sakanlodge.com');
+  assert.equal(target.pathname,'/enquire');
+  assert.equal(target.searchParams.get('room_title'),'Noor Room 1');
+  assert.equal(target.searchParams.get('arrival'),'2030-01-01');
+  assert.equal(target.searchParams.get('departure'),'2030-03-01');
+  assert.equal(target.searchParams.get('location'),'Fulham');
+  assert.equal(target.searchParams.get('offer'),'private');
+  assert.equal(target.searchParams.get('room'),'11111111-2222-3333-4444-555555555555');
   assert.match(result.textContent,/Continue below/);
   values.departure_date='2030-04-01';
   eventHandlers.input();
@@ -181,7 +184,7 @@ test('no enquiry button shown when all spaces are occupied', async()=>{
   const nodes={'#reservation-form':form,'#availability-result':result,
     '#check-availability':check,'#enquiry-next-step':nextStep,'#email-reservation':email};
   vm.runInNewContext(source,{
-    document:{querySelector:s=>nodes[s]||null},Intl,Date,crypto,URLSearchParams,AbortSignal,
+    document:{querySelector:s=>nodes[s]||null},Intl,Date,crypto,URLSearchParams,AbortSignal,SakanEnquiryContext,
     fetch:async()=>({ok:true,json:async()=>({spaces:0,weekly_rate:255,requests_enabled:false})})
   });
   await checkHandlers.click();

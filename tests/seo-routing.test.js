@@ -33,10 +33,10 @@ test('homepage has one WebSite entity and public missing assets cannot fall back
 
 test('location and women enquiry URLs prefill the existing form',async()=>{
  const {runInNewContext}=await import('node:vm');
- const script=readFileSync(new URL('../public/accommodation-segments.js',import.meta.url),'utf8');
+ const script=readFileSync(new URL('../public/enquiry-context.js',import.meta.url),'utf8');
  for(const [search,expectedLocation,expectedOccupants] of [['?location=Oaklands%20Park','Oaklands Park','1'],['?audience=women&location=Fulham','Fulham','1'],['?audience=couples&location=Fulham','Fulham','2']]){
   const fields={location:{value:''},message:{value:''},occupants:{value:'1'}};
-  runInNewContext(script,{URLSearchParams,window:{location:{pathname:'/enquire',search}},document:{querySelector:()=>null,getElementById:()=>({elements:{namedItem:name=>fields[name]}}),addEventListener(){}}});
+  const context={URLSearchParams};runInNewContext(script,context);context.SakanEnquiryContext.apply({elements:{namedItem:name=>fields[name]}},context.SakanEnquiryContext.read(search));
   assert.equal(fields.location.value,expectedLocation);assert.equal(fields.occupants.value,expectedOccupants);
  }
 });

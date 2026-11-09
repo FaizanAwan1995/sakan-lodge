@@ -1,3 +1,4 @@
+import {roomRateSummary} from './public-offers.js';
 import {publicFooter} from './public-footer.js';
 import {publicImageSrc} from './public-images.js';
 import {utilityPolicy} from './utility-policy.js';
@@ -124,12 +125,13 @@ function shell(
     h(description) +
     '"><meta property="og:url" content="' +
     h(canonical) +
-    '"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261109-rates3">' +
+    '"><link rel="stylesheet" href="/design-tokens.css?v=20261109-1"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261109-flow1"><link rel="stylesheet" href="/stay-ui.css?v=20261109-1">' +
     '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/room-photos/shared-room-hero-balanced.webp')+'">' +
+    '<script src="/enquiry-context.js?v=20261109-1" defer></script>' +
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-display-96.webp" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find your home</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="/enquire">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main>' + publicFooter + '<script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261109-1" defer></script><script src="/general-enquiry.js?v=20261108-2" defer></script><script src="/accommodation-segments.js?v=20261108-1" defer></script><script src="/room-guide.js?v=20261109-chat2" defer></script></body></html>'
+    '</main>' + publicFooter + '<script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261109-1" defer></script><script src="/general-enquiry.js?v=20261109-flow1" defer></script><script src="/accommodation-segments.js?v=20261109-flow1" defer></script><script src="/room-guide.js?v=20261109-flow1" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
@@ -196,10 +198,10 @@ function linkCard(title, path, desc, image = null) {
     "</p></article>"
   );
 }
-function roomForm(room, env) {
+function roomForm(room, env, location) {
   const enabled = bookingEnabled(env);
   const enquiry =
-    '<p>Online reservation requests are currently unavailable. Check your dates below, then continue with a prefilled email request. Alternatively, <a href="mailto:sakanlodges@gmail.com?subject=' +
+    '<p>Online reservation requests are currently unavailable. Check your dates below, then send an enquiry on this website. Alternatively, <a href="mailto:sakanlodges@gmail.com?subject=' +
     h(encodeURIComponent("Room enquiry: " + room.title)) +
     '">Email our team about this room</a> or <a href="tel:+61426721787">call 0426 721 787</a>.</p>';
   const contactFields = enabled
@@ -218,7 +220,7 @@ function roomForm(room, env) {
     h(room.id) +
     '" data-room-title="' +
     h(room.title) +
-    '" data-capacity="' +
+    '" data-location="' + h(location) + '" data-capacity="' +
     room.capacity +
     '"><label for="arrival">Arrival</label><input id="arrival" name="arrival_date" type="date" required><label for="departure">Departure (checkout day)</label><input id="departure" name="departure_date" type="date" required><label for="spaces">' +
     (room.capacity > 1 ? "People / bed spaces" : "People") +
@@ -227,9 +229,9 @@ function roomForm(room, env) {
     '" value="1" required><button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
     (enabled
       ? ""
-      : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="mailto:sakanlodges@gmail.com">Continue reservation request by email ↗</a><p>Your selected room and dates will be added to an email draft. <strong>Send that email</strong> to lodge your enquiry. This does not reserve the room; our team must confirm availability.</p></div>') +
+      : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="/enquire">Enquire about this room ↗</a><p>Your selected room and dates carry over to our secure enquiry form. Our team must confirm availability; this does not reserve a room.</p></div>') +
     contactFields +
-    '</form><script src="/booking.js?v=20261031-1" defer></script></section>'
+    '</form><script src="/booking.js?v=20261109-flow1" defer></script></section>'
   );
 }
 export function renderListing(route, cat, env = {}) {
@@ -266,9 +268,7 @@ export function renderListing(route, cat, env = {}) {
                       property: properties[0].slug,
                       room: r.slug,
                     }),
-                    r.capacity > 1
-                      ? "Shared accommodation · $185/person/week · long-term only"
-                      : "Private room · $255/week long-term · $300/week short-term",
+                    roomRateSummary(r.capacity, {card: true}),
                 r.photos?.[0],
                   ),
                 )
@@ -345,9 +345,7 @@ export function renderListing(route, cat, env = {}) {
                   property: property.slug,
                   room: r.slug,
                 }),
-                r.capacity > 1
-                  ? "Shared accommodation · $185/person/week · long-term only"
-                  : "Private room · $255/week long-term · $300/week short-term",
+                roomRateSummary(r.capacity, {card: true}),
                 r.photos?.[0],
               ),
             )
@@ -401,13 +399,11 @@ export function renderListing(route, cat, env = {}) {
         "</p>" +
         photos(room.photos, room.title, true) +
         '<p class="catalog-rate">' +
-        (room.capacity > 1
-          ? "Shared room · $185 per person/week · long-term only"
-          : "Private room · $255/week long-term · $300/week short-term") +
+        roomRateSummary(room.capacity) +
         "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>" +
         householdNotice(route.suburb) + included(route.suburb) +
         amenities(room.amenities) +
-        roomForm(room, env),
+        roomForm(room, env, location),
       {
         image: room.photos?.[0],
         structured: {

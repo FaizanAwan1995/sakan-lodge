@@ -56,7 +56,7 @@ test("server renders nested room with escaped content, accurate rate and disable
   assert.ok(text.includes("Check availability"));
   assert.ok(text.includes('id="enquiry-next-step" hidden'));
   assert.ok(text.includes('id="email-reservation"'));
-  assert.ok(text.includes("continue with a prefilled email request"));
+  assert.ok(text.includes("then send an enquiry on this website"));
 });
 test("unapproved or mismatched property/room yields real 404", () => {
   assert.equal(

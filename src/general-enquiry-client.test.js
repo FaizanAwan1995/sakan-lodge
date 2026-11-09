@@ -1,17 +1,17 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFile} from 'node:fs/promises';
 const script=await readFile(new URL('../public/general-enquiry.js',import.meta.url),'utf8');
-function node(){return{events:{},textContent:'',disabled:false,addEventListener(type,fn){this.events[type]=fn;},setAttribute(){},before(){}};}
-async function fixture(pathname='/enquire',trackingFails=false){
+function node(){return{events:{},textContent:'',disabled:false,addEventListener(type,fn){this.events[type]=fn;},setAttribute(){},removeAttribute(){},before(){},after(){}};}
+async function fixture(pathname='/enquire',trackingFails=false,{configFails=false}={}){
  const form=node(),dialog=node(),button=node(),open=node(),close=node(),created=[],calls=[];let widget,fail=false,resets=0,navigated;const events=[];
- form.reportValidity=()=>true;form.querySelector=()=>button;form.reset=()=>{form.resetCount=(form.resetCount||0)+1;};dialog.showModal=()=>{};dialog.close=()=>dialog.events.close?.();
+ form.elements={namedItem:()=>({value:''})};form.reportValidity=()=>true;form.querySelector=()=>button;form.reset=()=>{form.resetCount=(form.resetCount||0)+1;};dialog.showModal=()=>{};dialog.close=()=>dialog.events.close?.();
  const ids={'general-enquiry':dialog,'general-enquiry-form':form,'open-enquiry':open,'close-enquiry':close};
  const document={getElementById:id=>ids[id],querySelector:()=>null,createElement:()=>{const n=node();created.push(n);return n;}};
  const fields={full_name:'Synthetic Guest',email:'guest@example.test',phone:'0400000000',location:'Fulham',accommodation:'Private room',occupants:'2',message:'Granny flat'};
  const context={document,window:{dataLayer:trackingFails?{push(){throw Error('Blocked measurement');}}:events,location:{pathname,assign(path){navigated=path;}},turnstile:{render(el,options){widget=options;return 1;},reset(){resets++;}}},crypto,AbortSignal,setTimeout,clearTimeout,FormData:class{get(key){return fields[key]||'';}[Symbol.iterator](){return Object.entries({...fields,'cf-turnstile-response':crypto.randomUUID()})[Symbol.iterator]();}},fetch:async(url,options)=>{
-  if(!options?.method)return {ok:true,json:async()=>({enabled:true,site_key:'public'})};calls.push(options);if(fail)throw Error('Network timeout');return {ok:true,json:async()=>({received:true,reference:'ENQ-DEMO',message:'Received'})};
+  if(!options?.method)return {ok:true,json:async()=>({enabled:!configFails,site_key:'public'})};calls.push(options);if(fail)throw Error('Network timeout');return {ok:true,json:async()=>({received:true,reference:'ENQ-DEMO',message:'Received'})};
  }};
- vm.runInNewContext(script,context);await open.events.click({preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));
- return {form,dialog,button,open,events,navigated:()=>navigated,widget:()=>widget,calls,status:created[0],setFail:value=>fail=value,resets:()=>resets,submit:()=>form.events.submit({preventDefault(){}})};
+ context.URLSearchParams=URLSearchParams;vm.runInNewContext(await readFile(new URL('../public/enquiry-context.js',import.meta.url),'utf8'),context);vm.runInNewContext(script,context);await open.events.click({preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));
+ return {form,dialog,button,open,events,navigated:()=>navigated,widget:()=>widget,calls,status:created.find(n=>n.id==='enquiry-status'),setFail:value=>fail=value,setConfigFail:value=>configFails=value,retry:created.find(n=>n.className==='enquiry-retry'),resets:()=>resets,submit:()=>form.events.submit({preventDefault(){}})};
 }
 test('website enquiry confirms saved receipt once, retains retry identifier and resets after closing',async()=>{
  const c=await fixture();assert.equal(c.button.disabled,true);c.widget().callback('verified');assert.equal(c.button.disabled,false);
@@ -27,4 +27,9 @@ test('existing enquiry button navigates to the shared enquiry URL',async()=>{
 test('a blocked measurement hook cannot change a confirmed enquiry into a failure',async()=>{
  const c=await fixture('/enquire',true);c.widget().callback('verified');await c.submit();
  assert.equal(c.button.textContent,'Enquiry received');assert.match(c.status.textContent,/ENQ-DEMO/);assert.equal(c.calls.length,1);
+});
+
+test('secure form configuration can be retried without clearing visitor details',async()=>{
+ const c=await fixture('/enquire',false,{configFails:true});assert.equal(c.widget(),undefined);assert.equal(c.retry.hidden,false);assert.match(c.status.textContent,/temporarily unavailable/);
+ c.setConfigFail(false);c.retry.events.click();await new Promise(resolve=>setImmediate(resolve));assert.equal(c.retry.hidden,true);assert.ok(c.widget());assert.equal(c.form.resetCount,undefined);
 });

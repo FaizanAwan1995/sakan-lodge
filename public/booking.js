@@ -15,7 +15,7 @@
   }).format(new Date());
   form.elements.arrival_date.min = today;
   let verified = "",
-    requestKey = crypto.randomUUID(),
+    requestKey = SakanEnquiryContext.requestId(),
     sending = false;
   const fingerprint = () =>
     JSON.stringify(Object.fromEntries([...new FormData(form)].filter(([key])=>key!=="cf-turnstile-response")));
@@ -35,7 +35,7 @@
         : "Check availability to continue with your room enquiry.";
     }
     if (verified && verified !== fingerprint()) {
-      requestKey = crypto.randomUUID();
+      requestKey = SakanEnquiryContext.requestId();
       verified = "";
     }
   });
@@ -84,34 +84,20 @@
           ? ". Not enough spaces for your request."
           : data.requests_enabled
             ? ". Requests require administrator confirmation."
-            : ". Online requests are currently unavailable. Please email or call our team to enquire.");
+            : ". Online requests are currently unavailable. Send an enquiry below for our team to confirm.");
       // When online processing has not been activated, let customers progress
-      // with the checked room and dates rather than trapping them at this step.
-      // The external email client is responsible for sending; no booking is
-      // recorded or held until staff replies.
+      // with the checked room and dates in the website enquiry form.
+      // No booking is recorded or held until staff confirms it.
       if (!submit && enquiryNextStep && emailReservation && hasSpaces) {
-        const subject = "Reservation request: " + (form.dataset.roomTitle || "SAKAN Lodge room");
-        const body = [
-          "Hello SAKAN Lodge,",
-          "",
-          "I would like to request the following accommodation:",
-          "Room: " + (form.dataset.roomTitle || "SAKAN Lodge room"),
-          "Room reference: " + form.dataset.room,
-          "Arrival: " + arrival.value,
-          "Departure (checkout day): " + departure.value,
-          "People / spaces: " + spaces.value,
-          "Advertised rate: AUD $" + data.weekly_rate +
-            "/week" + (data.offer_type === "shared" ? " per person" : ""),
-          "",
-          "My name:",
-          "My phone:",
-          "My occupation (optional):",
-          "A little about my stay (optional):",
-          "",
-          "Please let me know whether this room can be reserved.",
-        ].join("\n");
-        emailReservation.href = "mailto:sakanlodges@gmail.com?subject=" +
-          encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+        emailReservation.href = SakanEnquiryContext.link({
+          room: form.dataset.room,
+          room_title: form.dataset.roomTitle,
+          location: form.dataset.location,
+          offer: Number(form.dataset.capacity) > 1 ? 'shared' : 'private',
+          arrival: arrival.value,
+          departure: departure.value,
+          occupants: spaces.value,
+        });
         enquiryNextStep.hidden = false;
         result.textContent += " Continue below to send your enquiry.";
       }

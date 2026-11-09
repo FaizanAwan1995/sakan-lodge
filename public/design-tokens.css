@@ -1,0 +1,9 @@
+/* Shared Sakan foundations. Public pages retain the existing brand and font. */
+:root{
+ --forest:#173d32;--deep:#102d26;--gold:#d6ae62;--cream:#f8f5ed;
+ --ink:#202b25;--muted:#626e65;--line:#e4e6df;
+ --sakan-green:var(--forest);--sakan-line:#dce4da;--sakan-gold:#b48a45;
+ --space-1:8px;--space-2:12px;--space-3:16px;--space-4:24px;--space-5:32px;
+ --radius-control:10px;--radius-card:16px;
+ --motion-curve:cubic-bezier(.22,1,.36,1);
+}

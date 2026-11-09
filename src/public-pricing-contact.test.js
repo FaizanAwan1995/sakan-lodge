@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../public/landing.html", import.meta.url), "utf8");
-const css = readFileSync(new URL("../public/site-ui.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../public/stay-ui.css", import.meta.url), "utf8");
 const concierge = readFileSync(new URL("../public/room-guide.js", import.meta.url), "utf8");
 
 test("all four published rates are consistently carded and carry accessible enquiry actions", () => {

@@ -21,7 +21,7 @@ function serveSakanRoutes(req, res, next) {
   const url = new URL(req.url, 'http://localhost');
   const pathname = url.pathname;
 
-  if (pathname === '/' || pathname === '/index.html') {
+  if (pathname === '/' || pathname === '/index.html' || pathname === '/enquire' || pathname === '/enquire/') {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(landingHtml);
@@ -59,6 +59,7 @@ export default defineConfig({
   ],
   base: viteBase,
   server: {
+    allowedHosts: ['terminal.local'],
     host: '0.0.0.0',
     port: 5173,
   },

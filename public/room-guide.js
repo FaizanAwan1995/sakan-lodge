@@ -51,7 +51,7 @@
         : {},
     started = messages.length > 0,
     busy = false,
-    leadKey = crypto.randomUUID(),
+    leadKey = SakanEnquiryContext.requestId(),
     leadSignature = "",
     token = "",
     widget,
@@ -376,7 +376,7 @@
       audience = f.get("audience");
     const signature = JSON.stringify([...f.entries()]);
     if (leadSignature && signature !== leadSignature)
-      leadKey = crypto.randomUUID();
+      leadKey = SakanEnquiryContext.requestId();
     leadSignature = signature;
     try {
       const r = await fetch("/api/enquiries", {
@@ -448,7 +448,7 @@
     persist();
     log.replaceChildren();
     intro.reset();
-    leadKey = crypto.randomUUID();
+    leadKey = SakanEnquiryContext.requestId();
     d.querySelector(".chat-conversation").hidden = true;
     d.querySelector(".chat-welcome").hidden = false;
     if (widget !== undefined && window.turnstile) {
