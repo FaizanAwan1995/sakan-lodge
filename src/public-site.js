@@ -131,7 +131,7 @@ function shell(
     schema +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="site-brand" href="/"><img src="/sakan-logo-display-96.webp" width="48" height="48" alt=""><span>SAKAN <strong>Lodge</strong></span></a><nav aria-label="Main navigation"><a href="/#stay-options">Find a room</a><a href="/#locations">Locations</a><a href="/#rates">Rates</a><a href="/student-accommodation-adelaide/">Student rooms</a><a href="/enquire">Contact</a></nav></header><main id="main" class="catalog-main">' +
     body +
-    '</main>' + publicFooter + '<script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261109-dock2" defer></script><script src="/general-enquiry.js?v=20261109-dock2" defer></script><script src="/accommodation-segments.js?v=20261109-flow1" defer></script><script src="/room-guide.js?v=20261110-rooms1" defer></script></body></html>'
+    '</main>' + publicFooter + '<script src="/suburb-maps.js?v=20261030-2" defer></script><script src="/contact-palette.js?v=20261111-stack1" defer></script><script src="/general-enquiry.js?v=20261109-dock2" defer></script><script src="/accommodation-segments.js?v=20261109-flow1" defer></script><script src="/room-guide.js?v=20261110-rooms1" defer></script></body></html>'
   );
 }
 function html(body, status = 200) {
