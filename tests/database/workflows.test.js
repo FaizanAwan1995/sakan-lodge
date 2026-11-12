@@ -916,5 +916,28 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
     }finally{await sql('rollback');}
   });
   await verifySigning({t,sql,rpc,STAFF,OTHER,assertSingleAllocation,applyMigration:async()=>{await db.exec(await read('../../supabase/migrations/20261030215006_incoming_staff_alerts.sql'));await db.exec(await read('../../supabase/migrations/20261109093943_tenant_contract_signing.sql'));await db.exec(await read('../../supabase/migrations/20261109095409_complete_tenant_signing_journey.sql'));await db.exec(await read('../../supabase/migrations/20261109095847_guard_online_signing_actions.sql'));await db.exec(await read('../../supabase/migrations/20261109115712_readable_signing_emails.sql'));await db.exec(await read('../../supabase/migrations/20261109123836_archive_reservation_requests.sql'));}});
+  await db.exec(await read('../../supabase/migrations/20261112052110_sync_room_capacity_listing.sql'));
+  await t.test('capacity edits synchronise public listings without bypassing publication or inventory',async()=>{
+    await sql('begin');
+    try {
+      const prop=(await sql("insert into properties(name,lease_rent,lease_anchor) values('Capacity test',1000,current_date) returning id")).rows[0].id;
+      await sql("insert into property_profiles(property_id,slug,public_name,suburb,description,published,approved_by,approved_at) values($1,'capacity-test','Capacity test','Clapham','Synthetic property for capacity regression.',true,$2,now())",[prop,STAFF]);
+      const room=(await sql("insert into rooms(property_id,label,capacity) values($1,'Capacity regression',1) returning id",[prop])).rows[0].id;
+      const description='Private room for one person in Clapham. Long-term rent is $255 per week; short-term rent is $300 per week. Exactly two calendar months qualifies as long-term. Electricity, water, gas and internet are included without additional charges.';
+      await sql("insert into room_profiles(room_id,slug,title,description,photos,offer_type,ready,published,approved_by,approved_at) values($1,'capacity-regression','Sukoon 05 · Private Room',$2,'[]','private',true,true,$3,now())",[room,description,STAFF]);
+      const before=(await sql('select * from room_profiles where room_id=$1',[room])).rows[0];
+      const profile=async()=>(await sql('select * from room_profiles where room_id=$1',[room])).rows[0];
+      const listed=async()=>(await rpc('public_catalog',[])).rooms.find(r=>r.id===room);
+      await sql('update rooms set capacity=2 where id=$1',[room]);
+      let p=await profile(); assert.equal(p.published,true);assert.equal(p.ready,true);assert.equal(p.approved_by,before.approved_by);assert.deepEqual(p.approved_at,before.approved_at);assert.deepEqual(p.photos,before.photos);
+      assert.equal(p.title,'Sukoon 05 · Shared Room');assert.match(p.description,/capacity for 2 people/);assert.ok(p.description.includes('$185'));assert.ok(!p.description.includes('$255'));
+      assert.equal((await listed()).capacity,2);assert.equal((await rpc('room_availability',[room,'2090-01-01','2090-04-01'])).spaces,2);
+      await sql('update rooms set capacity=3 where id=$1',[room]);assert.match((await profile()).description,/capacity for 3 people/);
+      await sql('update rooms set capacity=1 where id=$1',[room]);assert.equal((await profile()).description,description);assert.equal((await listed()).offer_type,'private');
+      await sql("update room_profiles set published=false,ready=false,title='Custom room',description='Custom approved description.' where room_id=$1",[room]);
+      await sql('update rooms set capacity=2 where id=$1',[room]);p=await profile();assert.equal(p.published,false);assert.equal(p.ready,false);assert.equal(p.title,'Custom room');assert.equal(p.description,'Custom approved description.');assert.equal(await listed(),undefined);
+      await assert.rejects(()=>sql('update rooms set capacity=0 where id=$1',[room]),/positive/);
+    } finally {await sql('rollback');}
+  });
   await db.close();
 });
