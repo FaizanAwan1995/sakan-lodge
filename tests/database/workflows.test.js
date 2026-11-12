@@ -1,3 +1,4 @@
+import {verifyBeds} from './bed-assignment-checks.js';
 import {verifySigning} from './signing-checks.js';
 import {verifyBondReceipts} from './bond-receipt-checks.js';
 import {verifyPastFortnights} from './past-fortnight-checks.js';
@@ -939,5 +940,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
       await assert.rejects(()=>sql('update rooms set capacity=0 where id=$1',[room]),/positive/);
     } finally {await sql('rollback');}
   });
+  await verifyBeds({t,sql,rpc,STAFF,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261112062236_individual_bed_assignments.sql'))});
   await db.close();
 });

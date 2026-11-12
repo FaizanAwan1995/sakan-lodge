@@ -7,6 +7,8 @@
     submit = document.querySelector("#submit-request"),
     enquiryNextStep = document.querySelector("#enquiry-next-step"),
     emailReservation = document.querySelector("#email-reservation");
+  const bed = form.elements.bed_number;
+  if(bed)bed.addEventListener('change',()=>{if(bed.value)form.elements.spaces_requested.value='1';});
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Australia/Adelaide",
     year: "numeric",
@@ -24,6 +26,7 @@
       form.elements.arrival_date.value,
       form.elements.departure_date.value,
       form.elements.spaces_requested.value,
+      bed?.value || '',
     ].join("|");
   let checkedDates = "";
   form.addEventListener("input", () => {
@@ -50,6 +53,7 @@
       !departure.reportValidity() ||
       !spaces.reportValidity()
     ) return false;
+    if(bed?.value && Number(spaces.value)!==1){result.textContent='Choose one bed space when selecting a specific bed.';return false;}
     const selected = dates();
     checkedDates = "";
     if (enquiryNextStep) enquiryNextStep.hidden = true;
@@ -72,16 +76,18 @@
         return false;
       }
       checkedDates = selected;
-      const hasSpaces = Number.isFinite(Number(data.spaces)) &&
+      const selectedBedAvailable = !bed?.value || !Array.isArray(data.beds) || data.beds.includes(Number(bed.value));
+      if(bed && Array.isArray(data.beds))for(const option of bed.options){if(option.value)option.disabled=!data.beds.includes(Number(option.value));}
+      const hasSpaces = selectedBedAvailable && Number.isFinite(Number(data.spaces)) &&
         Number(data.spaces) >= Number(spaces.value);
       result.textContent =
         data.spaces +
-        " space(s) available for these dates. AUD $" +
+        " bed space(s) available for these dates. AUD $" +
         data.weekly_rate +
         "/week" +
         (data.offer_type === "shared" ? " per person" : "") +
         (!hasSpaces
-          ? ". Not enough spaces for your request."
+          ? ". The selected bed or number of spaces is unavailable for your dates."
           : data.requests_enabled
             ? ". Requests require administrator confirmation."
             : ". Online requests are currently unavailable. Send an enquiry below for our team to confirm.");
@@ -97,6 +103,7 @@
           arrival: arrival.value,
           departure: departure.value,
           occupants: spaces.value,
+          bed: bed?.value || '',
         });
         enquiryNextStep.hidden = false;
         result.textContent += " Continue below to send your enquiry.";

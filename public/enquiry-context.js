@@ -14,6 +14,7 @@
     if (date(p.get('departure')) && (!c.arrival || p.get('departure') > c.arrival)) c.departure = p.get('departure');
     if (/^[1-9]\d?$/.test(p.get('occupants') || '')) c.occupants = p.get('occupants');
     if (/^[a-f0-9-]{36}$/i.test(p.get('room') || '')) c.room = p.get('room');
+    if (/^[1-9]\d?$/.test(p.get('bed') || '')) c.bed=p.get('bed');
     if (p.get('room_title')) c.room_title = p.get('room_title').replace(/[\x00-\x1f]/g, ' ').slice(0, 120);
     return c;
   }
@@ -37,6 +38,7 @@
     if (c.audience === 'couples' || c.offer === 'couples') notes.push('Fulham granny flat for a couple.');
     if (c.offer === 'short') notes.push('Interested in a shorter stay; please confirm the rate for my dates.');
     if (c.room_title) notes.push('Preferred room: ' + c.room_title);
+    if (c.bed) notes.push('Preferred bed: B'+c.bed);
     if (c.room) notes.push('Room reference: ' + c.room);
     if (c.departure) notes.push('Preferred checkout: ' + c.departure);
     set('message', notes.join('\n'));

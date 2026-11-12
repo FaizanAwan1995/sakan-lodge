@@ -28,7 +28,7 @@ export function stayEvents(person, audit = []) {
     if (!before && after) return [{...base,title:'Check-in record created',date:after.start_date,description:'Stay dates recorded by an administrator.'}];
     if (before && after) {
       const events=[];
-      if (before.room_id!==after.room_id || before.property_id!==after.property_id) events.push({...base,id:a.id+'-move',title:'Room assignment changed',date:String(a.at).slice(0,10),description:'Previous and new room assignments are retained below.'});
+      if (before.room_id!==after.room_id || before.property_id!==after.property_id || before.bed_number!==after.bed_number) events.push({...base,id:a.id+'-move',title:'Room assignment changed',date:String(a.at).slice(0,10),description:'Previous and new room assignments are retained below.'});
       if (before.start_date!==after.start_date) events.push({...base,id:a.id+'-arrival',title:'Check-in date corrected',date:after.start_date,description:`Previously ${before.start_date || 'not set'}.`});
       if (before.end_date!==after.end_date) events.push({...base,id:a.id+'-end',title:'Departure date changed',date:after.end_date,description:`Previously ${before.end_date || 'not scheduled'}.`});
       if (before.checked_out_at!==after.checked_out_at) events.push({...base,id:a.id+'-confirmed',title:after.checked_out_at?'Checkout confirmed':'Checkout confirmation reversed',date:after.checked_out_at ? new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Adelaide'}).format(new Date(after.checked_out_at)) : null});

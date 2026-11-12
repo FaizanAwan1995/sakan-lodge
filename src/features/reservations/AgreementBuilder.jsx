@@ -1,3 +1,4 @@
+import {bedReference} from '../../bed-assignments.js';
 import {onlineSigningTerms} from '../../agreement-signing-terms.js';
 import ContractSigning from './ContractSigning.jsx';
 import { changeAgreementDetail, agreementDetailsError } from '../../agreement-details.js';
@@ -263,14 +264,13 @@ export default function AgreementBuilder({
         <p>The checkout day is excluded from the stay. Date changes are checked against room availability when you generate the replacement agreement. Review its new PDF before sending.</p>
         {detailsError&&<p role="alert">{detailsError}</p>}
         <p>
-          Ledger room:{" "}
-          {roomLabel ||
-            contracts[0]?.fields?.room_label ||
-            "Selected reservation room"}{" "}
+          Ledger room / bed:{" "}
+          {(reservation.bed_numbers||[]).map(b=>bedReference({label:roomLabel},b)).join(', ') || roomLabel || contracts[0]?.fields?.room_label || "Selected reservation room"}{" "}
           · Rent: AUD ${(Number(form.weekly_rate) * 2).toFixed(2)} per fortnight{" "}
           {reservation.offer_type === "shared" ? "per resident" : ""}. Changes
           to dates or room recalculate the quote before PDF generation.
         </p>
+        <p>To change a bed, use Modify request above before generating the agreement. The PDF records the assigned room and bed.</p>
         <label>
           Agreement term
           <input

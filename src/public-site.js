@@ -226,12 +226,14 @@ function roomForm(room, env, location) {
     (room.capacity > 1 ? "People / bed spaces" : "People") +
     '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' +
     room.capacity +
-    '" value="1" required><button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
+    '" value="1" required>' +
+    (room.capacity>1 ? '<label for="bed-number">Preferred bed</label><select id="bed-number" name="bed_number"><option value="">Assign an available bed</option>'+Array.from({length:room.capacity},(_,i)=>'<option value="'+(i+1)+'">Bed '+(i+1)+' (B'+(i+1)+')</option>').join('')+'</select><p>Apply for one bed in this shared room. Bed assignments are confirmed by our team.</p>' : '') +
+    '<button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
     (enabled
       ? ""
       : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="/enquire">Enquire about this room ↗</a><p>Your selected room and dates carry over to our secure enquiry form. Our team must confirm availability; this does not reserve a room.</p></div>') +
     contactFields +
-    '</form><script src="/booking.js?v=20261109-flow1" defer></script></section>'
+    '</form><script src="/booking.js?v=20261112-beds1" defer></script></section>'
   );
 }
 export function renderListing(route, cat, env = {}) {
@@ -508,6 +510,7 @@ export async function handlePublicSite(request, env) {
           "arrival_date",
           "departure_date",
           "spaces_requested",
+          "bed_number",
           "occupation_type",
           "introduction",
         ].map((k) => [k, input[k]]),

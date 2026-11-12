@@ -35,3 +35,8 @@ test('request identifiers remain UUIDs when randomUUID is unavailable',()=>{
  const fallback={URLSearchParams,crypto:{getRandomValues:bytes=>crypto.getRandomValues(bytes)}};vm.runInNewContext(readFileSync(new URL('../public/enquiry-context.js',import.meta.url),'utf8'),fallback);
  const a=fallback.SakanEnquiryContext.requestId(),b=fallback.SakanEnquiryContext.requestId();assert.match(a,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.notEqual(a,b);
 });
+
+test('bed preference survives the enquiry fallback without contact details',()=>{
+ const url=helper.link({offer:'shared',bed:'2',room_title:'Room 5',email:'private@example.test'});const f=form();helper.apply(f,helper.read(url.split('?')[1]));
+ assert.match(f.fields.message.value,/Preferred bed: B2/);assert.ok(!url.includes('email'));
+});
