@@ -1,3 +1,4 @@
+import {verifyGuestCommunications} from './communications-checks.js';
 import {verifyBeds} from './bed-assignment-checks.js';
 import {verifySigning} from './signing-checks.js';
 import {verifyBondReceipts} from './bond-receipt-checks.js';
@@ -941,5 +942,6 @@ await test("database workflows on isolated PostgreSQL", async (t) => {
     } finally {await sql('rollback');}
   });
   await verifyBeds({t,sql,rpc,STAFF,assertSingleAllocation,applyMigration:async()=>db.exec(await read('../../supabase/migrations/20261112062236_individual_bed_assignments.sql'))});
+  await verifyGuestCommunications({t,sql,rpc,STAFF,OTHER,applyMigrations:async()=>{await db.exec(await read('../../supabase/migrations/20261112093842_checkout_thank_you_emails.sql'));await db.exec(await read('../../supabase/migrations/20261112094030_shared_enquiry_inbox.sql'));}});
   await db.close();
 });

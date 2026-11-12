@@ -1,3 +1,4 @@
+import EnquiryInbox from './features/enquiries/EnquiryInbox.jsx';
 import {bedReference,bedChoices} from './bed-assignments.js';
 import {startSessionResume} from './session-resume.js';
 import {readLedgerVisit,saveLedgerVisit} from './ledger-routing.js';
@@ -284,7 +285,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
     setPayFor(pid ?? null); const route = t === 'today' ? '/home' : t==='rent' ? '/reports?view=transactions' : `/${t}`;
     navigate(route); window.scrollTo(0, 0);
   } };
-  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['website-photos', 'Website photos'], ['activity', 'Activity']];
+  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['enquiries', 'Enquiries'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['website-photos', 'Website photos'], ['activity', 'Activity']];
   return (
     <>
       <IncomingAlerts key={session.user.id} userId={session.user.id} />
@@ -319,6 +320,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {paymentTenant && d.people.some(p=>p.id===paymentTenant) && <AccountPayment key={paymentTenant} person={d.people.find(p=>p.id===paymentTenant)} db={db} today={today} reload={reload} onClose={()=>setPaymentTenant(null)} />}
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
+        {tab === 'enquiries' && <EnquiryInbox />}
         {tab === 'communications' && <TenantCommunications db={db} today={today} />}
         {tab === 'reservations' && <Reservations db={db} reload={reload} />}
         {tab === 'reviews' && <Reviews />}

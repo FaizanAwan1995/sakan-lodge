@@ -1,3 +1,4 @@
+import {checkoutEmailHtml} from './checkout-email.js';
 import {signingEmailHtml,alternativeEmailParts} from './signing-email.js';
 import { databaseRpc } from './public-site.js';
 import { invoiceGmailToken, sendInvoiceMime } from './invoice-email.js';
@@ -6,7 +7,7 @@ const encode=text=>{const bytes=new TextEncoder().encode(text);let s='';for(cons
 export function alertMime(alert){
   const validEmail=e=>typeof e==='string'&&e.length<=254&&/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(e);
   if(!validEmail(alert.recipient)||!validEmail(alert.reply_to)||!/^[-a-f0-9]{36}$/i.test(alert.id)||typeof alert.subject!=='string'||/[\r\n]/.test(alert.subject)||typeof alert.body!=='string')throw Error('Invalid alert');
-  const raw=[ 'From: SAKAN Lodge <sakanlodges@gmail.com>',`To: ${alert.recipient}`,`Reply-To: ${alert.reply_to}`,`Subject: =?UTF-8?B?${encode(alert.subject)}?=`,`Message-ID: <incoming-${alert.id}@sakanlodge.com>`,'MIME-Version: 1.0',...(/^signing_/.test(alert.kind||'')?alternativeEmailParts('sakan-'+alert.id,alert.body,signingEmailHtml(alert.subject,alert.body),encode):['Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',encode(alert.body).match(/.{1,76}/g).join('\r\n'),''])].join('\r\n');
+  const raw=[ 'From: SAKAN Lodge <sakanlodges@gmail.com>',`To: ${alert.recipient}`,`Reply-To: ${alert.reply_to}`,`Subject: =?UTF-8?B?${encode(alert.subject)}?=`,`Message-ID: <incoming-${alert.id}@sakanlodge.com>`,'MIME-Version: 1.0',...((/^signing_/.test(alert.kind||'')||alert.kind==='checkout_thanks')?alternativeEmailParts('sakan-'+alert.id,alert.body,(alert.kind==='checkout_thanks'?checkoutEmailHtml:signingEmailHtml)(alert.subject,alert.body),encode):['Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',encode(alert.body).match(/.{1,76}/g).join('\r\n'),''])].join('\r\n');
   return encode(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 export async function processIncomingAlerts(env){
