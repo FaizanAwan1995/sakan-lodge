@@ -1,3 +1,4 @@
+import {parseBedNumbers,bedReference} from '../../bed-assignments.js';
 import RemoveRequest from './RemoveRequest.jsx';
 import { Link, useLocation } from 'react-router-dom';
 import { reservationTenants, tenantReference, tenantStatus } from '../../tenant-model.js';
@@ -138,6 +139,7 @@ export default function Reservations({ db, reload }) {
       departure_date: r.departure_date,
       room_id: r.room_id,
       spaces_requested: r.spaces_requested,
+      bed_numbers: (r.bed_numbers||[]).join(","),
       admin_notes: r.admin_notes || "",
       expires_at: "",
       terms: "",
@@ -317,7 +319,7 @@ export default function Reservations({ db, reload }) {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    action("edit", draft);
+                    action("edit", {...draft,bed_numbers:parseBedNumbers(draft.bed_numbers)});
                   }}
                 >
                   <h3>Modify request</h3>
@@ -373,6 +375,7 @@ export default function Reservations({ db, reload }) {
                       }
                     />
                   </label>
+                  <label>Bed numbers (one per resident, e.g. 1 or 1,2)<input value={draft.bed_numbers || ''} onChange={e=>change('bed_numbers',e.target.value)} placeholder="Automatic assignment" pattern="[0-9, ]*" /></label>
                   <label>
                     Private admin notes
                     <textarea
@@ -577,7 +580,7 @@ export default function Reservations({ db, reload }) {
                     <p>
                       {db.properties.find((p) => p.id === r.property_id)?.name}{" "}
                       · {db.rooms.find((x) => x.id === r.room_id)?.label} ·{" "}
-                      {r.spaces_requested} space(s)
+                      {r.spaces_requested} space(s) · {(r.bed_numbers||[]).map(b=>bedReference(db.rooms.find(x=>x.id===r.room_id),b)).join(", ") || "Bed not assigned"}
                     </p>
                     {reservationTenants(r, db.people).map(person => <p key={person.id} className="tenant-reference"><Link to={`/rooms/${person.id}`}>Tenant ID {tenantReference(person)} · {tenantStatus(person, todayStr())}</Link></p>)}
                     {r.contract_signing_requests?.some(s=>s.status==='signed')&&<p><strong>Signed agreement awaiting administrator review</strong></p>}
@@ -734,6 +737,7 @@ function CreateRequest({ db, onCreated }) {
     arrival_date: "",
     departure_date: "",
     spaces_requested: 1,
+    bed_numbers: "",
     introduction: "",
   });
   const [busy, setBusy] = useState(false),
@@ -755,6 +759,7 @@ function CreateRequest({ db, onCreated }) {
             p_data: {
               ...form,
               spaces_requested: Number(form.spaces_requested),
+              bed_numbers: parseBedNumbers(form.bed_numbers),
             },
             p_key: key.current,
           });
@@ -804,6 +809,7 @@ function CreateRequest({ db, onCreated }) {
           />
         </label>
       ))}
+      <label>Bed numbers (e.g. 1 or 1,2)<input value={form.bed_numbers||''} onChange={set('bed_numbers')} placeholder="Assign automatically" /></label>
       <button disabled={busy}>
         {busy ? "Creating…" : "Create pending request"}
       </button>

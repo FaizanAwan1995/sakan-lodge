@@ -1,3 +1,4 @@
+import {bedReference,bedChoices} from './bed-assignments.js';
 import {startSessionResume} from './session-resume.js';
 import {readLedgerVisit,saveLedgerVisit} from './ledger-routing.js';
 import WebsitePhotos from './features/website/WebsitePhotos.jsx';
@@ -569,13 +570,14 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
                   <button className="link" onClick={() => setEdit({ type: 'room', data: r })}>{r.label} · {assigned.filter(x => x.start_date <= today).length}/{r.capacity}{assigned.some(x => x.start_date > today) ? ` · ${assigned.filter(x => x.start_date > today).length} booked` : ''}</button>
                   <span>{fmt(sum(assigned.filter((x) => x.start_date <= today && x.stay_type === 'long'), (x) => L.billingTermsAt(x,today).weekly_rate))}/wk{owed > 0 && <span className="err"> · {fmt(owed)} owed</span>}</span>
                 </div>
+                {r.capacity>1 && <p className="muted">{Array.from({length:r.capacity},(_,i)=>{const n=i+1;const p=assigned.find(x=>Number(x.bed_number)===n&&x.start_date<=today);return `${bedReference(r,n)} · ${p?p.name:'Unassigned'}`;}).join(' | ')}</p>}
                 {occ.map((x) => {
                   const bondStatus = normaliseBondStatus(x.bond_status || 'not_paid');
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
                     <div className="row resident-row" key={x.id}>
                       <button className="resident-row-main" onClick={() => openTenant(x.id)}>
-                        <span className="resident-details"><strong className="resident-name">{x.name}</strong><small className="resident-profile-link">View profile & receipts →</small>
+                        <span className="resident-details"><strong className="resident-name">{x.name}</strong><small>{x.bed_number ? bedReference(r,x.bed_number) : "Bed not assigned"}</small><small className="resident-profile-link">View profile & receipts →</small>
                           {x.end_date > today && <small>Checkout scheduled: {nice(x.end_date)}</small>}
                           <small>{['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
                           <small>{x.legacy_bond_declared ? `Bond ${fmt(x.bond)} marked paid in previous records ·` : `Bond received ${fmt(x.bond_paid)} / ${fmt(x.bond)} expected ·`} <span className={x.legacy_bond_declared ? 'muted' : bondToneClass}>{x.legacy_bond_declared ? 'Bond marked paid — original receipt not recorded' : bondStatusLabel(x.bond_status)}</span></small>
@@ -592,7 +594,7 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
                     <button className="row" key={x.id} onClick={() => openTenant(x.id)}>
-                      <span>{x.name}<small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · bond <span className={x.legacy_bond_declared ? 'muted' : bondToneClass}>{x.legacy_bond_declared ? 'Bond marked paid — original receipt not recorded' : bondStatusLabel(x.bond_status)}</span></small></span>
+                      <span>{x.name} · {x.bed_number ? bedReference(r,x.bed_number) : "Bed not assigned"}<small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · bond <span className={x.legacy_bond_declared ? 'muted' : bondToneClass}>{x.legacy_bond_declared ? 'Bond marked paid — original receipt not recorded' : bondStatusLabel(x.bond_status)}</span></small></span>
                       <small className="muted">Booked</small>
                     </button>
                   );
@@ -703,8 +705,8 @@ function CheckoutForm({ person, today, done }) {
   </form>;
 }
 
-const PF = ['name', 'phone', 'email', 'property_id', 'room_id', 'stay_type', 'weekly_rate', 'nightly_rate', 'start_date', 'end_date', 'paid_up_to', 'opening_balance', 'first_charge_amount', 'rent_cycle_anchor', 'bond', 'bond_status', 'document_url', 'document_notes'];
-const NUM = ['weekly_rate', 'nightly_rate', 'opening_balance', 'first_charge_amount', 'bond'];
+const PF = ['name', 'phone', 'email', 'property_id', 'room_id', 'bed_number', 'stay_type', 'weekly_rate', 'nightly_rate', 'start_date', 'end_date', 'paid_up_to', 'opening_balance', 'first_charge_amount', 'rent_cycle_anchor', 'bond', 'bond_status', 'document_url', 'document_notes'];
+const NUM = ['bed_number', 'weekly_rate', 'nightly_rate', 'opening_balance', 'first_charge_amount', 'bond'];
 
 function normaliseBondStatus(value) {
   if (!value || value === 'held') return 'paid';
@@ -768,10 +770,11 @@ function PersonForm({ person, db, done }) {
       <label>Phone</label><input type="tel" value={f.phone} onChange={set('phone')} />
       <label>Email</label><input type="email" value={f.email || ''} onChange={set('email')} placeholder="tenant@example.com" />
       <label>Room</label>
-      <select value={f.room_id || ''} onChange={(e) => { const r = db.rooms.find((x) => x.id === e.target.value); setF({ ...f, room_id: e.target.value, property_id: r?.property_id ?? f.property_id }); }} required>
+      <select value={f.room_id || ''} onChange={(e) => { const r = db.rooms.find((x) => x.id === e.target.value); setF({ ...f, room_id: e.target.value, bed_number: '', property_id: r?.property_id ?? f.property_id }); }} required>
         <option value="">Choose a room</option>
         {rooms.map((r) => <option key={r.id} value={r.id}>{r.house} – {r.label}</option>)}
       </select>
+      {f.room_id && <><label>Bed assignment</label><select value={f.bed_number || ''} onChange={set('bed_number')}><option value="">Assign an available bed automatically</option>{bedChoices(db,db.rooms.find(r=>r.id===f.room_id),{...person,...f}).map(b=><option key={b.number} value={b.number} disabled={b.busy}>{b.label}{b.busy?' · occupied for these dates':''}</option>)}</select><small>The server checks the bed across the full stay before saving.</small></>}
       <label>Stay</label>
       <div className="seg">
         <button type="button" className={long ? 'on' : ''} onClick={() => chooseStay('long')}>Long term</button>

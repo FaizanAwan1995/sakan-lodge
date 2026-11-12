@@ -7,13 +7,13 @@ const helperContext={URLSearchParams,crypto};vm.runInNewContext(fs.readFileSync(
 const SakanEnquiryContext=helperContext.SakanEnquiryContext;
 const source = fs.readFileSync(new URL('../public/booking.js', import.meta.url), 'utf8');
 
-function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, token = 'synthetic-challenge',postFails=false,abortAvailability=false} = {}) {
+function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, token = 'synthetic-challenge',postFails=false,abortAvailability=false, selectedBed=null, beds=[1,2]} = {}) {
   const formEvents = {}, checkEvents = {}, calls = [];
   const values = {
     arrival_date: '2030-01-01', departure_date: '2030-03-01',
     spaces_requested: '1', full_name: 'Test Applicant',
     email: 'test@example.test', phone: '0400000000',
-    'cf-turnstile-response': token
+    'cf-turnstile-response': token, ...(selectedBed===null?{}:{bed_number:String(selectedBed)})
   };
   const field = (key) => ({
     get value() { return values[key]; },
@@ -21,12 +21,14 @@ function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, to
     reportValidity: () => true,
   });
   const submit = withSubmit ? {disabled: true} : null;
+  const bedEvents={};
+  const bed=selectedBed===null?undefined:{...field('bed_number'),options:[{value:''},{value:'1'},{value:'2'}],addEventListener:(name,fn)=>{bedEvents[name]=fn;}};
   const form = {
     dataset: {room: 'synthetic-room'},
     elements: {
       arrival_date: field('arrival_date'),
       departure_date: field('departure_date'),
-      spaces_requested: field('spaces_requested'),
+      spaces_requested: field('spaces_requested'), bed_number: bed,
     },
     addEventListener: (name, fn) => { formEvents[name] = fn; },
     reportValidity: () => true,
@@ -60,7 +62,7 @@ function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, to
       return {
         ok: !fails,
         json: async () => fails ? {error: 'Unable to verify availability'} :
-          {spaces, weekly_rate: 255, requests_enabled: enabled, offer_type: 'private'},
+          {beds, spaces, weekly_rate: 255, requests_enabled: enabled, offer_type: 'private'},
       };
     },
   });
@@ -196,4 +198,11 @@ test('availability timeout restores controls and reservation retry ignores renew
  const timeout=setup({abortAvailability:true});await timeout.checkEvents.click();assert.equal(timeout.check.disabled,false);assert.match(timeout.result.textContent,/timed out/);
  const retry=setup({postFails:true});await retry.formEvents.submit({preventDefault(){}});assert.equal(retry.submit.disabled,false);assert.match(retry.message.textContent,/retry with the same details/);
  retry.values['cf-turnstile-response']='new-token';retry.formEvents.input();await retry.formEvents.submit({preventDefault(){}});const posts=retry.calls.filter(c=>c.url==='/api/reservations');assert.equal(posts.length,2);assert.equal(posts[0].options.headers['Idempotency-Key'],posts[1].options.headers['Idempotency-Key']);assert.ok(posts[1].options.signal);assert.match(retry.message.textContent,/SAKAN-TEST/);
+});
+
+test('sharing request carries the selected bed and refuses a bed occupied for these dates',async()=>{
+ const good=setup({selectedBed:2,beds:[2]});await good.formEvents.submit({preventDefault(){}});
+ assert.equal(JSON.parse(good.calls.find(c=>c.url==='/api/reservations').options.body).bed_number,'2');
+ const unavailable=setup({selectedBed:1,beds:[2]});await unavailable.formEvents.submit({preventDefault(){}});
+ assert.equal(unavailable.calls.filter(c=>c.url==='/api/reservations').length,0);
 });
