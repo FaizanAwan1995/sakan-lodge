@@ -1,3 +1,4 @@
+import {inboxSection,noticeKey,requestDestination,inboxCounts,markSectionRead,combineRequests} from '../../request-inbox.js';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase, isLocalMode } from '../../store.js';
@@ -5,27 +6,30 @@ import { supabase, isLocalMode } from '../../store.js';
 export default function IncomingAlerts({userId}) {
  const location=useLocation(),navigate=useNavigate();
  const [open,setOpen]=useState(()=>new URLSearchParams(location.search).has('enquiries'));
+ const [section,setSection]=useState(()=>new URLSearchParams(location.search).has('enquiries')?'enquiries':'reservations');
+ const chosenSection=useRef(false);
  const [rows,setRows]=useState([]),[error,setError]=useState(''),[warnings,setWarnings]=useState(0);
  const storageKey='sakan-incoming-seen:'+userId;
  const [seen,setSeen]=useState(()=>{try{const value=JSON.parse(localStorage.getItem(storageKey)||'[]');return Array.isArray(value)?value:[];}catch{return [];}});
  const previous=useRef(null),focusReturn=useRef(null),panel=useRef(null);
- useEffect(()=>{if(new URLSearchParams(location.search).has('enquiries'))setOpen(true);},[location.search]);
+ useEffect(()=>{if(new URLSearchParams(location.search).has('enquiries')){setSection('enquiries');setOpen(true);}},[location.search]);
  useEffect(()=>{
   if(isLocalMode||!supabase)return;let alive=true,busy=false;
   const refresh=async()=>{
    if(busy||document.hidden)return;busy=true;
    try{
     const [reservations,enquiries,deliveries,emailThreads]=await Promise.all([
-     supabase.from('reservations').select('id,reservation_code,full_name,arrival_date,created_at').in('status',['pending','review']).order('created_at',{ascending:false}).limit(100),
+     supabase.from('reservations').select('id,reservation_code,full_name,arrival_date,departure_date,spaces_requested,status,created_at').in('status',['pending','review']).order('created_at',{ascending:false}).limit(100),
      supabase.from('website_enquiries').select('id,reference,details,created_at').order('created_at',{ascending:false}).limit(100),
      supabase.from('incoming_alert_deliveries').select('id',{count:'exact',head:true}).eq('status','uncertain'),
-     supabase.from('enquiry_threads').select('id,subject,contact_name,contact_email,last_message_at').eq('source','email').eq('status','open').order('last_message_at',{ascending:false}).limit(100)
+     supabase.from('enquiry_threads').select('id,source,website_enquiry_id,subject,status,contact_name,contact_email,last_message_at').order('last_message_at',{ascending:false}).limit(100)
     ]);
     if(reservations.error||enquiries.error||deliveries.error||emailThreads.error)throw Error('Alerts could not refresh. Try again shortly.');
     if(!alive)return;
-    const next=[...(reservations.data||[]).map(r=>({...r,kind:'reservation',name:r.full_name,reference:r.reservation_code})),...(emailThreads.data||[]).map(r=>({...r,kind:'email',name:r.contact_name||r.contact_email,reference:r.subject,created_at:r.last_message_at})),...(enquiries.data||[]).map(r=>({...r,kind:'enquiry',name:r.details.full_name}))].sort((a,b)=>b.created_at.localeCompare(a.created_at));
+    const next=combineRequests(reservations.data||[],enquiries.data||[],emailThreads.data||[]);
+    if(!chosenSection.current&&!next.some(r=>r.kind==='reservation')&&next.length)setSection('enquiries');
     // Announce new arrivals without interrupting work or opening a modal.
-    const ids=new Set(next.map(r=>r.id));if(previous.current&&next.some(r=>!previous.current.has(r.id)))setAnnouncement('New reservation or enquiry received. Open notifications to review.');previous.current=ids;
+    const ids=new Set(next.map(noticeKey));if(previous.current&&next.some(r=>!previous.current.has(noticeKey(r))))setAnnouncement('New reservation or enquiry received. Open notifications to review.');previous.current=ids;
     setRows(next);setWarnings(deliveries.count||0);setError('');
    }catch(e){if(alive)setError(e.message);}finally{busy=false;}
   };
@@ -35,24 +39,35 @@ export default function IncomingAlerts({userId}) {
   return()=>{alive=false;clearInterval(timer);supabase.removeChannel(channel);window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh);document.removeEventListener('visibilitychange',refresh);};
  },[userId]);
  const [announcement,setAnnouncement]=useState('');
- const unread=rows.filter(r=>!seen.includes(r.id));
- const markRead=()=>{const ids=rows.map(r=>r.id);setSeen(ids);try{localStorage.setItem(storageKey,JSON.stringify(ids));}catch{}setAnnouncement('Notifications marked read on this device.');};
+ const counts=inboxCounts(rows,seen);
+ const visible=rows.filter(r=>inboxSection(r)===section);
+ const unread=counts.reservations.unread+counts.enquiries.unread;
+ const markRead=()=>{const ids=markSectionRead(rows,seen,section);setSeen(ids);try{localStorage.setItem(storageKey,JSON.stringify(ids));}catch{}setAnnouncement('This section marked read on this device.');};
+ const openRequest=r=>{close();navigate(requestDestination(r));window.scrollTo(0,0);};
+ const chooseSection=value=>{chosenSection.current=true;setSection(value);panel.current?.querySelector('.incoming-list')?.scrollTo(0,0);};
+ const when=value=>new Date(value).toLocaleString('en-AU',{timeZone:'Australia/Adelaide',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+ const day=value=>value?new Date(value+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'}):'';
  const close=()=>{setOpen(false);focusReturn.current?.focus();};
  useEffect(()=>{if(open)panel.current?.querySelector('button')?.focus();},[open]);
  if(isLocalMode)return null;
- return <aside className="incoming-alerts" aria-label="Reservation notifications">
+ return <aside className="incoming-alerts" aria-label="Shared request inbox">
   <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
-  {open&&<section ref={panel} className="incoming-panel" aria-label="Reservations and enquiries" onKeyDown={e=>{if(e.key==='Escape')close();}}>
-   <div className="incoming-heading"><h2>Reservations & enquiries</h2><button type="button" onClick={close} aria-label="Close notifications">×</button></div>
-   {error&&<p role="status">{error}</p>}
-   {warnings>0&&<p className="err" role="status">{warnings} email delivery records need checking in Gmail Sent before resending. Submissions are saved.</p>}
-   <div className="incoming-toolbar"><span>{unread.length} unread</span><button type="button" onClick={markRead} disabled={!unread.length}>Mark all read</button></div>
-   <div className="incoming-list">{rows.length?rows.map(r=><article key={r.id} className={seen.includes(r.id)?'':'incoming-unread'}>
-    <small>{r.kind==='reservation'?'Reservation request':r.kind==='email'?'Email enquiry':'Website enquiry'} · {new Date(r.created_at).toLocaleString('en-AU',{timeZone:'Australia/Adelaide',dateStyle:'medium',timeStyle:'short'})}</small>
-    <strong>{r.name}</strong><small>{r.reference}</small>
-    {r.kind==='reservation'?<button type="button" onClick={()=>{close();navigate('/reservations?reservation='+r.id);}}>Open reservation</button>:r.kind==='email'?<button type="button" onClick={()=>{close();navigate('/enquiries?id='+r.id);}}>Open conversation</button>:<details><summary>View enquiry</summary><p>{r.details.location} · {r.details.accommodation} · {r.details.occupants} occupant(s)</p>{r.details.move_in&&<p>Move-in: {r.details.move_in}</p>}<p><a href={'mailto:'+r.details.email}>{r.details.email}</a></p><p>{r.details.phone}</p><p className="incoming-message">{r.details.message}</p><button type="button" onClick={()=>{close();navigate('/enquiries?website='+r.id);}}>View history & reply</button></details>}
-   </article>):<p>No new requests.</p>}</div>
+  {open&&<section ref={panel} className="incoming-panel" aria-label="Request inbox" onKeyDown={e=>{if(e.key==='Escape')close();}}>
+   <div className="incoming-heading"><div><h2>Request inbox</h2><p>Bookings and questions, kept separate.</p></div><button type="button" onClick={close} aria-label="Close inbox">×</button></div>
+   <div className="incoming-sections" role="tablist" aria-label="Request type">{[['reservations','Reservations'],['enquiries','Enquiries']].map(([key,label])=><button key={key} id={'incoming-tab-'+key} role="tab" aria-selected={section===key} aria-controls="incoming-items" className={key} onClick={()=>chooseSection(key)}>{label}<b>{counts[key].total}</b>{counts[key].unread>0&&<span className="incoming-tab-unread" aria-label={counts[key].unread+' unread'}>New {counts[key].unread}</span>}</button>)}</div>
+   {error&&<p className="incoming-error" role="status">{error}</p>}
+   {warnings>0&&<p className="incoming-error" role="status">{warnings} email deliveries need confirmation before resending.</p>}
+   <div className="incoming-toolbar"><span>{counts[section].unread} unread {section}</span><button type="button" onClick={markRead} disabled={!counts[section].unread}>Mark section read</button></div>
+   <div className="incoming-list" id="incoming-items" role="tabpanel" aria-labelledby={'incoming-tab-'+section} tabIndex="0">{visible.length?visible.map(r=>{const isNew=!seen.includes(noticeKey(r));return <article key={r.id} className={'incoming-request-card '+(r.kind==='reservation'?'incoming-reservation':'incoming-enquiry')+(isNew?' incoming-unread':'')}>
+    <div className="incoming-card-top"><span className={'incoming-type incoming-type-'+r.kind}>{r.kind==='reservation'?'Reservation':r.kind==='email'?'Email enquiry':'Website enquiry'}</span>{isNew&&<span className="incoming-new">Unread</span>}<time dateTime={r.created_at}>{when(r.activity_at||r.created_at)}</time></div>
+    <strong className="incoming-guest">{r.name}</strong>
+    <small className="incoming-reference" title={r.reference}>{r.kind==='reservation'?'Booking '+String(r.reference||'').slice(0,11)+'…':r.reference}</small>
+    {r.kind==='reservation'?<><p className="incoming-stay">{day(r.arrival_date)} → {day(r.departure_date)}{r.spaces_requested?' · '+r.spaces_requested+' person'+(r.spaces_requested>1?'s':''):''}</p><p className="incoming-summary">{r.status==='review'?'Under review':'Awaiting review'} · Booking request</p><button type="button" className="incoming-open-reservation" onClick={()=>openRequest(r)}>Open reservation →</button></>:<>
+    {r.kind==='enquiry'?<><p className="incoming-summary">{r.details.location} · {r.details.accommodation}{r.details.occupants?' · '+r.details.occupants+' people':''}</p>{r.details.move_in&&<p className="incoming-move-in">Move-in: {day(r.details.move_in)}</p>}<p className="incoming-excerpt">{r.details.message}</p><details className="incoming-full-details"><summary>Full enquiry & contact details</summary><p>{r.details.email}</p><p>{r.details.phone}</p><p className="incoming-message">{r.details.message}</p></details></>:<p className="incoming-summary">{r.contact_email}</p>}
+    <button type="button" className="incoming-open-enquiry" onClick={()=>openRequest(r)}>View history & reply →</button></>}
+   </article>;}):<div className="incoming-empty"><strong>No {section} to review</strong><p>{section==='reservations'?'New booking requests will appear here.':'New website and email questions will appear here.'}</p></div>}</div>
+   <div className="incoming-panel-footer"><button type="button" onClick={()=>{close();navigate(section==='enquiries'?'/enquiries':'/reservations');window.scrollTo(0,0);}}>Open all {section} →</button></div>
   </section>}
-  <button ref={focusReturn} type="button" className="incoming-bubble" aria-expanded={open} aria-label={`Reservations and enquiries, ${unread.length} unread${error?', refresh unavailable':''}`} onClick={()=>setOpen(!open)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg> Requests {unread.length>0&&<b>{unread.length}</b>}{error&&<span aria-hidden="true">!</span>}</button>
+  <button ref={focusReturn} type="button" className="incoming-bubble" aria-expanded={open} aria-label={`Request inbox, ${unread} unread${error?', refresh unavailable':''}`} onClick={()=>setOpen(!open)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg> Inbox {unread>0&&<b>{unread}</b>}{error&&<span aria-hidden="true">!</span>}</button>
  </aside>;
 }

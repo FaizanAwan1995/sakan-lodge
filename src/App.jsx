@@ -1,7 +1,7 @@
 import EnquiryInbox from './features/enquiries/EnquiryInbox.jsx';
 import {bedReference,bedChoices} from './bed-assignments.js';
 import {startSessionResume} from './session-resume.js';
-import {readLedgerVisit,saveLedgerVisit} from './ledger-routing.js';
+import {readLedgerVisit,saveLedgerVisit,LEDGER_ROUTES} from './ledger-routing.js';
 import WebsitePhotos from './features/website/WebsitePhotos.jsx';
 import IncomingAlerts from './features/notifications/IncomingAlerts.jsx';
 import RoomPhotos from './features/rooms/RoomPhotos.jsx';
@@ -129,50 +129,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<ResumeLedger userId={session.user.id}/>} />
         <Route path="/signin" element={<ResumeLedger userId={session.user.id}/>} />
-        <Route path="/home" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/today" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/reservations" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate('/signin', { replace: true }); }} />} />
-        <Route path="/communications" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
-        <Route path="/website-photos" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
-        <Route path="/reviews" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => { setLocalActor(null); setSelectedUser(null); navigate("/signin", { replace: true }); }} />} />
-        <Route path="/rooms" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/rooms/:residentId" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/rent" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/expenses" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/reports" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
-        <Route path="/activity" element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {
-          setLocalActor(null);
-          setSelectedUser(null);
-          navigate('/signin', { replace: true });
-        }} />} />
+        {LEDGER_ROUTES.map(path=><Route key={path} path={path} element={<Main session={session} accountName={isLocalMode ? selectedUser : accountName} headerVisible={headerVisible} onSwitchLocal={() => {setLocalActor(null);setSelectedUser(null);navigate('/signin',{replace:true});}} />} />)}
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </ErrorBoundary>
