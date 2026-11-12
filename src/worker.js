@@ -1,3 +1,4 @@
+import {enquiryInboxApi,syncEnquiryInbox} from './enquiry-inbox.js';
 import {contractSigningApi} from './contract-signing-api.js';
 import {roomAssistant} from './room-assistant.js';
 import {legacyLedgerPath} from './ledger-routing.js';
@@ -137,6 +138,9 @@ async function handleRequest(request, env) {
       return new Response('', { status: 204, headers: { 'content-type': 'text/css; charset=utf-8' } });
     }
 
+    if (pathname === '/api/enquiry-inbox/connect') return gmailStart(request,env);
+    if (pathname.startsWith('/api/enquiry-inbox/')) return enquiryInboxApi(request,env);
+
     if (pathname === '/ledger' || pathname.startsWith('/ledger/')) {
       if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{allow:'GET, HEAD'}});
       const assetPath=normalizeLedgerPath(pathname);
@@ -179,7 +183,7 @@ async function handleRequest(request, env) {
 }
 
 export default {
-  async scheduled(controller,env,ctx){ctx.waitUntil(processIncomingAlerts(env).catch(()=>{console.error('Incoming alert delivery unavailable; submissions remain saved.');}));ctx.waitUntil(processRentInvoices(env).catch(()=>{console.error('Invoice queue processing unavailable; recorded payments remain saved.');}));},
+  async scheduled(controller,env,ctx){ctx.waitUntil(syncEnquiryInbox(env).catch(()=>{console.error('Shared enquiry inbox sync unavailable.');}));ctx.waitUntil(processIncomingAlerts(env).catch(()=>{console.error('Incoming alert delivery unavailable; submissions remain saved.');}));ctx.waitUntil(processRentInvoices(env).catch(()=>{console.error('Invoice queue processing unavailable; recorded payments remain saved.');}));},
   async fetch(request, env) {
     let response;
     try { response = await handleRequest(request, env); } catch { response = new Response('Service temporarily unavailable', {status:503,headers:{'cache-control':'no-store'}}); }

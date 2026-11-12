@@ -44,14 +44,14 @@ export async function gmailStart(request, env) {
   const challenge = base64url(await crypto.subtle.digest('SHA-256', utf8.encode(verifier)));
   try {
     const stub = env.GMAIL_OAUTH_STATE.get(env.GMAIL_OAUTH_STATE.idFromName(nonce));
-    const stored = await stub.fetch('https://oauth-state/' + nonce, { method: 'PUT', body: JSON.stringify({ expiryText, verifier }) });
+    const stored = await stub.fetch('https://oauth-state/' + nonce, { method: 'PUT', body: JSON.stringify({ expiryText, verifier, returnTo: new URL(request.url).pathname==='/api/enquiry-inbox/connect'?'/ledger/enquiries':'/ledger/communications' }) });
     if (!stored.ok) return reply('Unable to save authorisation request', 503);
   }
   catch { return reply('Unable to save authorisation request', 503); }
   const oauth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   for (const [k,v] of Object.entries({
     client_id: env.GMAIL_CLIENT_ID, redirect_uri: REDIRECT, response_type: 'code',
-    scope: 'openid email https://www.googleapis.com/auth/gmail.send',
+    scope: 'openid email https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly',
     access_type: 'offline', prompt: 'consent select_account',
     code_challenge: challenge, code_challenge_method: 'S256',
     login_hint: SENDER, state: nonce + '.' + expiryText + '.' + mac
@@ -120,7 +120,7 @@ export async function gmailCallback(request, env) {
     ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, utf8.encode(tokens.refresh_token)));
   } catch { return reply('Secure token encryption failed.', 503); }
   try { await env.GMAIL_TOKEN_STORE.put('gmail:sender:encrypted-refresh-token', JSON.stringify({
-    iv: Array.from(iv), data: Array.from(ciphertext), account: SENDER
+    iv: Array.from(iv), data: Array.from(ciphertext), account: SENDER, scopes: String(tokens.scope||'').split(' ')
   })); } catch { return reply('Unable to store encrypted Gmail authorisation', 503); }
-  return new Response(null, { status: 303, headers: { Location: 'https://sakanlodge.com/ledger/communications?gmail=connected', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+  return new Response(null, { status: 303, headers: { Location: 'https://sakanlodge.com'+(saved.returnTo==='/ledger/enquiries'?saved.returnTo:'/ledger/communications')+'?gmail=connected', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 }
