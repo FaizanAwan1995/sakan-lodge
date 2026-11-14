@@ -8,6 +8,8 @@
     enquiryNextStep = document.querySelector("#enquiry-next-step"),
     emailReservation = document.querySelector("#email-reservation");
   const couples=form.dataset.couples==='true';
+  const verificationContainer=form.querySelector?.('.reservation-verification');
+  const verification=verificationContainer&&window.SakanReservationVerification?.create(verificationContainer);
   const bed = form.elements.bed_number;
   if(bed)bed.addEventListener('change',()=>{if(bed.value)form.elements.spaces_requested.value='1';});
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -140,6 +142,7 @@
         return;
       }
       const fields=new FormData(form);
+      if(verification){message.textContent='Completing the security check…';fields.set('cf-turnstile-response',await verification.getToken());}
       if(!fields.get('cf-turnstile-response')) {
         message.textContent='Please complete the verification challenge and try again.';
         return;
@@ -165,6 +168,7 @@
         output.code +
         (couples ? ". Both occupants’ details and photo IDs have been saved privately. Your draft agreement has been prepared for admin review. Our team will send your signing link after review. Your booking is not yet confirmed." : ". This is not a confirmed booking. Our team will review your request.");
       completed = true;
+      verification?.complete();
       const securityCheck = form.querySelector?.(".cf-turnstile");
       if (securityCheck) securityCheck.hidden = true;
       form
@@ -174,7 +178,7 @@
       message.textContent =
         (e.name === "TimeoutError" || e.name === "AbortError") ? "Receipt could not be confirmed in time. Please retry with the same details." : e.message ||
         "Unable to confirm receipt. Please retry with the same details.";
-      window.turnstile?.reset();
+      if(verification)verification.reset();else window.turnstile?.reset();
     } finally {
       if (!completed) submit.disabled = false;
       sending = false;
