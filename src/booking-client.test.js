@@ -45,6 +45,8 @@ function setup({withSubmit = true, spaces = 1, enabled = true, fails = false, to
   };
   class MockFormData {
     constructor() {}
+    get(key) { return values[key] ?? null; }
+    set(key,value) { values[key]=value; }
     [Symbol.iterator]() { return Object.entries(values)[Symbol.iterator](); }
   }
   vm.runInNewContext(source, {

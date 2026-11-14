@@ -1,3 +1,4 @@
+import {GRANNY_PATH,isCouplesRoom,couplesFields} from './couples-application.js';
 import {roomRateSummary} from './public-offers.js';
 import {publicFooter} from './public-footer.js';
 import {publicImageSrc} from './public-images.js';
@@ -195,11 +196,12 @@ function linkCard(title, path, desc, image = null) {
     h(title) +
     "</a></h2><p>" +
     h(desc) +
-    "</p></article>"
+    "</p>" + (path===GRANNY_PATH ? '<p><a class="enquiry-next-action" href="'+GRANNY_PATH+'#reservation-form">Apply / Reserve Granny Flat</a></p>' : '') + "</article>"
   );
 }
 function roomForm(room, env, location) {
   const enabled = bookingEnabled(env);
+  const couples=isCouplesRoom(room,location);
   const enquiry =
     '<p>Online reservation requests are currently unavailable. Check your dates below, then send an enquiry on this website. Alternatively, <a href="mailto:sakanlodges@gmail.com?subject=' +
     h(encodeURIComponent("Room enquiry: " + room.title)) +
@@ -211,12 +213,12 @@ function roomForm(room, env, location) {
     : "";
   return (
     '<section class="catalog-card"><h2>' +
-    (enabled ? "Check dates and request a stay" : "Check room availability") +
+    (enabled ? (couples ? "Granny flat reservation application" : "Check dates and request a stay") : "Check room availability") +
     "</h2>" +
     (enabled
       ? "<p>A request is not a confirmed booking and does not reserve a space. Check availability for your dates before submitting.</p>"
       : enquiry) +
-    '<form id="reservation-form" data-room="' +
+    '<form id="reservation-form" data-couples="' + couples + '" data-room="' +
     h(room.id) +
     '" data-room-title="' +
     h(room.title) +
@@ -226,14 +228,14 @@ function roomForm(room, env, location) {
     (room.capacity > 1 ? "People / bed spaces" : "People") +
     '</label><input id="spaces" name="spaces_requested" type="number" min="1" max="' +
     room.capacity +
-    '" value="1" required>' +
-    (room.capacity>1 ? '<label for="bed-number">Preferred bed</label><select id="bed-number" name="bed_number"><option value="">Assign an available bed</option>'+Array.from({length:room.capacity},(_,i)=>'<option value="'+(i+1)+'">Bed '+(i+1)+' (B'+(i+1)+')</option>').join('')+'</select><p>Apply for one bed in this shared room. Bed assignments are confirmed by our team.</p>' : '') +
+    '" value="' + (couples?2:1) + '" ' + (couples?'readonly':'') + ' required>' +
+    (!couples && room.capacity>1 ? '<label for="bed-number">Preferred bed</label><select id="bed-number" name="bed_number"><option value="">Assign an available bed</option>'+Array.from({length:room.capacity},(_,i)=>'<option value="'+(i+1)+'">Bed '+(i+1)+' (B'+(i+1)+')</option>').join('')+'</select><p>Apply for one bed in this shared room. Bed assignments are confirmed by our team.</p>' : '') +
     '<button type="button" id="check-availability">Check availability</button><p id="availability-result" role="status" aria-live="polite"></p>' +
     (enabled
       ? ""
       : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="/enquire">Enquire about this room ↗</a><p>Your selected room and dates carry over to our secure enquiry form. Our team must confirm availability; this does not reserve a room.</p></div>') +
-    contactFields +
-    '</form><script src="/booking.js?v=20261112-beds1" defer></script></section>'
+    (couples && enabled ? couplesFields().replace('<input type="hidden" name="spaces_requested" value="2">','')+contactFields.slice(contactFields.indexOf('<p>Spam protection:')) : contactFields) +
+    '</form><script src="/booking.js?v=20261114-couples1" defer></script></section>'
   );
 }
 export function renderListing(route, cat, env = {}) {
@@ -270,7 +272,7 @@ export function renderListing(route, cat, env = {}) {
                       property: properties[0].slug,
                       room: r.slug,
                     }),
-                    roomRateSummary(r.capacity, {card: true}),
+                    roomRateSummary(r.capacity, {card: true,couples:isCouplesRoom(r,location)}),
                 r.photos?.[0],
                   ),
                 )
@@ -347,7 +349,7 @@ export function renderListing(route, cat, env = {}) {
                   property: property.slug,
                   room: r.slug,
                 }),
-                roomRateSummary(r.capacity, {card: true}),
+                roomRateSummary(r.capacity, {card: true,couples:isCouplesRoom(r,location)}),
                 r.photos?.[0],
               ),
             )
@@ -377,12 +379,12 @@ export function renderListing(route, cat, env = {}) {
     property: property.slug,
     room: room.slug,
   });
-  const title = room.title + " — " + location + ", Adelaide | " + (room.capacity>1?"Shared room":"Private room");
+  const title = room.title + " — " + location + ", Adelaide | " + (isCouplesRoom(room,location)?"Couples granny flat":room.capacity>1?"Shared room":"Private room");
   return html(
     shell(
       title,
       "Explore " +
-        (room.capacity > 1 ? "shared accommodation" : "a private room") +
+        (isCouplesRoom(room,location) ? "a private granny flat for couples" : room.capacity > 1 ? "shared accommodation" : "a private room") +
         " at " +
         property.name +
         ", " +
@@ -396,13 +398,15 @@ export function renderListing(route, cat, env = {}) {
       ]) +
         "<h1>" +
         h(room.title) +
-        "</h1><p>" +
+        "</h1>" +
+        (isCouplesRoom(room,location) ? '<p><a class="enquiry-next-action" href="#reservation-form">Apply / Reserve Granny Flat</a></p><p>Apply together with both occupants’ details and photo IDs. Our team reviews applications before confirming a booking. <a href="/enquire?audience=couples&amp;location=Fulham">Ask a question</a></p>' : '') +
+        "<p>" +
         h(String(room.description || "").replace(/without additional charges|without excess utility charges/gi, "subject to the property electricity allowance below")) +
         "</p>" +
         photos(room.photos, room.title, true) +
         '<p class="catalog-rate">' +
-        roomRateSummary(room.capacity) +
-        "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>" +
+        roomRateSummary(room.capacity,{couples:isCouplesRoom(room,location)}) +
+        (isCouplesRoom(room,location) ? "</p><p>Minimum stay: longer than three calendar months. This application is for the whole flat and both occupants.</p>" : "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>") +
         householdNotice(route.suburb) + included(route.suburb) +
         amenities(room.amenities) +
         roomForm(room, env, location),
@@ -463,7 +467,7 @@ export async function handlePublicSite(request, env) {
         {
           error:
             e.status === 400
-              ? "Check your dates and room selection. Shared stays require two calendar months."
+              ? (/granny flat/i.test(e.message) ? "The granny flat requires a stay longer than three calendar months." : "Check your dates and room selection. Shared stays require two calendar months.")
               : "Availability cannot be verified. Please contact our team.",
         },
         e.status === 400 ? 400 : 503,

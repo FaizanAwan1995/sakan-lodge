@@ -7,6 +7,7 @@
     submit = document.querySelector("#submit-request"),
     enquiryNextStep = document.querySelector("#enquiry-next-step"),
     emailReservation = document.querySelector("#email-reservation");
+  const couples=form.dataset.couples==='true';
   const bed = form.elements.bed_number;
   if(bed)bed.addEventListener('change',()=>{if(bed.value)form.elements.spaces_requested.value='1';});
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -20,7 +21,7 @@
     requestKey = SakanEnquiryContext.requestId(),
     sending = false;
   const fingerprint = () =>
-    JSON.stringify(Object.fromEntries([...new FormData(form)].filter(([key])=>key!=="cf-turnstile-response")));
+    JSON.stringify([...new FormData(form)].filter(([key])=>key!=="cf-turnstile-response").map(([k,v])=>[k,typeof v==='string'?v:[v.name,v.size,v.lastModified]]));
   const dates = () =>
     [
       form.elements.arrival_date.value,
@@ -81,11 +82,10 @@
       const hasSpaces = selectedBedAvailable && Number.isFinite(Number(data.spaces)) &&
         Number(data.spaces) >= Number(spaces.value);
       result.textContent =
-        data.spaces +
-        " bed space(s) available for these dates. AUD $" +
-        data.weekly_rate +
+        (couples ? (hasSpaces ? "Granny flat available for both occupants. AUD $" : "Granny flat unavailable for these dates. AUD $") : data.spaces + " bed space(s) available for these dates. AUD $") +
+        (couples ? data.weekly_rate*2 : data.weekly_rate) +
         "/week" +
-        (data.offer_type === "shared" ? " per person" : "") +
+        (couples ? " per couple" : data.offer_type === "shared" ? " per person" : "") +
         (!hasSpaces
           ? ". The selected bed or number of spaces is unavailable for your dates."
           : data.requests_enabled
@@ -139,32 +139,31 @@
         message.textContent = "Your request has not been sent. Review the availability message above, or contact our team.";
         return;
       }
-      const data = Object.fromEntries(new FormData(form));
-      if (!data["cf-turnstile-response"]) {
-        message.textContent = "Please complete the verification challenge and try again.";
+      const fields=new FormData(form);
+      if(!fields.get('cf-turnstile-response')) {
+        message.textContent='Please complete the verification challenge and try again.';
         return;
       }
-      verified = fingerprint();
-      message.textContent = "Submitting request…";
-      data.room_id = form.dataset.room;
-      data.spaces_requested = Number(data.spaces_requested);
-      data.turnstile_token = data["cf-turnstile-response"];
-      delete data["cf-turnstile-response"];
-      const response = await fetch("/api/reservations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": requestKey,
-        },
-        body: JSON.stringify(data),
-        signal: AbortSignal.timeout(20000),
-      });
+      verified=fingerprint();
+      message.textContent=couples?'Uploading both photo IDs and preparing your application…':'Submitting request…';
+      let response;
+      if(couples) {
+        fields.set('room_id',form.dataset.room);
+        response=await fetch('/api/reservations/couples',{method:'POST',headers:{'Idempotency-Key':requestKey},body:fields,signal:AbortSignal.timeout(90000)});
+      } else {
+        const data=Object.fromEntries(fields);
+        data.room_id=form.dataset.room;
+        data.spaces_requested=Number(data.spaces_requested);
+        data.turnstile_token=data['cf-turnstile-response'];
+        delete data['cf-turnstile-response'];
+        response=await fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':requestKey},body:JSON.stringify(data),signal:AbortSignal.timeout(20000)});
+      }
       const output = await response.json();
       if (!response.ok) throw new Error(output.error);
       message.textContent =
         "Request received. Reference: " +
         output.code +
-        ". This is not a confirmed booking. Our team will review your request.";
+        (couples ? ". Both occupants’ details and photo IDs have been saved privately. Your draft agreement has been prepared for admin review. Our team will send your signing link after review. Your booking is not yet confirmed." : ". This is not a confirmed booking. Our team will review your request.");
       completed = true;
       const securityCheck = form.querySelector?.(".cf-turnstile");
       if (securityCheck) securityCheck.hidden = true;

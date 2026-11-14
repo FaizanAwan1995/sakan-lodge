@@ -1,3 +1,4 @@
+import {couplesApplicationApi} from './couples-application-api.js';
 import {enquiryInboxApi,syncEnquiryInbox} from './enquiry-inbox.js';
 import {contractSigningApi} from './contract-signing-api.js';
 import {roomAssistant} from './room-assistant.js';
@@ -66,6 +67,7 @@ async function handleRequest(request, env) {
       return new Response(request.method==='HEAD'?null:asset.body,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store, private','referrer-policy':'no-referrer','x-robots-tag':'noindex, nofollow','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"}});
     }
     if(pathname==='/sign.html')return Response.redirect(new URL('/sign',url.origin),301);
+    if(pathname==='/api/reservations/couples')return couplesApplicationApi(request,env);
     if(pathname==='/api/room-assistant')return roomAssistant(request,env);
     if(pathname==='/api/enquiries')return enquiriesApi(request,env);
     if(pathname==='/api/reviews')return reviewsApi(request,env);
