@@ -38,7 +38,7 @@ test('application endpoint stores both IDs then durably creates draft, without l
  };
  try {
   const form=new FormData();for(const [i,p] of applicants.entries()){form.set(`occupant_${i+1}_name`,p.name);form.set(`occupant_${i+1}_email`,p.email);form.set(`occupant_${i+1}_phone`,p.phone);form.set(`occupant_${i+1}_id`,new Blob([new Uint8Array([255,216,255,...Array(40).fill(i)])],{type:'image/jpeg'}),'id.jpg');}
-  form.set('application_consent','yes');form.set('cf-turnstile-response','verified');form.set('room_id','room');form.set('arrival_date','2027-01-01');form.set('departure_date','2027-05-01');
+  form.set('application_consent','yes');form.set('room_id','room');form.set('arrival_date','2027-01-01');form.set('departure_date','2027-05-01');
   const req=new Request('https://sakanlodge.com/api/reservations/couples',{method:'POST',headers:{Origin:'https://sakanlodge.com','Idempotency-Key':crypto.randomUUID(),'CF-Connecting-IP':'192.0.2.1'},body:form});
   const env={RESERVATION_REQUESTS_ENABLED:'true',SUPABASE_URL:'https://db.example',SUPABASE_SECRET_KEY:'sb_secret_test',SUPABASE_PUBLIC_KEY:'sb_publishable_test',TURNSTILE_SECRET_KEY:'secret',TURNSTILE_SITE_KEY:'site',ROOM_AI_LIMITER:{limit:async()=>({success:true})}};
   const result=await couplesApplicationApi(req,env);assert.equal(result.status,201);
@@ -46,6 +46,7 @@ test('application endpoint stores both IDs then durably creates draft, without l
   assert.equal(calls.filter(p=>p.includes('/storage/v1/object/reservation-ids/')).length,2);
   assert.equal(calls.filter(p=>p.includes('/storage/v1/object/reservation-contracts/')).length,1);
   assert.ok(calls.some(p=>p.includes('/rpc/complete_application_contract')));
+  assert.equal(calls.some(p=>p.includes('siteverify')),false);
   assert.ok(calls.findIndex(p=>p.includes('validate_couples'))<calls.findIndex(p=>p.includes('/storage/')));
  }finally{globalThis.fetch=originalFetch;}
 });

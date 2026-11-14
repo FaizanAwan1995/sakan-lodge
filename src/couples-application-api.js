@@ -37,9 +37,6 @@ export async function couplesApplicationApi(request,env) {
       const bytes=new Uint8Array(await f.arrayBuffer()),type=idFileType(bytes),hash=await sha256(bytes);
       files.push({bytes,...type,path:`applications/${key}/${i}-${hash}.${type.ext}`});
     }
-    const token=form.get('cf-turnstile-response');if(!token)throw Error('Complete the security check and retry.');
-    const check=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:new URLSearchParams({secret:env.TURNSTILE_SECRET_KEY,response:token,remoteip:ip}),signal:AbortSignal.timeout(8000)});
-    const verification=await check.json();if(!verification.success||verification.hostname!=='sakanlodge.com')throw Error('Security check expired. Please retry.');
     const data={room_id:form.get('room_id'),arrival_date:form.get('arrival_date'),departure_date:form.get('departure_date'),introduction:String(form.get('introduction')||''),occupants:occupants.map((p,i)=>({...p,id_path:files[i].path})),consent_version:'couples-application-v1'};
     // Verify dates, room and both applicants before accepting any ID uploads.
     await databaseRpc(env,'validate_couples_application',{p_data:data,p_key:key},{admin:true});

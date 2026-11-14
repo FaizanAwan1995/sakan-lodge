@@ -95,9 +95,7 @@ export async function limitedJson(request, max = 12000) {
 export function bookingEnabled(env) {
   return (
     env.RESERVATION_REQUESTS_ENABLED === "true" &&
-    !!(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY) &&
-    !!env.TURNSTILE_SECRET_KEY &&
-    !!env.TURNSTILE_SITE_KEY
+    !!(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY)
   );
 }
 function shell(
@@ -210,10 +208,8 @@ function roomForm(room, env, location) {
     h(encodeURIComponent("Room enquiry: " + room.title)) +
     '">Email our team about this room</a> or <a href="tel:+61426721787">call 0426 721 787</a>.</p>';
   const contactFields = enabled
-    ? '<fieldset><legend>Contact details for your request</legend><label for="full-name">Full name</label><input id="full-name" name="full_name" autocomplete="name" minlength="2" maxlength="120" required><label for="email">Email</label><input id="email" name="email" autocomplete="email" type="email" maxlength="254" required><label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required><label for="occupation">Occupation (optional)</label><input id="occupation" name="occupation_type" maxlength="80"><label for="introduction">Tell us a little about your stay (optional)</label><textarea id="introduction" name="introduction" maxlength="2000"></textarea></fieldset><p>Spam protection: a successful security check does not confirm a booking.</p><div id="reservation-verification" class="reservation-verification" data-sitekey="' +
-      h(env.TURNSTILE_SITE_KEY) +
-      '"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script><p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p><button id="submit-request" type="submit" disabled>Submit reservation request</button><p id="request-result" role="status" aria-live="polite"></p>'
-    : "";
+    ? '<fieldset><legend>Contact details for your request</legend><label for="full-name">Full name</label><input id="full-name" name="full_name" autocomplete="name" minlength="2" maxlength="120" required><label for="email">Email</label><input id="email" name="email" autocomplete="email" type="email" maxlength="254" required><label for="phone">Phone</label><input id="phone" name="phone" autocomplete="tel" type="tel" minlength="6" maxlength="30" required><label for="occupation">Occupation (optional)</label><input id="occupation" name="occupation_type" maxlength="80"><label for="introduction">Tell us a little about your stay (optional)</label><textarea id="introduction" name="introduction" maxlength="2000"></textarea></fieldset><div class="reservation-submit"><p class="application-note">We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p><button id="submit-request" type="submit" disabled>Submit reservation request</button><p id="request-result" role="status" aria-live="polite"></p></div>'
+    : '';
   return (
     '<section class="catalog-card"><h2>' +
     (enabled ? (couples ? "Granny flat reservation application" : "Check dates and request a stay") : "Check room availability") +
@@ -237,8 +233,9 @@ function roomForm(room, env, location) {
     (enabled
       ? ""
       : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="/enquire">Enquire about this room ↗</a><p>Your selected room and dates carry over to our secure enquiry form. Our team must confirm availability; this does not reserve a room.</p></div>') +
-    (couples && enabled ? couplesFields().replace('<input type="hidden" name="spaces_requested" value="2">','')+contactFields.slice(contactFields.indexOf('<p>Spam protection:')).replace('<p>Spam protection: a successful security check does not confirm a booking.</p>', '<p class="application-note">Applications are reviewed before booking confirmation.</p>').replace('<p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p>', '') : contactFields) +
-    '</form><script src="/reservation-verification.js?v=20261114-2" defer></script><script src="/booking.js?v=20261114-verification3" defer></script></section>'
+    (couples && enabled ? couplesFields().replace('<input type="hidden" name="spaces_requested" value="2">','')+contactFields.slice(contactFields.indexOf('<div class="reservation-submit">')).replace('<p class="application-note">We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p>', '<p class="application-note">Applications are reviewed before booking confirmation.</p>') : contactFields) +
+    '</form><script src="/booking.js?v=20261114-direct4" defer></script></section>'
+
   );
 }
 export function renderListing(route, cat, env = {}) {
@@ -490,23 +487,10 @@ export async function handlePublicSite(request, env) {
     try {
       const input = await limitedJson(request);
       const key = request.headers.get("Idempotency-Key");
-      if (!/^[a-f0-9-]{36}$/i.test(key || "") || !input.turnstile_token)
-        return json({ error: "Verification required" }, 400);
-      const verify = await fetch(
-        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-        {
-          method: "POST",
-          body: new URLSearchParams({
-            secret: env.TURNSTILE_SECRET_KEY,
-            response: input.turnstile_token,
-            remoteip: request.headers.get("CF-Connecting-IP") || "",
-          }),
-          signal: AbortSignal.timeout(8000),
-        },
-      );
-      const verification = await verify.json();
-      if (!verification.success || verification.hostname !== "sakanlodge.com")
-        return json({ error: "Verification failed. Try again." }, 400);
+      if (!/^[a-f0-9-]{36}$/i.test(key || ''))return json({error:'Reload the form before submitting.'},400);
+      const ip=request.headers.get('CF-Connecting-IP');
+      if(!ip||!env.ROOM_AI_LIMITER?.limit)return json({error:'Applications are temporarily unavailable. Please try again later.'},503);
+      if(!(await env.ROOM_AI_LIMITER.limit({key:'reservation:'+ip})).success)return json({error:'Please wait a minute before retrying.'},429);
       // Whitelist fields; the database derives status, offer type, rate and property.
       const data = Object.fromEntries(
         [

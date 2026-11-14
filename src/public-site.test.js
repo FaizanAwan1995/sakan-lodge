@@ -167,7 +167,9 @@ test("configured request page retains protected form while unavailable pages omi
   ).text();
   assert.ok(text.includes('name="full_name"'));
   assert.ok(text.includes('id="submit-request" type="submit" disabled'));
-  assert.ok(text.includes('data-sitekey="synthetic-public-site-key"'));
+  assert.ok(!text.includes('data-sitekey='));
+  assert.ok(!text.includes('challenges.cloudflare.com'));
+  assert.ok(!text.includes('reservation-verification.js'));
   assert.ok(!text.includes("synthetic-secret"));
   assert.ok(!text.includes("synthetic-turnstile"));
 });

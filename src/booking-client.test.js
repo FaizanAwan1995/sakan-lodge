@@ -112,12 +112,12 @@ test('insufficient spaces or failed availability cannot create a request', async
   }
 });
 
-test('turnstile verification is required before sending personal data', async () => {
+test('reservations submit directly without a security challenge', async () => {
   const c = setup({token: ''});
   await c.formEvents.submit({preventDefault() {}});
-  assert.equal(c.calls.length, 1);
-  assert.match(c.message.textContent, /verification challenge/);
-  assert.equal(c.submit.disabled, false);
+  assert.equal(c.calls.length, 2);
+  assert.match(c.message.textContent, /SAKAN-TEST/);
+  assert.equal(c.submit.disabled, true);
 });
 
 test('editing the dates requires a fresh availability check without disabling submit', async () => {

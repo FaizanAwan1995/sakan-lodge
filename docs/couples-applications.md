@@ -6,7 +6,7 @@ The couples page now links directly to this application. Enquiries remain separa
 Applicants provide dates and separate legal names, email addresses, phone numbers,
 optional occupations and photo IDs for both occupants. Both occupants consent to
 the application. IDs accept JPG, PNG or PDF up to 5 MB each. The Worker verifies
-the security challenge, rate limits uploads, validates file signatures and bounds
+server-side request limits, validates file signatures and bounds
 the complete multipart request before saving IDs to private `reservation-ids`
 storage. Only authorised staff can read applicant rows or download IDs. No ID
 content or storage paths enter contracts, public responses or notification emails.
