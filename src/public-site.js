@@ -126,7 +126,7 @@ function shell(
     h(description) +
     '"><meta property="og:url" content="' +
     h(canonical) +
-    '"><link rel="stylesheet" href="/design-tokens.css?v=20261109-1"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261109-labels1"><link rel="stylesheet" href="/stay-ui.css?v=20261109-contact2">' +
+    '"><link rel="stylesheet" href="/design-tokens.css?v=20261109-1"><link rel="stylesheet" href="/landing.css"><link rel="stylesheet" href="/catalog.css"><link rel="stylesheet" href="/site-ui.css?v=20261114-consent1"><link rel="stylesheet" href="/stay-ui.css?v=20261109-contact2">' +
     '<meta property="og:locale" content="en_AU"><meta property="og:site_name" content="SAKAN Lodge"><meta name="twitter:card" content="summary_large_image"><meta property="og:image" content="'+h(image && /^https:\/\//.test(image) ? image : ORIGIN+'/room-photos/shared-room-hero-balanced.webp')+'">' +
     '<script src="/enquiry-context.js?v=20261109-1" defer></script>' +
     schema +
@@ -234,7 +234,7 @@ function roomForm(room, env, location) {
     (enabled
       ? ""
       : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="/enquire">Enquire about this room ↗</a><p>Your selected room and dates carry over to our secure enquiry form. Our team must confirm availability; this does not reserve a room.</p></div>') +
-    (couples && enabled ? couplesFields().replace('<input type="hidden" name="spaces_requested" value="2">','')+contactFields.slice(contactFields.indexOf('<p>Spam protection:')) : contactFields) +
+    (couples && enabled ? couplesFields().replace('<input type="hidden" name="spaces_requested" value="2">','')+contactFields.slice(contactFields.indexOf('<p>Spam protection:')).replace('<p>Spam protection: a successful security check does not confirm a booking.</p>', '<p class="application-note">Applications are reviewed before booking confirmation.</p>').replace('<p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p>', '') : contactFields) +
     '</form><script src="/booking.js?v=20261114-couples1" defer></script></section>'
   );
 }
