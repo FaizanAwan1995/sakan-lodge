@@ -1,0 +1,8 @@
+import {useEffect,useState} from 'react';
+import {supabase} from '../../store.js';
+export default function ApplicantDetails({reservationId,personId}) {
+  const [rows,setRows]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  useEffect(()=>{let active=true;setRows([]);setError('');supabase.from('reservation_applicants').select('*').eq(personId?'person_id':'reservation_id',personId||reservationId).order('occupant_number').then(({data,error})=>{if(active){if(error)setError(error.message);else setRows(data||[]);}});return()=>{active=false;};},[reservationId,personId]);
+  if(!rows.length&&!error)return null;
+  return <section className="card"><h3>Occupant details and photo IDs</h3>{error&&<p role="alert">{error}</p>}{rows.map(p=><article key={p.occupant_number}><h4>Occupant {p.occupant_number}: {p.full_name}</h4><p>{p.email} · {p.phone}{p.occupation?' · '+p.occupation:''}</p><button disabled={busy} onClick={async()=>{setBusy(true);setError('');try{const {data,error}=await supabase.storage.from('reservation-ids').download(p.id_path);if(error)throw error;const url=URL.createObjectURL(data),a=document.createElement('a');a.href=url;a.download=`Occupant-${p.occupant_number}-photo-ID.${p.id_path.split('.').pop()}`;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}catch(e){setError(e.message||'Unable to open private ID.');}finally{setBusy(false);}}}>Download private photo ID</button></article>)}<p>Review both occupants and IDs before sending the agreement for signatures. IDs stay private and are excluded from the contract and email attachments.</p></section>;
+}

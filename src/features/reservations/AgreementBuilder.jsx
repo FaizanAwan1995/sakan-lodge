@@ -33,6 +33,7 @@ export default function AgreementBuilder({
     design: {...DEFAULT_AGREEMENT_DESIGN},
     proprietor: { name: "", address: "", phone: "" },
   });
+  useEffect(()=>{let active=true;supabase.from("reservation_applicants").select("full_name").eq("reservation_id",reservation.id).order("occupant_number").then(({data,error})=>{if(active&&!error&&data?.length){setForm(old=>({...old,resident_names:savedFields.resident_names?.join("\n")||data.map(p=>p.full_name).join("\n")}));}});return()=>{active=false;};},[reservation.id]);
   const savedFields=contracts.find(c=>["draft","approved","signed"].includes(c.status))?.fields || {};
   const [form, setForm] = useState({
     full_name: reservation.full_name,

@@ -169,6 +169,7 @@ export async function contractPdf(contract, code) {
     ["Premises", f.premises_address],
   ])
     detail(label, value);
+  for(const [i,p] of (f.resident_contacts||[]).entries()){detail("Occupant "+(i+1)+" contact",p.name+" | "+p.email+" | "+p.phone);}
   line("Term, rent and bond", { heading: true, size: 12 });
   const money = (n) => "AUD $" + Number(n).toFixed(2);
   for (const [label, value] of [
@@ -186,6 +187,7 @@ export async function contractPdf(contract, code) {
           money(f.weekly_rate) +
           " per week)",
     ],
+    ...(f.couples_total_weekly ? [["Whole flat rent",money(f.weekly_rate*2)+" per couple per week ("+money(f.weekly_rate)+" each)"],["Total couple bond",money(f.bond*2)+" ("+money(f.bond)+" each)"]] : []),
     ["First rent due", f.first_rent_due],
     ["Bond per resident", money(f.bond)],
     [

@@ -1,3 +1,4 @@
+import ApplicantDetails from './ApplicantDetails.jsx';
 import {parseBedNumbers,bedReference} from '../../bed-assignments.js';
 import RemoveRequest from './RemoveRequest.jsx';
 import { Link, useLocation } from 'react-router-dom';
@@ -521,7 +522,7 @@ export default function Reservations({ db, reload }) {
                 )}
               </details>}
               <div className="reservation-contract">
-                <AgreementBuilder
+                <ApplicantDetails reservationId={selected.id}/><AgreementBuilder
                   key={selected.id}
                   reservation={selected}
                   busy={busy}
