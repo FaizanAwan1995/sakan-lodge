@@ -401,13 +401,13 @@ export function renderListing(route, cat, env = {}) {
         "</h1>" +
         (isCouplesRoom(room,location) ? '<p><a class="enquiry-next-action" href="#reservation-form">Apply / Reserve Granny Flat</a></p><p>Apply together with both occupants’ details and photo IDs. Our team reviews applications before confirming a booking. <a href="/enquire?audience=couples&amp;location=Fulham">Ask a question</a></p>' : '') +
         "<p>" +
-        h(String(room.description || "").replace(/without additional charges|without excess utility charges/gi, "subject to the property electricity allowance below")) +
+        h(isCouplesRoom(room,location) ? "Private granny flat for two occupants, with your own kitchen, bathroom and separate entrance. Rent is $500 per couple per week, bills included. Total bond is $1,000. Stays must be longer than three calendar months." : String(room.description || "").replace(/without additional charges|without excess utility charges/gi, "subject to the property electricity allowance below")) +
         "</p>" +
         photos(room.photos, room.title, true) +
         '<p class="catalog-rate">' +
         roomRateSummary(room.capacity,{couples:isCouplesRoom(room,location)}) +
         (isCouplesRoom(room,location) ? "</p><p>Minimum stay: longer than three calendar months. This application is for the whole flat and both occupants.</p>" : "</p><p>Two calendar months or longer is long-term. Availability is checked for your full stay.</p>") +
-        householdNotice(route.suburb) + included(route.suburb) +
+        (isCouplesRoom(room,location)?"":householdNotice(route.suburb)) + included(route.suburb) +
         amenities(room.amenities) +
         roomForm(room, env, location),
       {

@@ -131,4 +131,5 @@ create trigger link_application_people after update of assigned_people on public
 -- Natural listing identity, never a generated tenant/property UUID. Preserve
 -- approval and photos; only correct the granny flat's advertised capacity.
 update public.rooms r set capacity=2 from public.room_profiles rp,public.property_profiles pp where rp.room_id=r.id and pp.property_id=r.property_id and rp.slug='granny-flat' and pp.suburb='Fulham' and r.capacity=1;
+update public.room_profiles rp set description='Private granny flat for two occupants, with your own kitchen, bathroom and separate entrance. Rent is $500 per couple per week, bills included. Total bond is $1,000. Stays must be longer than three calendar months.' from public.rooms r,public.property_profiles pp where rp.room_id=r.id and pp.property_id=r.property_id and rp.slug='granny-flat' and pp.suburb='Fulham';
 commit;
