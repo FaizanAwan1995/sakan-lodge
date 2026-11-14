@@ -63,6 +63,9 @@ export async function databaseRpc(env, name, data = {}, options = {}) {
     error.status = response.status;
     throw error;
   }
+  // PostgREST returns 204 for successful void functions (validation and PDF registration).
+  // There is deliberately no JSON body to parse in those responses.
+  if(response.status===204)return null;
   return response.json();
 }
 export async function limitedJson(request, max = 12000) {
@@ -235,7 +238,7 @@ function roomForm(room, env, location) {
       ? ""
       : '<div class="enquiry-next-step" id="enquiry-next-step" hidden><a class="enquiry-next-action" id="email-reservation" href="/enquire">Enquire about this room ↗</a><p>Your selected room and dates carry over to our secure enquiry form. Our team must confirm availability; this does not reserve a room.</p></div>') +
     (couples && enabled ? couplesFields().replace('<input type="hidden" name="spaces_requested" value="2">','')+contactFields.slice(contactFields.indexOf('<p>Spam protection:')).replace('<p>Spam protection: a successful security check does not confirm a booking.</p>', '<p class="application-note">Applications are reviewed before booking confirmation.</p>').replace('<p>We use these details to review your request. Read our <a href="/privacy">privacy policy</a>.</p>', '') : contactFields) +
-    '</form><script src="/booking.js?v=20261114-couples1" defer></script></section>'
+    '</form><script src="/booking.js?v=20261114-response2" defer></script></section>'
   );
 }
 export function renderListing(route, cat, env = {}) {

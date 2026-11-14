@@ -158,7 +158,7 @@
         delete data['cf-turnstile-response'];
         response=await fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':requestKey},body:JSON.stringify(data),signal:AbortSignal.timeout(20000)});
       }
-      const output = await response.json();
+      const output = await response.json().catch(()=>{throw new Error("Receipt could not be confirmed. Please retry with the same details; your form has been kept.");});
       if (!response.ok) throw new Error(output.error);
       message.textContent =
         "Request received. Reference: " +

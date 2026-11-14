@@ -30,9 +30,10 @@ test('application endpoint stores both IDs then durably creates draft, without l
  globalThis.fetch=async(url,options)=>{
   calls.push(String(url));
   if(String(url).includes('siteverify'))return Response.json({success:true,hostname:'sakanlodge.com'});
-  if(String(url).includes('/rpc/validate_couples_application'))return Response.json(null);
+  if(String(url).includes('/rpc/validate_couples_application'))return new Response(null,{status:204});
+  if(String(url).includes('/rpc/complete_application_contract'))return new Response(null,{status:204});
   if(String(url).includes('/storage/'))return Response.json({Key:'private'});
-  if(String(url).includes('/rpc/submit_couples_application'))return Response.json({code:'SK-TEST',status:'pending',reservation_id:'reservation',contract:{id:'contract',document_path:'already-rendered.pdf'}});
+  if(String(url).includes('/rpc/submit_couples_application'))return Response.json({code:'SK-TEST',status:'pending',reservation_id:'reservation',contract:{id:'contract',version:1,fields:{proprietor:{name:'Synthetic Owner',address:'Synthetic address',phone:'0400000000'},premises_address:'Synthetic premises',terms:'Synthetic accommodation terms for testing only. Both occupants must sign.',resident_names:applicants.map(p=>p.name),resident_contacts:applicants,weekly_rate:250,bond:500,couples_total_weekly:500,arrival_date:'2027-01-01',departure_date:'2027-05-01',first_rent_due:'2027-01-01',billing_type:'fortnightly',offer_type:'shared',room_label:'Granny flat'}}});
   throw Error('Unexpected endpoint');
  };
  try {
@@ -43,6 +44,8 @@ test('application endpoint stores both IDs then durably creates draft, without l
   const result=await couplesApplicationApi(req,env);assert.equal(result.status,201);
   assert.deepEqual(await result.json(),{code:'SK-TEST',status:'pending',contract_ready:true});
   assert.equal(calls.filter(p=>p.includes('/storage/v1/object/reservation-ids/')).length,2);
+  assert.equal(calls.filter(p=>p.includes('/storage/v1/object/reservation-contracts/')).length,1);
+  assert.ok(calls.some(p=>p.includes('/rpc/complete_application_contract')));
   assert.ok(calls.findIndex(p=>p.includes('validate_couples'))<calls.findIndex(p=>p.includes('/storage/')));
  }finally{globalThis.fetch=originalFetch;}
 });
