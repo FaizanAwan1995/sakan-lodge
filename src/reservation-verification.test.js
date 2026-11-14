@@ -8,7 +8,7 @@ async function setup({blocked=false}={}) {
  const script={addEventListener:(n,fn)=>{scriptEvents[n]=fn;},removeEventListener:()=>{},remove:()=>{}};
  const container={dataset:{sitekey:'synthetic'},after:()=>{},scrollIntoView:()=>{container.scrolled=true;}};
  const context={setTimeout,clearTimeout,Promise,Error,document:{createElement:()=>{const e={hidden:false,setAttribute:()=>{},addEventListener:(n,fn)=>{e[n]=fn;}};elements.push(e);return e;},querySelector:()=>script,head:{append:()=>{}}},window:{}};
- if(!blocked)context.window.turnstile={ready:fn=>fn(),render:(_container,c)=>{config=c;return 'reservation-widget';},reset:id=>{resets.push(id);expired=false;},isExpired:()=>expired};
+ if(!blocked)context.window.turnstile={ready:()=>{throw Error('ready() is unsupported with async/defer; render after load instead');},render:(_container,c)=>{config=c;return 'reservation-widget';},reset:id=>{resets.push(id);expired=false;},isExpired:()=>expired};
  vm.runInNewContext(source,context);
  const manager=context.window.SakanReservationVerification.create(container);
  for(let i=0;i<8;i++)await Promise.resolve();
@@ -32,5 +32,5 @@ test('verification failures display a retry action and never pass a missing toke
 });
 test('blocked verification script reports a recoverable loading error',async()=>{
  const s=await setup({blocked:true});const waiting=s.manager.getToken();s.scriptEvents.error();
- await assert.rejects(waiting,/could not load/);assert.equal(s.elements[1].hidden,false);
+ await assert.rejects(waiting,/could not (load|start)/);assert.equal(s.elements[1].hidden,false);
 });

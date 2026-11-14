@@ -27,7 +27,6 @@
         retry.hidden=true;status.textContent='Loading security check…';
         starting=(async()=>{
           await loadApi(force);
-          await new Promise(resolve=>window.turnstile.ready(resolve));
           widget=window.turnstile.render(container,{
             sitekey:container.dataset.sitekey,appearance:'always',size:'flexible','refresh-expired':'auto','refresh-timeout':'auto',
             callback:value=>{token=value;status.textContent='';retry.hidden=true;if(waiter){waiter.resolve(value);waiter=null;}},
@@ -37,7 +36,7 @@
           });
           if(!token)status.textContent='Complete the security check above before submitting.';
         })();
-        try{await starting;}catch(e){fail(e.message);throw e;}finally{starting=null;}
+        try{await starting;}catch(e){const message='The security check could not start. Retry below; your form and selected IDs are kept.';fail(message);throw Error(message);}finally{starting=null;}
       }
       function reset() {
         if(finished)return;
