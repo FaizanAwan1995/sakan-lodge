@@ -15,12 +15,12 @@
     try{const blob=await api('document',{signed});const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=signed?'SAKAN-signed-agreement.pdf':'SAKAN-agreement.pdf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
     catch(e){status.textContent=e.message;}finally{button.disabled=false;}
   }
-  function documentButton(signed) {const b=el('button',signed?'Download your signed copy':'Download original agreement');b.type='button';b.addEventListener('click',()=>download(signed,b));return b;}
+  function documentButton(signed) {const b=el('button',signed?(snapshot.request.status==='approved'?'Download countersigned agreement':'Download resident-signed submission'):'Download original agreement');b.type='button';b.addEventListener('click',()=>download(signed,b));return b;}
   function facts(a) {
     const box=el('section',undefined,'signing-card');box.append(el('h2','Your stay'));
     const list=el('dl',undefined,'signing-facts');
     for(const [label,value] of [['Resident(s)',a.resident_names.join('; ')],['Proprietor',a.proprietor?.name],['Proprietor address',a.proprietor?.address],['Proprietor contact',a.proprietor?.phone],['Applicant email',a.email],['Applicant phone',a.phone],['Premises',a.premises_address],['Room',a.room_label],['Check-in',a.arrival_date],['Checkout',a.departure_date],['Agreed term',a.term_description],['Rent',a.billing_type==='nightly'?money(a.nightly_rate)+' / night per resident':money(a.weekly_rate)+' / week'+(a.offer_type==='shared'?' per resident':'')],['Bond per resident',money(a.bond)],['First rent due',a.first_rent_due],['Payment',a.payment_instructions],['Utilities',a.utilities]]){const row=el('div');row.append(el('dt',label),el('dd',value||'As stated in the agreement'));list.append(row);}
-    box.append(list,documentButton(false));return box;
+    box.append(list);if(snapshot.request.can_download_original!==false)box.append(documentButton(false));return box;
   }
   function signatureField(name) {
     const field=el('fieldset'),legend=el('legend',name);field.append(legend);
@@ -50,7 +50,7 @@
     const {request:r,agreement:a,reference}=snapshot;
     content.append(el('p',reference+' · Agreement version '+a.version));
     if(['signed','approved','rejected','superseded'].includes(r.status)) {
-      const messages={signed:'Your signatures have been received. The SAKAN team will review them and confirm room availability before approving your allocation.',approved:'Your signed agreement has been approved by the SAKAN team.',rejected:'The SAKAN team has declined this request. Contact the team if you have questions.',superseded:'This agreement has been replaced. Ask SAKAN for the latest signing link.'};
+      const messages={signed:'We have received your signatures. Your application is pending admin approval and your room is still unconfirmed.',approved:'Your signed agreement has been approved by the SAKAN team.',rejected:'The SAKAN team has declined this request. Contact the team if you have questions.',superseded:'This agreement has been replaced. Ask SAKAN for the latest signing link.'};
       status.textContent=messages[r.status];
       content.append(facts(a));
       if(r.status==='signed'){content.append(el('p','You have finished signing. Our team reviews your agreement next. We will email you after approving or declining your request. You do not need to reply with the PDF.','signing-notice'));poll=setTimeout(()=>{if(!document.hidden&&!busy)load();},30000);}
@@ -61,7 +61,7 @@
       if(r.can_download_signed)content.append(documentButton(true),el('p','Save your signed copy now. This private link expires '+new Date(r.expires_at).toLocaleString('en-AU')+'.'));
       return;
     }
-    content.append(el('p','Read every part of the agreement before signing. Incorrect details? Contact our team first.','signing-notice'),facts(a));
+    content.append(el('p','Your application is pending. Signing sends it to SAKAN Lodge for review. We will email you the countersigned agreement link only if we approve your application.','signing-notice'),facts(a));
     const terms=el('section',undefined,'signing-card');terms.append(el('h2','Terms and house rules'),el('div',a.terms,'agreement-terms'));content.append(terms);
     if(r.status==='processing') {
       status.textContent='Your signature submission is being prepared. Retry to finish saving the same signed copy.';

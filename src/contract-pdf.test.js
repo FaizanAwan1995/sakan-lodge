@@ -44,7 +44,7 @@ test("missing verified contract fields cannot produce a signing document", async
   );
 });
 
-test("owner-authorised proprietor artwork is embedded in new PDF, without resident signatures", async () => {
+test("application PDF omits proprietor signature artwork even when configured", async () => {
   const signature_png =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9ZkAAAAASUVORK5CYII=";
   const bytes = await contractPdf(
@@ -62,9 +62,6 @@ test("owner-authorised proprietor artwork is embedded in new PDF, without reside
     "SYNTHETIC",
   );
   const pdf = await PDFDocument.load(bytes);
-  assert.ok(
-    pdf
-      .getPages()
-      .some((p) => p.node.Resources()?.toString().includes("/XObject")),
-  );
+  const images=pdf.context.enumerateIndirectObjects().filter(([,obj])=>obj.dict?.get(PDFName.of("Subtype"))?.toString()==="/Image");
+  assert.equal(images.length,1,"only the lodge logo is embedded");
 });

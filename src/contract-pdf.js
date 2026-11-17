@@ -28,14 +28,6 @@ export async function contractPdf(contract, code) {
     gold = colour(AGREEMENT_THEMES[design.theme][1]),
     pale = rgb(0.96, 0.95, 0.92);
   const logo = await embedContractLogo(pdf);
-  let signature;
-  if (f.proprietor_signature?.signature_png) {
-    signature = await pdf.embedPng(
-      Uint8Array.from(atob(f.proprietor_signature.signature_png), (c) =>
-        c.charCodeAt(0),
-      ),
-    );
-  }
   let page, y;
   const newPage = () => {
     page = pdf.addPage([595.28, 841.89]);
@@ -217,30 +209,8 @@ export async function contractPdf(contract, code) {
     "Please read this agreement before signing. A copy must be provided to the resident.",
   );
   line("For online signing, use your private signing page. Electronic signature receipts are appended to the signed copy.", { size: 9 });
-  line(
-    "Proprietor: " +
-      (f.proprietor_signature?.signature_name || f.proprietor.name),
-    { heading: true },
-  );
-  if (signature) {
-    const fitted=signature.scaleToFit(110,65);
-    page.drawImage(signature,{x:48+(110-fitted.width)/2,y:y-72+(65-fitted.height)/2,...fitted});
-    page.drawText("Authorised proprietor signature", {
-      x: 170,
-      y: y - 30,
-      font: regular,
-      size: 9,
-    });
-    page.drawText("Date: " + plain(f.proprietor_signature_date || ""), {
-      x: 350,
-      y: y - 30,
-      font: regular,
-      size: 9,
-    });
-    y -= 88;
-  } else {
-    line("Signature: ____________________________   Date: __________________");
-  }
+  line("Proprietor countersignature", { heading: true });
+  line("Signing submits your application for review. Your room is confirmed only when SAKAN Lodge approves the application and issues the countersigned copy.");
   for (const name of f.resident_names) {
     if (y < 170) newPage();
     line("Resident: " + name, { heading: true });

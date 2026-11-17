@@ -1,3 +1,4 @@
+import {staffAgreementCopy} from '../../staff-agreement-copy.js';
 import ApplicantDetails from '../reservations/ApplicantDetails.jsx';
 import {bedReference} from '../../bed-assignments.js';
 import PastFortnightInvoice from './PastFortnightInvoice.jsx';
@@ -44,11 +45,10 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
     return () => { active = false; };
   }, [person.id, db]);
 
-  async function download(path) {
+  async function download(contract,path,code) {
     setError('');
     try {
-      const {data,error} = await supabase.storage.from('reservation-contracts').download(path);
-      if (error) throw error;
+      const data = await staffAgreementCopy(contract,path,code);
       const url = URL.createObjectURL(data);
       const link = document.createElement('a'); link.href = url; link.download = 'SAKAN-agreement.pdf'; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -136,7 +136,7 @@ export default function TenantAccount({ person, db, today, reload, onEdit, onSch
     </>}
     {error && <p role="alert" className="err">{error}</p>}
     {tab==='documents' && <><ApplicantDetails personId={person.id}/><section className="card"><h2>Resident documents</h2>{person.document_url ? <a href={person.document_url} target="_blank" rel="noreferrer">Open resident document</a> : <p>No resident document link.</p>}<p>{person.document_notes}</p></section>
-    <details className="card" open><summary>Bookings & contracts</summary><p>Contracts keep the details agreed at the time. Current contact details are edited in this account.</p>{bookingError && <p role="alert">{bookingError}</p>}{!bookingError && !bookings.length && <p>No linked online bookings.</p>}{bookings.map(booking => <section key={booking.id}><h3>{booking.reservation_code} · {booking.status}</h3>{[...(booking.contracts || [])].sort((a,b) => b.version-a.version).map(contract => <p key={contract.id}>Version {contract.version} · {contract.status}{contract.signed_at&&<> · Signed {new Date(contract.signed_at).toLocaleString("en-AU",{timeZone:"Australia/Adelaide"})} by {contract.signed_by}</>}{contract.document_path && <button type="button" className="small" onClick={() => download(contract.document_path)}>Open PDF</button>}{contract.signed_document_path && <button type="button" className="small" onClick={() => download(contract.signed_document_path)}>Signed copy</button>}</p>)}</section>)}</details>
+    <details className="card" open><summary>Bookings & contracts</summary><p>Contracts keep the details agreed at the time. Current contact details are edited in this account.</p>{bookingError && <p role="alert">{bookingError}</p>}{!bookingError && !bookings.length && <p>No linked online bookings.</p>}{bookings.map(booking => <section key={booking.id}><h3>{booking.reservation_code} · {booking.status}</h3>{[...(booking.contracts || [])].sort((a,b) => b.version-a.version).map(contract => <p key={contract.id}>Version {contract.version} · {contract.status}{contract.signed_at&&<> · Signed {new Date(contract.signed_at).toLocaleString("en-AU",{timeZone:"Australia/Adelaide"})} by {contract.signed_by}</>}{contract.document_path && <button type="button" className="small" onClick={() => download(contract,contract.document_path,booking.reservation_code)}>Open PDF</button>}{contract.signed_document_path && <button type="button" className="small" onClick={() => download(contract,contract.signed_document_path,booking.reservation_code)}>Signed copy</button>}</p>)}</section>)}</details>
     </>}
     {tab==='details' && <details className="card"><summary>Remove an empty test record</summary><p>Only unused test records can be removed. Accounts with recorded transactions, a declared paid bond or linked bookings are retained; check those tenants out instead. Activity logs remain unchanged.</p>
       {hasFinance || bookings.length ? <p>Recorded financial history or a linked booking prevents deletion.</p> : <form onSubmit={remove}><label>Reason<input required minLength={5} disabled={busy} value={reason} onChange={e => setReason(e.target.value)} /></label><button type="submit" disabled={busy}>{busy ? 'Removing…' : 'Remove test tenant'}</button></form>}

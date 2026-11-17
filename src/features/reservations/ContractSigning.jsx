@@ -1,3 +1,4 @@
+import {staffAgreementCopy} from '../../staff-agreement-copy.js';
 import SigningDelivery from './SigningDelivery.jsx';
 import {useEffect,useState} from 'react';
 import {supabase} from '../../store.js';
@@ -6,7 +7,7 @@ export default function ContractSigning({reservation,contract,requests=[],ready,
   const request=requests.find(s=>s.contract_id===contract.id);
   const [days,setDays]=useState(7),[invitation,setInvitation]=useState(null),[link,setLink]=useState(''),[signedPdf,setSignedPdf]=useState(''),[opened,setOpened]=useState(null),[verified,setVerified]=useState(false),[reason,setReason]=useState(''),[message,setMessage]=useState('');
   useEffect(()=>{
-    setVerified(false);setOpened(null);setInvitation(null);setLink('');setReason('');setMessage('');
+    setVerified(false);setOpened(null);setSignedPdf('');setInvitation(null);setLink('');setReason('');setMessage('');
     if(!request)return;
     let active=true;
     supabase.from('notification_outbox').select('id,recipient,payload,status').eq('kind','contract_signing').eq('payload->>signing_request_id',request.id).order('created_at',{ascending:false}).limit(1).maybeSingle().then(({data,error})=>{if(!active)return;if(error){setMessage('Could not load the invitation. Refresh this reservation.');return;}setInvitation(data);setLink(data?.payload?.body?.match(/https:\/\/sakanlodge\.com\/sign#[a-f0-9]{64}/)?.[0]||'');});
@@ -54,10 +55,10 @@ export default function ContractSigning({reservation,contract,requests=[],ready,
     {request?.signed_document_path&&<div>
       <h4>3. Review signed agreement</h4>
       <p>{request.signatures?.map(s=>s.name+' ('+s.mode+')').join('; ')}</p>
-      <button disabled={busy} onClick={()=>run(async()=>{const {data,error}=await supabase.storage.from('reservation-contracts').download(request.signed_document_path);if(error)throw error;setSignedPdf(URL.createObjectURL(data));setOpened(request.id);setVerified(false);})}>Open signed PDF for review</button>
+      <button disabled={busy} onClick={()=>run(async()=>{const data=await staffAgreementCopy(contract,request.signed_document_path,reservation.reservation_code);setSignedPdf(URL.createObjectURL(data));setOpened(request.id);setVerified(false);})}>Open signed PDF for review</button>
       {signedPdf&&opened===request.id&&<><p><a href={signedPdf} download="SAKAN-signed-agreement.pdf">Download signed agreement</a></p><iframe title="Signed agreement review" src={signedPdf} style={{width:'100%',height:560,border:'1px solid #ccc'}}/></>}
       {request.status==='signed'&&active&&<>
-        <label><input type="checkbox" checked={verified} onChange={e=>setVerified(e.target.checked)}/> I reviewed every resident signature, the applicant identity, room, dates, rent and bond. Approve the agreed room if it is still available.</label>
+        <label><input type="checkbox" checked={verified} onChange={e=>setVerified(e.target.checked)}/> I reviewed every resident signature, the applicant identity, room, dates, rent and bond. I authorise SAKAN Lodge to countersign and release the approved agreement if the room allocation succeeds.</label>
         <button className="primary" disabled={busy||opened!==request.id||!verified} onClick={()=>run(async()=>{if(confirm('Approve this signed agreement and allocate the tenant(s) to the agreed room? An outcome email will be queued to the applicant. No bond or rent payment will be recorded.'))await review('approve');})}>Approve signed agreement and allocate room</button>
         <label>Reason for declining (shown to the applicant on their signing page)<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
         <button disabled={busy||reason.trim().length<3} onClick={()=>run(async()=>{if(confirm('Reject this request and release any hold? The applicant will be emailed your reason. The signed copy and history will be retained.'))await review('reject');})}>Reject request</button>

@@ -153,8 +153,7 @@ export default function AgreementBuilder({
           <p>
             Review the supplied sample’s reusable terms and proprietor details.
             Old resident details and resident signatures are excluded. The
-            authorised proprietor signature is included in newly generated
-            contracts. Review the complete wording and property utility allowance before approving.
+            proprietor countersigns only after you approve the signed application. Review the complete wording and property utility allowance before approving.
           </p>
           <label>
             Template name

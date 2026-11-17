@@ -1,3 +1,5 @@
+import {isApplicationPdf} from './contract-signing.js';
+import {contractPdf} from './contract-pdf.js';
 import {signingEmailHtml} from './signing-email.js';
 import { databaseRpc, json, limitedJson } from "./public-site.js";
 import { gmailSend } from "./gmail-send.js";
@@ -50,7 +52,9 @@ export async function reservationEmail(request, env) {
         },
       );
       if (!file.ok) throw Error("Contract PDF unavailable");
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bytes = !isApplicationPdf(c) && c.fields?.proprietor_signature?.signature_png
+        ? await contractPdf(c,snapshot.code)
+        : new Uint8Array(await file.arrayBuffer());
       if (
         bytes.length > 10485760 ||
         new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-"

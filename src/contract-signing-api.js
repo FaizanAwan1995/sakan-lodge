@@ -1,5 +1,5 @@
 import {databaseRpc,limitedJson} from './public-site.js';
-import {sha256,validateSignatures,signedAgreementPdf,SIGNING_CONSENT_VERSION} from './contract-signing.js';
+import {sha256,isApplicationPdf,countersignedAgreementPdf,validateSignatures,signedAgreementPdf,SIGNING_CONSENT_VERSION} from './contract-signing.js';
 const ORIGIN='https://sakanlodge.com';
 const PRIVATE_HEADERS={'cache-control':'no-store, private','referrer-policy':'no-referrer','x-robots-tag':'noindex, nofollow','x-content-type-options':'nosniff'};
 const reply=(body,status=200)=>Response.json(body,{status,headers:PRIVATE_HEADERS});
@@ -22,7 +22,10 @@ async function readPdf(env,path,authorization) {
 function publicReceipt(snapshot) {
   const {request:s,contract:c,code}=snapshot;
   const f=c.fields;
-  return {reference:code,request:{id:s.id,status:s.status,expires_at:s.expires_at,submitted_at:s.submitted_at,reviewed_at:s.reviewed_at,review_reason:s.review_reason,document_hash:s.document_hash,can_download_signed:!!s.signed_document_path,signatures:s.status==='processing'?s.signatures:undefined},agreement:{version:c.version,resident_names:f.resident_names,proprietor:{name:f.proprietor?.name,address:f.proprietor?.address,phone:f.proprietor?.phone},premises_address:f.premises_address,room_label:f.room_label,email:f.email,phone:f.phone,payment_instructions:f.billing_type==='nightly'?'Bond via PayID 0426721787. Remaining rent payable on arrival; agreed nightly rent applies.':'Bond via PayID 0426721787. Remaining rent payable on arrival. Subsequent rent fortnightly in advance.',arrival_date:f.arrival_date,departure_date:f.departure_date,term_description:f.term_description,weekly_rate:f.weekly_rate,nightly_rate:f.nightly_rate,billing_type:f.billing_type,offer_type:f.offer_type,bond:f.bond,first_rent_due:f.first_rent_due,utilities:f.utilities,terms:f.terms}};
+  return {reference:code,request:{id:s.id,status:s.status,expires_at:s.expires_at,submitted_at:s.submitted_at,reviewed_at:s.reviewed_at,review_reason:s.review_reason,document_hash:s.document_hash,can_download_original:!hasLegacySignature(c)||s.status==='approved',can_download_signed:!!s.signed_document_path&&(!hasLegacySignature(c)||s.status==='approved'),signatures:s.status==='processing'?s.signatures:undefined},agreement:{version:c.version,resident_names:f.resident_names,proprietor:{name:f.proprietor?.name,address:f.proprietor?.address,phone:f.proprietor?.phone},premises_address:f.premises_address,room_label:f.room_label,email:f.email,phone:f.phone,payment_instructions:f.billing_type==='nightly'?'Bond via PayID 0426721787. Remaining rent payable on arrival; agreed nightly rent applies.':'Bond via PayID 0426721787. Remaining rent payable on arrival. Subsequent rent fortnightly in advance.',arrival_date:f.arrival_date,departure_date:f.departure_date,term_description:f.term_description,weekly_rate:f.weekly_rate,nightly_rate:f.nightly_rate,billing_type:f.billing_type,offer_type:f.offer_type,bond:f.bond,first_rent_due:f.first_rent_due,utilities:f.utilities,terms:f.terms}};
+}
+function hasLegacySignature(contract) {
+  return !isApplicationPdf(contract) && Boolean(contract.fields.proprietor_signature?.signature_png);
 }
 export async function contractSigningApi(request,env) {
   if(request.method!=='POST')return reply({error:'Method not allowed'},405);
@@ -36,6 +39,7 @@ export async function contractSigningApi(request,env) {
       const input=await limitedJson(request,2000);
       if(!/^[a-f0-9-]{36}$/i.test(input.contract_id||'')||!Number.isInteger(input.revision)||input.revision<1||!Number.isInteger(input.days)||input.days<1||input.days>14)return reply({error:'Choose the current agreement and a 1-14 day expiry.'},400);
       const snapshot=await databaseRpc(env,'booking_contract_document',{p_id:input.contract_id},authorization);
+      if(hasLegacySignature(snapshot.contract))return reply({error:'Generate a replacement agreement before inviting the applicant. This older PDF already includes the proprietor signature.'},409);
       const bytes=await readPdf(env,snapshot.contract.document_path,authorization);
       const token=[...crypto.getRandomValues(new Uint8Array(32))].map(n=>n.toString(16).padStart(2,'0')).join('');
       const url=ORIGIN+'/sign#'+token;
@@ -50,6 +54,8 @@ export async function contractSigningApi(request,env) {
     if(!(await env.ROOM_AI_LIMITER.limit({key:'contract-signing:'+ip})).success)return reply({error:'Too many attempts. Please wait a minute before retrying.'},429);
     const hash=await sha256(token);
     let snapshot=await databaseRpc(env,'contract_signing_public',{p_hash:hash,p_action:'access'},{admin:true});
+    if(hasLegacySignature(snapshot.contract) && snapshot.request.status!=='approved' && (path.endsWith('/document') || ['awaiting_signature','processing'].includes(snapshot.request.status)))
+      return reply({error:'This earlier agreement needs a replacement copy. Please contact SAKAN Lodge for a fresh signing link.'},409);
     if(path.endsWith('/access'))return reply(publicReceipt(snapshot));
     if(path.endsWith('/document')) {
       const input=await limitedJson(request,1000);
@@ -59,7 +65,9 @@ export async function contractSigningApi(request,env) {
       const bytes=await readPdf(env,file);
       const expected=signed?snapshot.request.signed_document_hash:snapshot.request.document_hash;
       if(await sha256(bytes)!==expected)throw Error('The agreement copy could not be verified. Please contact SAKAN.');
-      return new Response(bytes,{headers:{...PRIVATE_HEADERS,'content-type':'application/pdf','content-disposition':`attachment; filename="SAKAN-${signed?'signed-':''}agreement.pdf"`}});
+      const final=signed && snapshot.request.status==='approved' && !hasLegacySignature(snapshot.contract);
+      const document=final?await countersignedAgreementPdf(bytes,snapshot):bytes;
+      return new Response(document,{headers:{...PRIVATE_HEADERS,'content-type':'application/pdf','content-disposition':`attachment; filename="SAKAN-${signed?'signed-':''}agreement.pdf"`}});
     }
     const input=await limitedJson(request,240000);
     if(input.consent_version!==SIGNING_CONSENT_VERSION||input.document_hash!==snapshot.request.document_hash)return reply({error:'Reload and review the current agreement before signing.'},409);

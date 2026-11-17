@@ -73,3 +73,39 @@ export function fittedSignatureLines(signer,box){
  const point=p=>({x:x+(p[0]*ratio-minX)*scale,y:y+(maxY-p[1])*scale});
  return signer.strokes.flatMap(stroke=>stroke.slice(1).map((p,i)=>({start:point(stroke[i]),end:point(p)})));
 }
+
+
+export function isApplicationPdf(contract) {
+  return contract.document_path?.split('/').pop()?.startsWith('application-') === true;
+}
+
+export async function countersignedAgreementPdf(bytes, snapshot) {
+  const {contract, request, code} = snapshot;
+  if (request.status !== 'approved' || !request.reviewed_at || !request.reviewed_by)
+    throw Error('Administrator approval is required to countersign.');
+  if (await sha256(bytes) !== request.signed_document_hash)
+    throw Error('The resident-signed agreement could not be verified.');
+  const pdf = await PDFDocument.load(bytes, {updateMetadata:false});
+  const page = pdf.addPage([595.28,841.89]);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const line = (value,y,font=regular,size=11) => page.drawText(pdfText(value), {x:48,y,font,size,maxWidth:495});
+  const approval = new Date(request.reviewed_at);
+  pdf.setModificationDate(approval);
+  line('SAKAN Lodge | Approved agreement',760,bold,20);
+  line('Reference: '+code+'  |  Agreement version '+contract.version,712);
+  line('Approved and countersigned for '+contract.fields.proprietor.name,665,bold);
+  line('Approved: '+approval.toLocaleString('en-AU',{timeZone:'Australia/Adelaide',dateStyle:'long',timeStyle:'short'})+' (Adelaide)',630);
+  const signature = contract.fields.proprietor_signature;
+  if (signature?.signature_png) {
+    const image = await pdf.embedPng(Uint8Array.from(atob(signature.signature_png), c=>c.charCodeAt(0)));
+    page.drawImage(image,{x:48,y:503,...image.scaleToFit(190,90)});
+  } else {
+    line(contract.fields.proprietor.name,540,await pdf.embedFont(StandardFonts.TimesRomanItalic),20);
+  }
+  line('Electronically authorised by SAKAN Lodge on approval',475);
+  line('Signing record: '+request.id,425);
+  line('Resident-signed PDF SHA-256',380,bold);
+  line(request.signed_document_hash,350,regular,9);
+  return pdf.save();
+}

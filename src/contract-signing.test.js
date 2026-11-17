@@ -68,3 +68,29 @@ test('drawn signature rendering keeps the captured proportions and fits the page
  for(const p of [line.start,line.end]){assert.ok(p.x>=60&&p.x<=420);assert.ok(p.y>=440&&p.y<=550);}
  assert.throws(()=>validateSignatures([{name:'Synthetic Signer',mode:'drawn',consent:true,strokes:[[[0,0],[1,1]]],aspect_ratio:100}],names));
 });
+
+
+test('approved download adds the countersignature only to the verified resident submission',async()=>{
+ const {original,snapshot}=await base();
+ snapshot.contract.document_path='contracts/synthetic/application-test.pdf';
+ snapshot.request.signed_document_path='contracts/synthetic/resident.pdf';
+ snapshot.request.signed_document_hash=await sha256(original);
+ snapshot.contract.fields.proprietor_signature={signature_png:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9ZkAAAAASUVORK5CYII='};
+ const saved=fetch;
+ globalThis.fetch=async url=>String(url).includes('/rpc/')?Response.json(snapshot):new Response(original);
+ try{
+  for(const status of ['signed','rejected','approved']){
+   snapshot.request.status=status;
+   snapshot.request.reviewed_at='2026-11-17T01:00:00Z';
+   snapshot.request.reviewed_by='synthetic-admin';
+   const r=await contractSigningApi(req('document',{signed:true,status:'approved'}),env);
+   assert.equal(r.status,200);
+   assert.equal((await PDFDocument.load(await r.arrayBuffer())).getPageCount(),status==='approved'?2:1);
+  }
+  snapshot.request.signed_document_hash='0'.repeat(64);
+  assert.equal((await contractSigningApi(req('document',{signed:true}),env)).status,409);
+  snapshot.contract.document_path='contracts/synthetic/old.pdf';
+  snapshot.request.status='awaiting_signature';
+  assert.equal((await contractSigningApi(req('document'),env)).status,409);
+ }finally{globalThis.fetch=saved;}
+});

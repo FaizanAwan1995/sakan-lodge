@@ -22,7 +22,7 @@ export async function bookingContractApi(request, env) {
     if (c.document_path) return json({ contract: c });
     stage = "render";
     const bytes = await contractPdf(c, snapshot.code);
-    const path = `contracts/${c.reservation_id}/${c.id}/${crypto.randomUUID()}.pdf`;
+    const path = `contracts/${c.reservation_id}/${c.id}/application-${crypto.randomUUID()}.pdf`;
     stage = "store";
     const result = await fetch(
       env.SUPABASE_URL.replace(/\/$/, "") +
