@@ -24,6 +24,7 @@ import { supabase, useStore, save, deleteRow, signOut, isLocalMode, postElectric
 import * as L from './ledger.js';
 import { accountChoices, bondStatusLabel, reorderList, sortPeopleByRentUrgency, sortRoomsByRentUrgency, tabFromPath, visibleTodaySections } from './app-helpers.js';
 import PropertyPulseList from './features/home/PropertyPulse.jsx';
+import Cleaning from './features/cleaning/Cleaning.jsx';
 import TenantCommunications from './features/communications/TenantCommunications.jsx';
 import Reservations from './features/reservations/Reservations.jsx';
 
@@ -242,7 +243,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
     setPayFor(pid ?? null); const route = t === 'today' ? '/home' : t==='rent' ? '/reports?view=transactions' : `/${t}`;
     navigate(route); window.scrollTo(0, 0);
   } };
-  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['reports', 'Reports'], ['enquiries', 'Enquiries'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['website-photos', 'Website photos'], ['activity', 'Activity']];
+  const tabs = [['today', 'Home'], ['rooms', 'Rooms'], ['expenses', 'Expenses'], ['cleaning', 'Cleaning'], ['reports', 'Reports'], ['enquiries', 'Enquiries'], ['communications', 'Emails'], ['reservations', 'Reservations'], ['reviews', 'Reviews'], ['website-photos', 'Website photos'], ['activity', 'Activity']];
   return (
     <>
       <IncomingAlerts key={session.user.id} userId={session.user.id} />
@@ -275,6 +276,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
         {tab === 'rooms' && <Rooms {...ctx} residentId={residentId || null} />}
         {tab === 'rent' && <Navigate to="/reports?view=transactions" replace />}
         {paymentTenant && d.people.some(p=>p.id===paymentTenant) && <AccountPayment key={paymentTenant} person={d.people.find(p=>p.id===paymentTenant)} db={db} today={today} reload={reload} onClose={()=>setPaymentTenant(null)} />}
+        {tab === 'cleaning' && <Cleaning db={db} today={today} />}
         {tab === 'expenses' && <Expenses {...ctx} payFor={payFor} />}
         {tab === 'reports' && <Reports {...ctx} />}
         {tab === 'enquiries' && <EnquiryInbox />}

@@ -1,4 +1,4 @@
-export const LEDGER_PAGES=Object.freeze(['home','today','rooms','rent','expenses','reports','enquiries','communications','reservations','reviews','activity','website-photos']);
+export const LEDGER_PAGES=Object.freeze(['home','today','rooms','rent','expenses','cleaning','reports','enquiries','communications','reservations','reviews','activity','website-photos']);
 export const LEDGER_ROUTES=Object.freeze([...LEDGER_PAGES.map(p=>'/'+p),'/rooms/:residentId']);
 const PAGE=new RegExp('^/('+LEDGER_PAGES.join('|')+')/?$');
 export function isLedgerPage(path){return typeof path==='string'&&(PAGE.test(path)||/^\/rooms\/[a-zA-Z0-9_-]{1,100}\/?$/.test(path));}
