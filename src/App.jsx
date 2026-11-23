@@ -13,7 +13,7 @@ import AccountTransactions from './features/tenants/AccountTransactions.jsx';
 import { residentStayOption, residentBillingRow } from './resident-billing.js';
 import Reviews from './features/reviews/Reviews.jsx';
 import TenantAccount from './features/tenants/TenantAccount.jsx';
-import { tenantMatches, tenantReference, roomAtCapacity } from './tenant-model.js';
+import { householdRows, tenantMatches, tenantReference, roomAtCapacity } from './tenant-model.js';
 import ReservationActivity from './features/reservations/ReservationActivity.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -239,7 +239,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
   if (!d) return <div className="pad">Loading…</div>;
   const openTenant = (id) => { navigate(`/rooms/${id}`, {state:{from:location.pathname+location.search,scroll:window.scrollY}}); window.scrollTo(0,0); };
   const ctx = { db, d, today, reload, session, openTenant, quickPayment:setPaymentTenant, go: (t, pid) => {
-    if(t==='rent' && pid) {setPaymentTenant(pid);return;}
+    if(t==='rent' && pid) {setPaymentTenant(d.people.find(p => p.id === pid)?.billing_account_id || pid);return;}
     setPayFor(pid ?? null); const route = t === 'today' ? '/home' : t==='rent' ? '/reports?view=transactions' : `/${t}`;
     navigate(route); window.scrollTo(0, 0);
   } };
@@ -292,6 +292,7 @@ function Main({ session, accountName, headerVisible, onSwitchLocal }) {
 
 /* ---------------- Today ---------------- */
 function Today({ db, d, today, go, openTenant, quickPayment }) {
+  const accounts = householdRows(d.people);
   const [tenantSearch,setTenantSearch]=useState(()=>sessionStorage.getItem('homeTenantSearch') || '');
   useEffect(()=>{sessionStorage.setItem('homeTenantSearch',tenantSearch);},[tenantSearch]);
   const behind = d.people.filter((p) => p.owed > 0.005).sort((a, b) => b.daysLate - a.daysLate || b.owed - a.owed);
@@ -372,8 +373,8 @@ function Today({ db, d, today, go, openTenant, quickPayment }) {
   };
 
   const next14 = L.n2d(L.d2n(today) + 14);
-  const arrivals = d.people.filter((p) => L.isActive(p, today) && p.start_date >= today && p.start_date <= next14).sort((a, b) => a.start_date.localeCompare(b.start_date));
-  const departures = d.people.filter((p) => !p.checked_out_at && p.end_date && p.end_date >= today && p.end_date <= next14).sort((a, b) => a.end_date.localeCompare(b.end_date));
+  const arrivals = accounts.filter((p) => L.isActive(p, today) && p.start_date >= today && p.start_date <= next14).sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const departures = accounts.filter((p) => !p.checked_out_at && p.end_date && p.end_date >= today && p.end_date <= next14).sort((a, b) => a.end_date.localeCompare(b.end_date));
   const fortnightStart = L.n2d(L.d2n(today) - 13);
   const followups = (db.maintenance || []).filter((job) => job.status !== 'complete' && (job.priority === 'urgent' || (job.due_date && job.due_date < today))).sort((a, b) => (a.due_date || '9999-99-99').localeCompare(b.due_date || '9999-99-99'));
   const windowEnd = L.n2d(L.d2n(today) + 60);
@@ -459,8 +460,8 @@ function Today({ db, d, today, go, openTenant, quickPayment }) {
     <>
       <section className="card home-tenant-search"><label htmlFor="home-tenant-search">Find any tenant</label><input id="home-tenant-search" type="search" value={tenantSearch} onChange={e=>setTenantSearch(e.target.value)} placeholder="Name, phone, email or tenant ID" />
       <small>Includes current, upcoming and past tenants.</small>
-      {tenantSearch.trim() && d.people.filter(p=>historyMatches(p,tenantSearch,db.audit)).map(p=><div className="tenant-action-row" key={p.id}><button className="tenant-account-link" onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {L.isActive(p,today)?p.start_date>today?'Upcoming':'Current':'Past tenant'} · In {p.start_date}{p.end_date ? ` · Out ${p.end_date}` : ''}</small></span><b>{fmt(p.owed || p.credit)} {p.credit?'credit':'due'}</b></button><button className="small" onClick={()=>quickPayment(p.id)}>Record payment</button></div>)}
-      {tenantSearch.trim() && !d.people.some(p=>historyMatches(p,tenantSearch,db.audit)) && <p>No tenants found.</p>}
+      {tenantSearch.trim() && accounts.filter(p=>householdMatches(p,tenantSearch,db.audit)).map(p=><div className="tenant-action-row" key={p.id}><button className="tenant-account-link" onClick={()=>openTenant(p.id)}><span>{p.name}<small>{d.props[p.property_id]?.name} · {L.isActive(p,today)?p.start_date>today?'Upcoming':'Current':'Past tenant'} · In {p.start_date}{p.end_date ? ` · Out ${p.end_date}` : ''}</small></span><b>{fmt(p.owed || p.credit)} {p.credit?'credit':'due'}</b></button><button className="small" onClick={()=>quickPayment(p.id)}>Record payment</button></div>)}
+      {tenantSearch.trim() && !accounts.some(p=>householdMatches(p,tenantSearch,db.audit)) && <p>No tenants found.</p>}
       </section>
       <h1 className="screen-title">Today</h1>
       {orderedSections.map((sectionId) => (
@@ -490,6 +491,13 @@ function Today({ db, d, today, go, openTenant, quickPayment }) {
 }
 
 /* ---------------- Rooms ---------------- */
+function householdMatches(person, query, audit) {
+  return historyMatches(person, query, audit) || person.householdMembers?.some(member => historyMatches(member, query, audit));
+}
+function householdBed(room, person) {
+  if (person.householdMembers?.length) return 'Whole unit';
+  return person.bed_number ? bedReference(room, person.bed_number) : 'Bed not assigned';
+}
 function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
   const location=useLocation();
   const [edit, setEdit] = useState(null);
@@ -508,22 +516,24 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
   if (edit?.type === 'person') return <PersonForm person={edit.data} db={db} done={done} />;
   if (edit?.type === 'checkout') return <CheckoutForm person={edit.data} today={today} done={done} />;
   const effectiveStatus = query.trim() ? 'all' : status;
-  const matches = p => historyMatches(p,query,db.audit) && (effectiveStatus==='all' || tenantMatches(p,'',effectiveStatus,today));
-  const past = d.people.filter((p) => !L.isActive(p, today) && matches(p)).sort((a, b) => (b.end_date > a.end_date ? 1 : -1));
+  const accounts = householdRows(d.people);
+  const matches = p => householdMatches(p,query,db.audit) && (effectiveStatus==='all' || tenantMatches(p,'',effectiveStatus,today));
+  const past = accounts.filter((p) => !L.isActive(p, today) && matches(p)).sort((a, b) => (b.end_date > a.end_date ? 1 : -1));
   return (
     <>
       <div className="between screen-heading"><h1>Rooms & residents</h1><div className="screen-actions"><button className="small" onClick={() => setEdit({ type: 'house', data: { name: '', lease_rent: '', lease_anchor: today, lease_start: today, lease_end: '', lease_first_amount: '', electricity_cap: 800 } })}>+ Property</button><button className="small" onClick={() => setEdit({ type: 'person', data: { property_id: db.properties[0]?.id, room_id: '', stay_type: 'long', start_date: today } })}>+ Check in</button></div></div>
       <div className="tenant-filters card"><label>Find tenant<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, tenant ID, email or phone" /></label>{query.trim() && <p>Search includes current, upcoming and past residents.</p>}<label>Show<select value={status} onChange={e => setStatus(e.target.value)}><option value="Active">Active residents</option><option value="Upcoming">Upcoming arrivals</option><option value="Checked out">Past residents</option><option value="all">All tenants</option></select></label></div>
-      {[...db.properties].filter(p => effectiveStatus === 'Active' && !query || db.rooms.some(r=>r.property_id===p.id && roomResidents(d.people,r.id,db.audit).some(matches))).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+      {[...db.properties].filter(p => effectiveStatus === 'Active' && !query || db.rooms.some(r=>r.property_id===p.id && roomResidents(accounts,r.id,db.audit).some(matches))).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
         <section key={p.id} className="property-group">
           <h2><button className="link" onClick={() => setEdit({ type: 'house', data: p })}>{p.name} ⚙︎</button></h2>
           {sortRoomsByRentUrgency(
-            db.rooms.filter((r) => r.property_id === p.id && (query || status !== 'Active' ? roomResidents(d.people,r.id,db.audit).some(matches) : true)),
+            db.rooms.filter((r) => r.property_id === p.id && (query || status !== 'Active' ? roomResidents(accounts,r.id,db.audit).some(matches) : true)),
             d.people,
           ).map((r) => {
             const assigned = d.people.filter((x) => x.room_id === r.id && L.isActive(x, today));
-            const occ = sortPeopleByRentUrgency(assigned.filter((x) => x.start_date <= today && matches(x)));
-            const future = assigned.filter((x) => x.start_date > today && matches(x));
+            const units = householdRows(assigned);
+            const occ = sortPeopleByRentUrgency(units.filter((x) => x.start_date <= today && matches(x)));
+            const future = units.filter((x) => x.start_date > today && matches(x));
             const owed = sum(assigned.filter((x) => x.start_date <= today), (x) => x.owed);
             return (
               <div className="card" key={r.id}>
@@ -531,14 +541,14 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
                   <button className="link" onClick={() => setEdit({ type: 'room', data: r })}>{r.label} · {assigned.filter(x => x.start_date <= today).length}/{r.capacity}{assigned.some(x => x.start_date > today) ? ` · ${assigned.filter(x => x.start_date > today).length} booked` : ''}</button>
                   <span>{fmt(sum(assigned.filter((x) => x.start_date <= today && x.stay_type === 'long'), (x) => L.billingTermsAt(x,today).weekly_rate))}/wk{owed > 0 && <span className="err"> · {fmt(owed)} owed</span>}</span>
                 </div>
-                {r.capacity>1 && <p className="muted">{Array.from({length:r.capacity},(_,i)=>{const n=i+1;const p=assigned.find(x=>Number(x.bed_number)===n&&x.start_date<=today);return `${bedReference(r,n)} · ${p?p.name:'Unassigned'}`;}).join(' | ')}</p>}
+                {r.capacity>1 && !units.some(person => person.householdMembers?.length === r.capacity - 1) && <p className="muted">{Array.from({length:r.capacity},(_,i)=>{const n=i+1;const p=assigned.find(x=>Number(x.bed_number)===n&&x.start_date<=today);return `${bedReference(r,n)} · ${p?p.name:'Unassigned'}`;}).join(' | ')}</p>}
                 {occ.map((x) => {
                   const bondStatus = normaliseBondStatus(x.bond_status || 'not_paid');
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
                     <div className="row resident-row" key={x.id}>
                       <button className="resident-row-main" onClick={() => openTenant(x.id)}>
-                        <span className="resident-details"><strong className="resident-name">{x.name}</strong><small>{x.bed_number ? bedReference(r,x.bed_number) : "Bed not assigned"}</small><small className="resident-profile-link">View profile & receipts →</small>
+                        <span className="resident-details"><strong className="resident-name">{x.name}</strong><small>{householdBed(r,x)}</small><small className="resident-profile-link">View profile & receipts →</small>
                           {x.end_date > today && <small>Checkout scheduled: {nice(x.end_date)}</small>}
                           <small>{['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · Checked in {nice(x.start_date)}</small>
                           <small>{x.legacy_bond_declared ? `Bond ${fmt(x.bond)} marked paid in previous records ·` : `Bond received ${fmt(x.bond_paid)} / ${fmt(x.bond)} expected ·`} <span className={x.legacy_bond_declared ? 'muted' : bondToneClass}>{x.legacy_bond_declared ? 'Bond marked paid — original receipt not recorded' : bondStatusLabel(x.bond_status)}</span></small>
@@ -555,20 +565,20 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
                   const bondToneClass = bondStatus === 'paid' ? 'bond-status-paid' : bondStatus === 'not_paid' ? 'bond-status-not-paid' : 'bond-status-other';
                   return (
                     <button className="row" key={x.id} onClick={() => openTenant(x.id)}>
-                      <span>{x.name} · {x.bed_number ? bedReference(r,x.bed_number) : "Bed not assigned"}<small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · bond <span className={x.legacy_bond_declared ? 'muted' : bondToneClass}>{x.legacy_bond_declared ? 'Bond marked paid — original receipt not recorded' : bondStatusLabel(x.bond_status)}</span></small></span>
+                      <span>{x.name} · {householdBed(r,x)}<small>Arrives {nice(x.start_date)} · {['short', 'per_night'].includes(x.stay_type) ? `${fmt(x.nightly_rate)}/night` : `${fmt(L.billingTermsAt(x,today).weekly_rate)}/wk`} · bond <span className={x.legacy_bond_declared ? 'muted' : bondToneClass}>{x.legacy_bond_declared ? 'Bond marked paid — original receipt not recorded' : bondStatusLabel(x.bond_status)}</span></small></span>
                       <small className="muted">Booked</small>
                     </button>
                   );
                 })}
                 {assigned.length < r.capacity && <button className="small" onClick={() => setEdit({ type: 'person', data: { property_id: p.id, room_id: r.id, stay_type: 'long', start_date: today, bond_status: 'held' } })}>+ Check in</button>}
-                <RoomHistory room={r} people={d.people} db={db} today={today} openTenant={openTenant} query={query}/>
+                <RoomHistory room={r} people={accounts} db={db} today={today} openTenant={openTenant} query={query}/>
               </div>
             );
           })}
           <button className="small" onClick={() => setEdit({ type: 'room', data: { property_id: p.id, label: '', capacity: 1, sort: 99 } })}>+ Add room</button>
         </section>
       ))}
-      {d.people.filter(x => !x.room_id && L.isActive(x, today) && matches(x)).map(x => <button type="button" className="row" key={x.id} onClick={() => openTenant(x.id)}><span>{x.name}<small>No room assigned</small></span></button>)}
+      {accounts.filter(x => !x.room_id && L.isActive(x, today) && matches(x)).map(x => <button type="button" className="row" key={x.id} onClick={() => openTenant(x.id)}><span>{x.name}<small>No room assigned</small></span></button>)}
       {past.length > 0 && <><h2>Past residents</h2>{past.map((x) => (
         <div className="card" key={x.id}><button className="row" onClick={() => openTenant(x.id)}>
           <span>{x.name}<small>{d.props[x.property_id]?.name} · checked in {nice(x.start_date)} · {x.checked_out_at ? 'confirmed checkout' : 'scheduled checkout elapsed'} {nice(x.checked_out_at ? new Intl.DateTimeFormat("en-CA",{timeZone:"Australia/Adelaide"}).format(new Date(x.checked_out_at)) : x.end_date)} · bond received {fmt(x.bond_paid)}, held {fmt(x.bond_held)}</small>{(x.phone || x.email) && <small>{[x.phone, x.email].filter(Boolean).join(' · ')}</small>}</span>

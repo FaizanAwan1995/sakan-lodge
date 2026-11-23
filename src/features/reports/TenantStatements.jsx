@@ -1,3 +1,4 @@
+import { householdRows } from '../../tenant-model.js';
 import { Link } from 'react-router-dom';
 import { tenantReference } from '../../tenant-model.js';
 import { useState } from 'react';
@@ -21,7 +22,7 @@ export default function TenantStatements({db,today,fixedPersonId}) {
   return <section className="card">
     <h2>Tenant statement</h2>
     <p className="muted">Review rent charges, payments, balance and bond held. Export a statement when needed.</p>
-    {!fixedPersonId && <label>Resident<select value={personId} onChange={e=>setPersonId(e.target.value)}><option value="">Choose resident</option>{[...db.people].sort((a,b)=>a.name.localeCompare(b.name)).map(p=><option key={p.id} value={p.id}>{p.name} — {db.properties.find(x=>x.id===p.property_id)?.name||'Property'} — {tenantReference(p)}</option>)}</select></label>}
+    {!fixedPersonId && <label>Resident<select value={personId} onChange={e=>setPersonId(e.target.value)}><option value="">Choose resident</option>{householdRows(db.people).sort((a,b)=>a.name.localeCompare(b.name)).map(p=><option key={p.id} value={p.id}>{p.name} — {db.properties.find(x=>x.id===p.property_id)?.name||'Property'} — {tenantReference(p)}</option>)}</select></label>}
     {statement && <><p className="tenant-reference">Tenant ID {fixedPersonId ? <code>{tenantReference(statement.person)}</code> : <Link to={`/rooms/${statement.person.id}`}>{tenantReference(statement.person)}</Link>}</p><p><strong>Rent balance:</strong> ${statement.balance.toFixed(2)} · <strong>Bond balance from transactions:</strong> ${statement.bondHeld.toFixed(2)}</p>
       {statement.person.paid_up_to && <p className="muted">The rent balance starts after the imported paid-through date, {statement.person.paid_up_to}. Earlier cash receipts are not reconstructed.</p>}
       {['paid','held'].includes(statement.person.bond_status) && statement.person.bond_paid === 0 && +statement.person.bond > 0 && <p role="status">The existing resident record marks a ${Number(statement.person.bond).toFixed(2)} bond as paid, without a recorded receipt. Reconcile that opening liability before treating the transaction balance as complete.</p>}

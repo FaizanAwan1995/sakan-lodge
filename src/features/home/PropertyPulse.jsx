@@ -1,3 +1,4 @@
+import { householdRows } from '../../tenant-model.js';
 import { useState } from 'react';
 import * as L from '../../ledger.js';
 import { fmt, nice, sum } from '../../lib/formatters.js';
@@ -8,7 +9,7 @@ export default function PropertyPulseList({ properties, people, payments, today,
   const [attentionOnly, setAttentionOnly] = useState({});
   const pulses = properties.map((property) => {
     const residents = people.filter((person) => person.property_id === property.id && person.start_date <= today && L.isActive(person, today));
-    const tenantRows = residents
+    const tenantRows = householdRows(residents)
       .map((person) => ({
         ...person,
         dueText: person.daysLate > 0 ? `${person.daysLate} day${person.daysLate === 1 ? '' : 's'} late` : person.owed > 0 ? 'Due today' : 'Up to date',

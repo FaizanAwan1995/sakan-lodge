@@ -26,3 +26,18 @@ export function roomAtCapacity(people, room, person) {
   const checkpoints = [person.start_date, ...others.map(p => p.start_date).filter(day => day >= person.start_date && day < end)];
   return checkpoints.some(day => others.filter(p => p.start_date <= day && occupancyEnd(p) > day).length >= room.capacity);
 }
+
+/** Group the ledger display while retaining the individual records for occupancy. */
+export function householdRows(people) {
+  const primaryIds = new Set(people.map(person => person.id));
+  const members = new Map();
+  for (const person of people) {
+    if (!primaryIds.has(person.billing_account_id)) continue;
+    const group = members.get(person.billing_account_id) || [];
+    group.push(person);
+    members.set(person.billing_account_id, group);
+  }
+  return people.filter(person => !primaryIds.has(person.billing_account_id)).map(person =>
+    members.has(person.id) ? { ...person, householdMembers: members.get(person.id) } : person
+  );
+}
