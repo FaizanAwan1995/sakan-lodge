@@ -12,11 +12,15 @@ export default function Cleaning({db,today}) {
   const [history,setHistory] = useState(false);
   const load = useCallback(async () => {
     if (!supabase) return;
-    const [shifts,mail] = await Promise.all([supabase.from('cleaning_shifts').select('*').order('duty_date'),supabase.rpc('cleaning_delivery_status')]);
+    const [shifts,mail] = await Promise.all([supabase.from('cleaning_shifts').select('*').order('duty_date'),supabase.rpc('cleaning_reminder_receipts')]);
     if (shifts.error || mail.error) { setNotice((shifts.error || mail.error).message); return; }
     setRows(shifts.data); setDeliveries(mail.data);
   },[]);
   useEffect(()=>{load();},[load]);
+  useEffect(() => {
+    const timer = setInterval(() => { if (!document.hidden) load(); }, 60000);
+    return () => clearInterval(timer);
+  }, [load]);
   const residents = form ? db.people.filter(p=>p.property_id===form.property_id && p.start_date<=form.duty_date && (!p.end_date || p.end_date>=form.duty_date) && !p.checked_out_at) : [];
   const update = patch => setForm({...form,...patch});
   const name = id => db.people.find(p=>p.id===id)?.name || 'Former resident';
@@ -54,7 +58,14 @@ export default function Cleaning({db,today}) {
         const person=db.people.find(p=>p.id===id);
         const sent=deliveries.find(d=>d.shift_id===row.id && d.recipient===person?.email?.trim().toLowerCase());
         const status=sent?.status || (!person?.email?'Email missing':row.complete || row.duty_date<today?'No email scheduled':row.remind_now?'Requested':'Scheduled');
-        return <small key={id} style={{display:'block'}}>{name(id)} · {status}</small>;
+        let label = status;
+        if (sent?.confirmed_at) {
+          const when = new Date(sent.confirmed_at).toLocaleString('en-AU', {timeZone:'Australia/Adelaide',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
+          label = 'Receipt confirmed · ' + when + ' Adelaide time';
+        } else if (status === 'sent') {
+          label = sent.confirmation_available ? 'Sent · Awaiting tenant confirmation' : 'Sent · Confirmation unavailable for this email';
+        }
+        return <small key={id} style={{display:'block'}}>{name(id)} · {label}</small>;
       })}
       <div className="maintenance-actions"><button disabled={busy} onClick={()=>setForm(row)}>Edit</button>
       {!row.complete && <button disabled={busy} onClick={()=>change(row,{complete:true})}>Mark complete</button>}

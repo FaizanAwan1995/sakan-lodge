@@ -48,6 +48,20 @@ async function handleRequest(request, env) {
       if (canonical) return new Response(null,{status:308,headers:{location:new URL(canonical+url.search,url.origin).href,'cache-control':'no-store'}});
     }
 
+    if (pathname.startsWith('/cleaning-receipt/')) {
+      const key = pathname.slice('/cleaning-receipt/'.length);
+      if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(key)) return new Response('Invalid confirmation link', {status:404});
+      const headers = {'content-type':'text/html; charset=utf-8','cache-control':'no-store','referrer-policy':'no-referrer','x-robots-tag':'noindex, nofollow','content-security-policy':"default-src 'none'; form-action 'self'; frame-ancestors 'none'"};
+      let body, status = 200;
+      if (request.method === 'POST') {
+        const confirmed = await databaseRpc(env,'confirm_cleaning_receipt',{receipt_key:key},{admin:true});
+        body = confirmed === true ? '<h1>Receipt confirmed</h1><p>Thank you. The SAKAN Lodge team can now see that you received your cleaning reminder.</p>' : '<h1>This reminder is no longer available</h1><p>Please reply to your reminder email if you have a question.</p>';
+        status = confirmed === true ? 200 : 410;
+      } else if (request.method === 'GET' || request.method === 'HEAD') {
+        body = '<h1>Cleaning reminder</h1><p>Let the SAKAN Lodge team know you received your reminder.</p><form method="post"><button type="submit">Confirm receipt</button></form>';
+      } else return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD, POST'}});
+      return new Response(request.method==='HEAD' ? null : '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cleaning reminder | SAKAN Lodge</title><main>'+body+'</main></html>',{headers,status});
+    }
     // Keep the conventional favicon URL usable for browsers and crawlers.
     if(pathname==='/favicon.ico') return Response.redirect(new URL('/sakan-logo-circle-main.png', url).href,301);
 
