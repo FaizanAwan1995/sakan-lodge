@@ -13,7 +13,9 @@ export function tenantMatches(person, query, status, today) {
 }
 export function reservationTenants(reservation, people) {
   const ids = new Set([reservation.checked_in_person_id, ...(Array.isArray(reservation.assigned_people) ? reservation.assigned_people : [])].filter(Boolean).map(String));
-  return people.filter(person => ids.has(String(person.id)));
+  return householdRows(people).filter(account =>
+    ids.has(String(account.id)) || account.householdMembers?.some(member => ids.has(String(member.id)))
+  );
 }
 export function occupancyEnd(person) {
   const actual = person.checked_out_at ? new Intl.DateTimeFormat('en-CA', {timeZone:'Australia/Adelaide'}).format(new Date(person.checked_out_at)) : '9999-12-31';
