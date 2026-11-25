@@ -26,3 +26,12 @@ test('immediate same-day checkout frees capacity in the edit form despite minimu
  assert.equal(roomAtCapacity([{...person,checked_out_at:'2026-10-19T01:00:00Z'}],room,incoming),false);
  assert.equal(roomAtCapacity([person],room,person),false);
 });
+
+test('reservation links resolve either occupant to one joint account', () => {
+  const primary = { id: 'joint' };
+  const member = { id: 'member', billing_account_id: primary.id };
+  for (const assigned_people of [[member.id], [primary.id, member.id]]) {
+    const rows = reservationTenants({ assigned_people }, [member, primary]);
+    assert.deepEqual(rows.map(row => row.id), [primary.id]);
+  }
+});

@@ -295,7 +295,7 @@ function Today({ db, d, today, go, openTenant, quickPayment }) {
   const accounts = householdRows(d.people);
   const [tenantSearch,setTenantSearch]=useState(()=>sessionStorage.getItem('homeTenantSearch') || '');
   useEffect(()=>{sessionStorage.setItem('homeTenantSearch',tenantSearch);},[tenantSearch]);
-  const behind = d.people.filter((p) => p.owed > 0.005).sort((a, b) => b.daysLate - a.daysLate || b.owed - a.owed);
+  const behind = accounts.filter((p) => p.owed > 0.005).sort((a, b) => b.daysLate - a.daysLate || b.owed - a.owed);
   const bonds = sum(d.people, (p) => p.bond_held);
   const legacyBonds = sum(d.people, (p) => p.legacy_bond_declared);
   const props = [...db.properties].sort((a, b) => a.name.localeCompare(b.name));
@@ -509,6 +509,9 @@ function Rooms({ db, d, today, reload, residentId, go, openTenant }) {
   const selected = residentId ? d.people.find(person => person.id === residentId) : null;
   const done = () => { setEdit(null); reload(); };
   const back = () => { setEdit(null); navigate(location.state?.from || '/rooms',{state:{restoreScroll:location.state?.scroll || 0}}); };
+  if (selected?.billing_account_id && selected.billing_account_id !== selected.id && d.people.some(p => p.id === selected.billing_account_id)) {
+    return <Navigate replace to={`/rooms/${selected.billing_account_id}${location.search}`} state={location.state} />;
+  }
   if (residentId && !selected) return <section className="card"><h1>Tenant unavailable</h1><p>This record was removed or is no longer accessible. The activity history is retained.</p><button onClick={back}>Back to rooms</button></section>;
   if (residentId && selected && !edit) return <TenantAccount key={selected.id} person={selected} db={db} today={today} reload={reload} onEdit={() => setEdit({type:'person', data:db.people.find(p => p.id === selected.id)})} onSchedule={() => setEdit({type:'checkout',data:db.people.find(p => p.id === selected.id)})} onPayment={() => go('rent',selected.id)} onRemoved={back} backLabel={location.state?.from?.startsWith('/home') ? 'Home' : location.state?.from?.startsWith('/reports') ? 'Reports' : 'Rooms & residents'} />;
   if (edit?.type === 'house') return <HouseForm p={edit.data} done={done} />;
